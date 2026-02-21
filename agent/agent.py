@@ -111,10 +111,10 @@ except ImportError:
 
 # Backend server URL (change to your server's IP)
 # Can also be set via environment variable: RANSOMRUN_BACKEND_URL
-# Example: set RANSOMRUN_BACKEND_URL=http://192.168.10.100:8000
+# Example: set RANSOMRUN_BACKEND_URL=http://192.168.19.128:8000
 # IMPORTANT: This IP must match where the RansomRun web server is running
 # The agent creates firewall allow rules for this IP during isolation
-BACKEND_URL = os.environ.get("RANSOMRUN_BACKEND_URL", "http://192.168.10.55:8000")
+BACKEND_URL = os.environ.get("RANSOMRUN_BACKEND_URL", "http://192.168.19.128:8000")
 
 # Agent ID - leave empty to use hostname
 AGENT_ID = os.environ.get("RANSOMRUN_AGENT_ID", "")

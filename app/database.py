@@ -4,7 +4,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from .models import Base
-from .models_backup import BackupPlan, BackupJob  # Import new backup models (BackupSnapshot already in models.py)
 from .models_directory import DirectoryUser, DirectoryDevice, DirectoryGroup  # Import directory lab models
 
 # SQLite database file path

@@ -761,19 +761,6 @@
                 </a>
             </div>
             
-            <div class="nav-section">
-                <div class="nav-section-title">RECOVERY</div>
-                <a href="/rollback" class="{% if '/rollback' in request.url.path %}active{% endif %}">
-                    <i class="bi bi-arrow-counterclockwise"></i> AutoRollback
-                </a>
-                <a href="/backup/recovery" class="{% if '/backup/recovery' in request.url.path %}active{% endif %}">
-                    <i class="bi bi-cloud-download"></i> Backup & Restore
-                </a>
-                <a href="/backup/plans" class="{% if '/backup/plans' in request.url.path %}active{% endif %}">
-                    <i class="bi bi-shield-check"></i> Backup Plans
-                </a>
-            </div>
-            
             {% if user and user.role.value in ['business', 'admin'] %}
             <div class="nav-section">
                 <div class="nav-section-title">BUSINESS</div>

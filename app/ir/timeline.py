@@ -55,18 +55,9 @@ EVENT_PHASE_MAPPING = {
     EventType.STOP_EXECUTED: IRPhase.ERADICATION,
     
     # Recovery phase
-    EventType.RECOVERY_STARTED: IRPhase.RECOVERY,
-    EventType.RECOVERY_COMPLETED: IRPhase.RECOVERY,
-    EventType.RECOVERY_FAILED: IRPhase.RECOVERY,
     EventType.HOST_RESTORE_REQUESTED: IRPhase.RECOVERY,
     EventType.HOST_NETWORK_RESTORED: IRPhase.RECOVERY,
-    EventType.HOST_RESTORE_FAILED: IRPhase.RECOVERY,
     EventType.HOST_DEISOLATED: IRPhase.RECOVERY,
-    EventType.ROLLBACK_STARTED: IRPhase.RECOVERY,
-    EventType.ROLLBACK_FILE_RESTORED: IRPhase.RECOVERY,
-    EventType.ROLLBACK_COMPLETED: IRPhase.RECOVERY,
-    EventType.ROLLBACK_FAILED: IRPhase.RECOVERY,
-    EventType.SNAPSHOT_CREATED: IRPhase.RECOVERY,
     
     # Completion
     EventType.RUN_COMPLETED: IRPhase.RECOVERY,
@@ -373,15 +364,14 @@ class IRTimelineBuilder:
         """Get severity level for an event type."""
         critical_events = [
             EventType.HOST_ISOLATED, EventType.RANSOM_NOTE_CREATED,
-            EventType.RUN_FAILED, EventType.RECOVERY_FAILED
+            EventType.RUN_FAILED
         ]
         high_events = [
             EventType.VSSADMIN_EXECUTED, EventType.PERSISTENCE_CREATED,
             EventType.EXFIL_PREPARED, EventType.HOST_ISOLATION_FAILED
         ]
         medium_events = [
-            EventType.FILE_RENAMED, EventType.CONTAINMENT_STARTED,
-            EventType.RECOVERY_STARTED
+            EventType.FILE_RENAMED, EventType.CONTAINMENT_STARTED
         ]
         
         if event_type in critical_events:

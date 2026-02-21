@@ -222,7 +222,6 @@
                         <option value="alerts">Alerts</option>
                         <option value="tasks">Tasks</option>
                         <option value="response">Response</option>
-                        <option value="rollback">Rollback</option>
                         <option value="system">System</option>
                     </select>
                     <span class="badge badge-gray" id="eventCount">{{ timeline|length }} events</span>
@@ -751,22 +750,6 @@
         </div>
     </div>
     
-    <!-- Recovery Panel -->
-    <div class="col-lg-6">
-        <div class="panel">
-            <div class="panel-header">
-                <h3 class="panel-title"><i class="bi bi-arrow-counterclockwise me-2"></i>Recovery Phase</h3>
-                <span id="recoveryStatusBadge" class="badge badge-gray">Loading...</span>
-            </div>
-            <div class="panel-body">
-                <div id="recoveryContent">
-                    <div style="text-align: center; color: #71717a; padding: 20px;">
-                        <small>Loading recovery status...</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <!-- Containment & Isolation Section (visible when run is finished) -->
@@ -918,7 +901,6 @@
                             <option value="edr_present">🔒 EDR Agent Present</option>
                             <option value="no_local_admin">👤 User Not Local Admin</option>
                             <option value="faster_response">⚡ Faster SOC Response (5 min)</option>
-                            <option value="backup_available">💾 Recent Backups Available</option>
                             <option value="network_segmentation">🌐 Network Segmentation Active</option>
                             <option value="mfa_enabled">🔐 MFA Enabled on All Accounts</option>
                         </select>
@@ -1120,131 +1102,6 @@ function renderContainmentTasks(tasks) {
         `;
     }
     container.innerHTML = html;
-}
-
-async function loadRecoveryStatus() {
-    try {
-        const resp = await fetch(`/api/runs/${runId}/recovery`);
-        const badge = document.getElementById('recoveryStatusBadge');
-        const content = document.getElementById('recoveryContent');
-        
-        if (resp.ok) {
-            const data = await resp.json();
-            if (data) {
-                // Recovery plan exists
-                const statusColors = {
-                    'PLANNED': 'badge-info',
-                    'IN_PROGRESS': 'badge-warning',
-                    'COMPLETED': 'badge-success',
-                    'FAILED': 'badge-danger'
-                };
-                badge.className = `badge ${statusColors[data.status] || 'badge-gray'}`;
-                badge.textContent = data.status;
-                
-                let eventsHtml = '';
-                if (data.events && data.events.length > 0) {
-                    eventsHtml = '<div style="max-height: 150px; overflow-y: auto;">';
-                    for (const event of data.events) {
-                        const eventIcons = {
-                            'RECOVERY_STARTED': 'play-circle',
-                            'RECOVERY_TASK_CREATED': 'list-task',
-                            'RECOVERY_TASK_COMPLETED': 'check-circle',
-                            'HOST_DEISOLATED': 'shield-check',
-                            'USER_REENABLED': 'person-check',
-                            'FILES_RESTORED_FROM_QUARANTINE': 'folder-check'
-                        };
-                        const icon = eventIcons[event.event_type] || 'circle';
-                        eventsHtml += `
-                            <div style="display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #27272a;">
-                                <i class="bi bi-${icon}" style="color: #71717a;"></i>
-                                <div style="flex: 1;">
-                                    <div style="font-size: 12px; color: #fafafa;">${event.event_type.replace(/_/g, ' ')}</div>
-                                    <div style="font-size: 10px; color: #71717a;">${event.timestamp || ''}</div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    eventsHtml += '</div>';
-                }
-                
-                content.innerHTML = `
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <div style="font-size: 11px; color: #71717a;">Created</div>
-                            <div style="font-size: 12px; color: #fafafa;">${data.created_at || 'N/A'}</div>
-                        </div>
-                        <div class="col-6">
-                            <div style="font-size: 11px; color: #71717a;">Completed</div>
-                            <div style="font-size: 12px; color: #fafafa;">${data.completed_at || 'In Progress'}</div>
-                        </div>
-                    </div>
-                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Recovery Events</div>
-                    ${eventsHtml || '<p style="color: #71717a; font-size: 12px;">No events yet</p>'}
-                    <button onclick="checkRecoveryCompletion()" class="btn btn-secondary btn-sm w-100 mt-3">
-                        <i class="bi bi-arrow-clockwise"></i> Check Completion
-                    </button>
-                `;
-            } else {
-                // No recovery plan
-                badge.className = 'badge badge-gray';
-                badge.textContent = 'Not Started';
-                content.innerHTML = `
-                    <div style="text-align: center; padding: 20px;">
-                        <p style="color: #71717a; margin-bottom: 12px;">No recovery plan for this run.</p>
-                        <button onclick="startRecovery()" class="btn btn-primary btn-sm">
-                            <i class="bi bi-arrow-counterclockwise"></i> Start Recovery Phase
-                        </button>
-                    </div>
-                `;
-            }
-        } else {
-            badge.className = 'badge badge-gray';
-            badge.textContent = 'Not Started';
-            content.innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <p style="color: #71717a; margin-bottom: 12px;">No recovery plan for this run.</p>
-                    <button onclick="startRecovery()" class="btn btn-primary btn-sm">
-                        <i class="bi bi-arrow-counterclockwise"></i> Start Recovery Phase
-                    </button>
-                </div>
-            `;
-        }
-    } catch (e) {
-        console.error('Failed to load recovery status:', e);
-    }
-}
-
-async function startRecovery() {
-    if (!confirm('Start recovery phase? This will create tasks to de-isolate the host, re-enable users, and restore files.')) {
-        return;
-    }
-    try {
-        const resp = await fetch(`/api/runs/${runId}/recovery/start`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-        const data = await resp.json();
-        if (resp.ok) {
-            alert(data.message);
-            location.reload();
-        } else {
-            alert('Failed: ' + (data.detail || data.message));
-        }
-    } catch (e) {
-        alert('Error: ' + e.message);
-    }
-}
-
-async function checkRecoveryCompletion() {
-    try {
-        const resp = await fetch(`/api/runs/${runId}/recovery/check-completion`, { method: 'POST' });
-        if (resp.ok) {
-            location.reload();
-        }
-    } catch (e) {
-        alert('Error: ' + e.message);
-    }
 }
 
 async function isolateHost() {
@@ -1668,10 +1525,9 @@ async function restoreNetwork() {
     }
 }
 
-// Load containment and recovery status on page load
+// Load containment status on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadContainmentStatus();
-    loadRecoveryStatus();
     // Load new containment data if section exists
     if (document.getElementById('artifactsContainer')) {
         loadContainmentData();

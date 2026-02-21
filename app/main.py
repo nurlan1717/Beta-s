@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .database import init_db, SessionLocal
 from .seed import run_seed
-from .routers import agents, alerts, runs, ui, siem, advanced, recovery, scenarios, elk, alerts_stream, phishing, defense, playbooks, backup, isolation, rollback, timeline, containment, ir, business, soar, environment
+from .routers import agents, alerts, runs, ui, siem, advanced, scenarios, elk, alerts_stream, phishing, defense, playbooks, isolation, timeline, containment, ir, business, soar, environment
 from .auth import routes as auth_routes
 from .deps.auth import get_current_user_optional
 
@@ -108,6 +108,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        "http://192.168.19.128:8000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -131,7 +132,6 @@ app.include_router(runs.router)
 app.include_router(ui.router)
 app.include_router(siem.router)
 app.include_router(advanced.router)
-app.include_router(recovery.router)
 app.include_router(scenarios.router)
 app.include_router(elk.router)
 app.include_router(alerts_stream.router)
@@ -140,14 +140,12 @@ app.include_router(phishing.api_router)
 app.include_router(defense.router)
 app.include_router(defense.api_router)
 app.include_router(playbooks.router)
-app.include_router(backup.router)
 app.include_router(isolation.router)
-app.include_router(rollback.router)
 app.include_router(timeline.router)
 app.include_router(containment.router)
 app.include_router(ir.router)
 app.include_router(business.router)  # Business Portal for C-level stakeholders
-app.include_router(soar.router)  # SOAR - Network Isolation/Restore endpoints
+app.include_router(soar.router)  # SOAR - Network Isolation endpoints
 app.include_router(environment.router)  # Directory Lab / Environment Management
 
 

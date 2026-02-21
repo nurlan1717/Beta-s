@@ -3,7 +3,7 @@
 This module provides endpoints for post-simulation containment actions:
 - Block ransomware paths
 - Quarantine files
-- Isolate/restore host network
+- Isolate host network
 - Retrieve ransomware artifact data
 
 These endpoints become available when a run is COMPLETED or FAILED.

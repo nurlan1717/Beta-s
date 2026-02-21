@@ -69,24 +69,6 @@ class IsolationPolicy(str, enum.Enum):
     SEGMENT_QUARANTINE_SIM = "SEGMENT_QUARANTINE_SIM"
 
 
-class BackupStatus(str, enum.Enum):
-    """Backup snapshot status."""
-    PENDING = "PENDING"
-    IN_PROGRESS = "IN_PROGRESS"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    CORRUPTED = "CORRUPTED"
-
-
-class RestoreStatus(str, enum.Enum):
-    """Restore operation status."""
-    PENDING = "PENDING"
-    IN_PROGRESS = "IN_PROGRESS"
-    COMPLETED = "COMPLETED"
-    PARTIAL = "PARTIAL"
-    FAILED = "FAILED"
-
-
 class ResponseExecutionStatus(str, enum.Enum):
     """Playbook action execution status."""
     PENDING = "PENDING"
@@ -151,27 +133,10 @@ class EventType(str, enum.Enum):
     RUN_FAILED = "RUN_FAILED"
     STOP_REQUESTED = "STOP_REQUESTED"
     STOP_EXECUTED = "STOP_EXECUTED"
-    # Isolation & Recovery events
+    # Isolation events
     HOST_ISOLATED = "HOST_ISOLATED"
     HOST_REISOLATED = "HOST_REISOLATED"
     HOST_DEISOLATED = "HOST_DEISOLATED"
-    RECOVERY_STARTED = "RECOVERY_STARTED"
-    RECOVERY_COMPLETED = "RECOVERY_COMPLETED"
-    RECOVERY_FAILED = "RECOVERY_FAILED"
-    # Snapshot events
-    SNAPSHOT_CREATED = "SNAPSHOT_CREATED"
-    SNAPSHOT_FAILED = "SNAPSHOT_FAILED"
-    # Rollback events
-    ROLLBACK_PLANNED = "ROLLBACK_PLANNED"
-    ROLLBACK_APPROVED = "ROLLBACK_APPROVED"
-    ROLLBACK_STARTED = "ROLLBACK_STARTED"
-    ROLLBACK_FILE_RESTORED = "ROLLBACK_FILE_RESTORED"
-    ROLLBACK_FILE_CONFLICT = "ROLLBACK_FILE_CONFLICT"
-    ROLLBACK_FILE_FAILED = "ROLLBACK_FILE_FAILED"
-    ROLLBACK_VERIFY_STARTED = "ROLLBACK_VERIFY_STARTED"
-    ROLLBACK_VERIFY_COMPLETED = "ROLLBACK_VERIFY_COMPLETED"
-    ROLLBACK_COMPLETED = "ROLLBACK_COMPLETED"
-    ROLLBACK_FAILED = "ROLLBACK_FAILED"
     # Timeline meta events
     RUN_STARTED = "RUN_STARTED"
     DETECTION_CONFIRMED = "DETECTION_CONFIRMED"
@@ -182,7 +147,6 @@ class EventType(str, enum.Enum):
     HOST_ISOLATION_FAILED = "HOST_ISOLATION_FAILED"
     HOST_RESTORE_REQUESTED = "HOST_RESTORE_REQUESTED"
     HOST_NETWORK_RESTORED = "HOST_NETWORK_RESTORED"
-    HOST_RESTORE_FAILED = "HOST_RESTORE_FAILED"
     PATH_BLOCK_REQUESTED = "PATH_BLOCK_REQUESTED"
     PATH_BLOCKED = "PATH_BLOCKED"
     QUARANTINE_REQUESTED = "QUARANTINE_REQUESTED"
@@ -242,28 +206,6 @@ class ReportType(str, enum.Enum):
     PCI_DSS = "PCI_DSS"
 
 
-class IsolationPolicy(str, enum.Enum):
-    FIREWALL_BLOCK = "FIREWALL_BLOCK"
-    DISABLE_NIC = "DISABLE_NIC"
-    HYBRID = "HYBRID"
-
-
-class RecoveryPlanStatus(str, enum.Enum):
-    PLANNED = "PLANNED"
-    IN_PROGRESS = "IN_PROGRESS"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-
-
-class RecoveryEventType(str, enum.Enum):
-    RECOVERY_STARTED = "RECOVERY_STARTED"
-    RECOVERY_TASK_CREATED = "RECOVERY_TASK_CREATED"
-    RECOVERY_TASK_COMPLETED = "RECOVERY_TASK_COMPLETED"
-    HOST_ISOLATED = "HOST_ISOLATED"
-    HOST_REISOLATED = "HOST_REISOLATED"
-    HOST_DEISOLATED = "HOST_DEISOLATED"
-    USER_REENABLED = "USER_REENABLED"
-    FILES_RESTORED_FROM_QUARANTINE = "FILES_RESTORED_FROM_QUARANTINE"
 
 
 class Host(Base):
@@ -293,8 +235,6 @@ class Host(Base):
     runs = relationship("Run", back_populates="host")
     tasks = relationship("Task", back_populates="host")
     alerts = relationship("Alert", back_populates="host")
-    recovery_plans = relationship("RecoveryPlan", back_populates="host")
-    backup_snapshots = relationship("BackupSnapshot", back_populates="host", order_by="BackupSnapshot.created_at.desc()")
     isolation_events = relationship("IsolationEvent", back_populates="host", order_by="IsolationEvent.timestamp.desc()")
 
 
@@ -741,38 +681,6 @@ class ComplianceReport(Base):
     run = relationship("Run", backref="compliance_reports")
 
 
-class RecoveryPlan(Base):
-    """Recovery plan for an incident run."""
-    __tablename__ = "recovery_plans"
-
-    id = Column(Integer, primary_key=True, index=True)
-    run_id = Column(Integer, ForeignKey("runs.id"), nullable=False, index=True)
-    host_id = Column(Integer, ForeignKey("hosts.id"), nullable=False, index=True)
-    status = Column(Enum(RecoveryPlanStatus), default=RecoveryPlanStatus.PLANNED)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
-    notes = Column(Text, nullable=True)
-
-    # Relationships
-    run = relationship("Run", backref="recovery_plans")
-    host = relationship("Host", back_populates="recovery_plans")
-    events = relationship("RecoveryEvent", back_populates="recovery_plan", order_by="RecoveryEvent.timestamp")
-
-
-class RecoveryEvent(Base):
-    """Events during recovery process."""
-    __tablename__ = "recovery_events"
-
-    id = Column(Integer, primary_key=True, index=True)
-    recovery_plan_id = Column(Integer, ForeignKey("recovery_plans.id"), nullable=False, index=True)
-    event_type = Column(Enum(RecoveryEventType), nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    details = Column(JSON, nullable=True)
-
-    # Relationships
-    recovery_plan = relationship("RecoveryPlan", back_populates="events")
-
-
 class DetectionCursor(Base):
     """Cursor state for detection engine polling."""
     __tablename__ = "detection_cursors"
@@ -987,125 +895,6 @@ class PhishingSettings(Base):
 
 
 # =============================================================================
-# BACKUP & RECOVERY MODELS
-# =============================================================================
-
-class BackupSnapshot(Base):
-    """File-level backup snapshot of a host."""
-    __tablename__ = "backup_snapshots"
-    __table_args__ = {'extend_existing': True}
-    
-    id = Column(Integer, primary_key=True, index=True)
-    host_id = Column(Integer, ForeignKey("hosts.id"), nullable=False, index=True)
-    
-    # Legacy fields
-    snapshot_name = Column(String(255), nullable=True)
-    snapshot_type = Column(String(50), default="FILE_LEVEL")
-    backup_path = Column(String(500), nullable=True)
-    
-    status = Column(Enum(BackupStatus), default=BackupStatus.PENDING, nullable=False)
-    
-    total_files = Column(Integer, default=0)
-    total_size_bytes = Column(Integer, default=0)
-    files_backed_up = Column(Integer, default=0)
-    files_failed = Column(Integer, default=0)
-    
-    manifest_hash = Column(String(64), nullable=True)
-    is_verified = Column(Boolean, default=False)
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    
-    triggered_by = Column(String(100), nullable=True)
-    alert_id = Column(Integer, ForeignKey("alerts.id"), nullable=True)
-    
-    uploaded = Column(Boolean, default=False)
-    upload_path = Column(String(500), nullable=True)
-    
-    # NEW fields for backup plan integration
-    plan_id = Column(Integer, ForeignKey("backup_plans.id"), nullable=True, index=True)
-    job_id = Column(Integer, ForeignKey("backup_jobs.id"), nullable=True)
-    run_id = Column(Integer, ForeignKey("runs.id"), nullable=True)
-    
-    snapshot_time = Column(DateTime, default=datetime.utcnow, nullable=True)
-    storage_path = Column(String(500), nullable=True)
-    file_count = Column(Integer, default=0)
-    total_bytes = Column(Integer, default=0)
-    folder_count = Column(Integer, default=0)
-    manifest_path = Column(String(500), nullable=True)
-    integrity_status = Column(String(20), default="unchecked")
-    integrity_checked_at = Column(DateTime, nullable=True)
-    integrity_errors = Column(JSON, nullable=True)
-    source_paths_json = Column(JSON, nullable=True)
-    notes = Column(Text, nullable=True)
-    deleted = Column(Boolean, default=False)
-    deleted_at = Column(DateTime, nullable=True)
-    
-    host = relationship("Host", back_populates="backup_snapshots")
-    files = relationship("BackupFile", back_populates="snapshot", cascade="all, delete-orphan")
-    restore_events = relationship("RestoreEvent", back_populates="snapshot")
-
-
-class BackupFile(Base):
-    """Individual file within a backup snapshot."""
-    __tablename__ = "backup_files"
-    __table_args__ = {'extend_existing': True}
-    
-    id = Column(Integer, primary_key=True, index=True)
-    snapshot_id = Column(Integer, ForeignKey("backup_snapshots.id"), nullable=False, index=True)
-    
-    original_path = Column(String(1000), nullable=False)
-    backup_path = Column(String(1000), nullable=True)
-    file_size_bytes = Column(Integer, default=0)
-    file_hash = Column(String(64), nullable=True)
-    
-    backed_up = Column(Boolean, default=False)
-    error_message = Column(Text, nullable=True)
-    
-    original_modified_at = Column(DateTime, nullable=True)
-    backed_up_at = Column(DateTime, nullable=True)
-    
-    snapshot = relationship("BackupSnapshot", back_populates="files")
-
-
-class RestoreEvent(Base):
-    """Tracks restore operations from backup snapshots."""
-    __tablename__ = "restore_events"
-    __table_args__ = {'extend_existing': True}
-    
-    id = Column(Integer, primary_key=True, index=True)
-    snapshot_id = Column(Integer, ForeignKey("backup_snapshots.id"), nullable=False, index=True)
-    host_id = Column(Integer, ForeignKey("hosts.id"), nullable=False)
-    
-    restore_type = Column(String(50), default="FULL")
-    target_path = Column(String(500), nullable=True)
-    
-    status = Column(Enum(RestoreStatus), default=RestoreStatus.PENDING, nullable=False)
-    
-    files_to_restore = Column(Integer, default=0)
-    files_restored = Column(Integer, default=0)
-    files_failed = Column(Integer, default=0)
-    files_missing = Column(Integer, default=0)
-    
-    hash_verification_passed = Column(Integer, default=0)
-    hash_verification_failed = Column(Integer, default=0)
-    
-    created_at = Column(DateTime, default=datetime.utcnow)
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    
-    triggered_by = Column(String(100), nullable=True)
-    initiated_by_user = Column(String(100), nullable=True)
-    
-    result_message = Column(Text, nullable=True)
-    result_data = Column(JSON, nullable=True)
-    
-    snapshot = relationship("BackupSnapshot", back_populates="restore_events")
-    host = relationship("Host")
-
-
-# =============================================================================
 # ISOLATION TRACKING MODELS
 # =============================================================================
 
@@ -1156,171 +945,6 @@ class SystemConfig(Base):
     
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     updated_by = Column(String(100), nullable=True)
-
-
-# =============================================================================
-# AUTO ROLLBACK MODELS
-# =============================================================================
-
-class RollbackPlanStatus(str, enum.Enum):
-    """Status of a rollback plan."""
-    DRAFT = "DRAFT"
-    PENDING_APPROVAL = "PENDING_APPROVAL"
-    APPROVED = "APPROVED"
-    EXECUTING = "EXECUTING"
-    COMPLETED = "COMPLETED"
-    PARTIAL = "PARTIAL"
-    FAILED = "FAILED"
-    CANCELED = "CANCELED"
-
-
-class RollbackActionType(str, enum.Enum):
-    """Type of file action during rollback."""
-    RESTORE = "RESTORE"
-    SKIP = "SKIP"
-    CONFLICT_MOVE = "CONFLICT_MOVE"
-    CLEANUP_EXTENSION = "CLEANUP_EXTENSION"
-    FAIL = "FAIL"
-
-
-class RollbackPlan(Base):
-    """
-    AutoRollback plan for restoring files from backup snapshots.
-    
-    SAFETY: Only operates on configured safe paths (lab directories).
-    """
-    __tablename__ = "rollback_plans"
-    __table_args__ = (
-        Index('idx_rollback_host_status', 'host_id', 'status'),
-        {'extend_existing': True}
-    )
-    
-    id = Column(Integer, primary_key=True, index=True)
-    host_id = Column(Integer, ForeignKey("hosts.id"), nullable=False, index=True)
-    run_id = Column(Integer, ForeignKey("runs.id"), nullable=True, index=True)
-    snapshot_id = Column(Integer, ForeignKey("backup_snapshots.id"), nullable=True, index=True)
-    
-    # Plan configuration
-    status = Column(Enum(RollbackPlanStatus), default=RollbackPlanStatus.DRAFT, nullable=False)
-    dry_run = Column(Boolean, default=False, nullable=False)
-    
-    # Safe paths configuration (JSON array of allowed paths)
-    safe_paths = Column(JSON, nullable=True)  # ["C:\\RansomTest", "C:\\RansomLab"]
-    
-    # Conflict policy
-    conflict_policy = Column(String(50), default="QUARANTINE")  # QUARANTINE, OVERWRITE, SKIP
-    cleanup_extensions = Column(JSON, nullable=True)  # [".locked", ".encrypted", ".dwcrypt"]
-    
-    # Approval workflow
-    requires_approval = Column(Boolean, default=True, nullable=False)
-    approved_by = Column(String(100), nullable=True)
-    approved_at = Column(DateTime, nullable=True)
-    
-    # Execution tracking
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    created_by = Column(String(100), default="system")
-    started_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
-    
-    # Plan summary
-    total_files = Column(Integer, default=0)
-    files_to_restore = Column(Integer, default=0)
-    files_to_skip = Column(Integer, default=0)
-    files_with_conflicts = Column(Integer, default=0)
-    
-    # Execution lock (prevent parallel execution on same host)
-    execution_lock = Column(String(64), nullable=True, unique=True)
-    
-    # Config JSON for additional settings
-    config_json = Column(JSON, nullable=True)
-    
-    # Relationships
-    host = relationship("Host")
-    run = relationship("Run")
-    snapshot = relationship("BackupSnapshot")
-    file_actions = relationship("RollbackFileAction", back_populates="plan", cascade="all, delete-orphan")
-    report = relationship("RollbackReport", back_populates="plan", uselist=False)
-
-
-class RollbackFileAction(Base):
-    """
-    Individual file action within a rollback plan.
-    Tracks before/after state for audit trail.
-    """
-    __tablename__ = "rollback_file_actions"
-    __table_args__ = (
-        Index('idx_rollback_file_plan', 'plan_id', 'action_type'),
-        {'extend_existing': True}
-    )
-    
-    id = Column(Integer, primary_key=True, index=True)
-    plan_id = Column(Integer, ForeignKey("rollback_plans.id"), nullable=False, index=True)
-    
-    # File information
-    original_path = Column(String(1000), nullable=False)
-    backup_path = Column(String(1000), nullable=True)
-    
-    # Action details
-    action_type = Column(Enum(RollbackActionType), nullable=False)
-    action_reason = Column(String(500), nullable=True)
-    
-    # Hash verification
-    before_hash = Column(String(64), nullable=True)  # Current file hash before restore
-    expected_hash = Column(String(64), nullable=True)  # Expected hash from backup
-    after_hash = Column(String(64), nullable=True)  # Actual hash after restore
-    hash_verified = Column(Boolean, nullable=True)
-    
-    # Execution status
-    executed = Column(Boolean, default=False)
-    executed_at = Column(DateTime, nullable=True)
-    success = Column(Boolean, nullable=True)
-    error_message = Column(Text, nullable=True)
-    
-    # Conflict handling
-    conflict_backup_path = Column(String(1000), nullable=True)  # Where conflicting file was moved
-    
-    # Relationships
-    plan = relationship("RollbackPlan", back_populates="file_actions")
-
-
-class RollbackReport(Base):
-    """
-    Summary report for a completed rollback operation.
-    """
-    __tablename__ = "rollback_reports"
-    __table_args__ = {'extend_existing': True}
-    
-    id = Column(Integer, primary_key=True, index=True)
-    plan_id = Column(Integer, ForeignKey("rollback_plans.id"), nullable=False, unique=True, index=True)
-    
-    # Summary counts
-    files_restored = Column(Integer, default=0)
-    files_skipped = Column(Integer, default=0)
-    files_conflict_moved = Column(Integer, default=0)
-    files_cleaned_extensions = Column(Integer, default=0)
-    files_failed = Column(Integer, default=0)
-    
-    # Hash verification summary
-    hash_verifications_passed = Column(Integer, default=0)
-    hash_verifications_failed = Column(Integer, default=0)
-    
-    # Timing
-    elapsed_seconds = Column(Float, default=0.0)
-    
-    # Final status
-    final_status = Column(String(20), nullable=False)  # SUCCESS, PARTIAL, FAILED
-    
-    # Detailed summary JSON
-    summary_json = Column(JSON, nullable=True)
-    
-    # Errors encountered
-    errors = Column(JSON, nullable=True)  # List of error messages
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    
-    # Relationships
-    plan = relationship("RollbackPlan", back_populates="report")
 
 
 # =============================================================================

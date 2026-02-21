@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 
 from ..models import Alert, Host, Playbook, PlaybookAction, ResponseExecution, Task, ResponseExecutionStatus
 from .isolation_engine import IsolationEngine
-from .backup_engine import BackupEngine
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,6 @@ class PlaybookEngine:
     def __init__(self, db: Session):
         self.db = db
         self.isolation_engine = IsolationEngine(db)
-        self.backup_engine = BackupEngine(db)
     
     def find_matching_playbooks(self, alert: Alert) -> List[Playbook]:
         """
@@ -222,10 +220,6 @@ class PlaybookEngine:
                 result = self._action_isolate_host(host, params, dry_run, alert.id, playbook.id)
             elif action_type == "disable_user":
                 result = self._action_disable_user(host, params, dry_run)
-            elif action_type == "backup_snapshot":
-                result = self._action_backup_snapshot(host, params, dry_run, alert.id)
-            elif action_type == "restore_backup":
-                result = self._action_restore_backup(host, params, dry_run)
             elif action_type == "collect_triage":
                 result = self._action_collect_triage(host, params, dry_run)
             elif action_type == "block_ip":
@@ -234,10 +228,6 @@ class PlaybookEngine:
                 result = self._action_create_incident(host, alert, params, dry_run)
             elif action_type == "escalate_alert":
                 result = self._action_escalate_alert(alert, params, dry_run)
-            elif action_type == "protect_backup_targets":
-                result = self._action_protect_backup_targets(host, params, dry_run)
-            elif action_type == "autorollback":
-                result = self._action_autorollback(host, params, dry_run, alert.id)
             else:
                 result = {
                     "success": False,
@@ -326,44 +316,6 @@ class PlaybookEngine:
             "data": {"task_id": task.id, "username": username}
         }
     
-    def _action_backup_snapshot(self, host: Host, params: Dict, dry_run: bool, alert_id: int) -> Dict:
-        """Create a backup snapshot."""
-        snapshot_type = params.get("snapshot_type", "FILE_LEVEL")
-        
-        result = self.backup_engine.create_snapshot(
-            host=host,
-            snapshot_type=snapshot_type,
-            triggered_by="playbook",
-            alert_id=alert_id,
-            dry_run=dry_run
-        )
-        
-        return result
-    
-    def _action_restore_backup(self, host: Host, params: Dict, dry_run: bool) -> Dict:
-        """Restore from backup snapshot."""
-        snapshot_id = params.get("snapshot_id")
-        
-        if not snapshot_id:
-            # Get latest successful snapshot
-            from ..models import BackupSnapshot, BackupStatus
-            snapshot = self.db.query(BackupSnapshot).filter(
-                BackupSnapshot.host_id == host.id,
-                BackupSnapshot.status == BackupStatus.COMPLETED
-            ).order_by(BackupSnapshot.created_at.desc()).first()
-            
-            if not snapshot:
-                return {"success": False, "message": "No backup snapshot found"}
-            snapshot_id = snapshot.id
-        
-        result = self.backup_engine.restore_snapshot(
-            snapshot_id=snapshot_id,
-            restore_type=params.get("restore_type", "FULL"),
-            dry_run=dry_run
-        )
-        
-        return result
-    
     def _action_collect_triage(self, host: Host, params: Dict, dry_run: bool) -> Dict:
         """Collect triage data from host."""
         triage_type = params.get("triage_type", "standard")
@@ -440,133 +392,6 @@ class PlaybookEngine:
             "success": True,
             "message": f"Alert escalated to severity {new_severity}",
             "data": {"alert_id": alert.id, "new_severity": new_severity}
-        }
-    
-    def _action_protect_backup_targets(self, host: Host, params: Dict, dry_run: bool) -> Dict:
-        """Protect backup directories from modification."""
-        backup_paths = params.get("backup_paths", [])
-        
-        task = Task(
-            host_id=host.id,
-            type="protect_backup_targets",
-            parameters={"backup_paths": backup_paths, "dry_run": dry_run},
-            status="PENDING"
-        )
-        self.db.add(task)
-        self.db.commit()
-        
-        return {
-            "success": True,
-            "message": f"{'[DRY RUN] ' if dry_run else ''}Backup protection task created",
-            "data": {"task_id": task.id, "paths": backup_paths}
-        }
-    
-    def _action_autorollback(self, host: Host, params: Dict, dry_run: bool, alert_id: int) -> Dict:
-        """
-        Execute AutoRollback action.
-        
-        This action:
-        1. Creates a rollback plan from the latest snapshot (or specified snapshot)
-        2. Based on mode, either just creates the plan or executes it
-        
-        Parameters:
-            mode: PLAN_ONLY | EXECUTE_AFTER_APPROVAL | AUTO_EXECUTE
-            snapshot_id: Optional specific snapshot to use
-            safe_paths: Optional custom safe paths
-            conflict_policy: QUARANTINE | OVERWRITE | SKIP
-            cleanup_extensions: List of extensions to clean up
-            require_approval: Override approval requirement
-        """
-        from .rollback_engine import RollbackEngine
-        
-        rollback_engine = RollbackEngine(self.db)
-        
-        mode = params.get("mode", "PLAN_ONLY")
-        snapshot_id = params.get("snapshot_id")
-        safe_paths = params.get("safe_paths")
-        conflict_policy = params.get("conflict_policy", "QUARANTINE")
-        cleanup_extensions = params.get("cleanup_extensions")
-        require_approval = params.get("require_approval", True)
-        
-        # Check if autorollback is enabled for this host
-        enabled, reason = rollback_engine.check_host_autorollback_enabled(host.id)
-        if not enabled and mode != "PLAN_ONLY":
-            return {
-                "success": False,
-                "message": f"AutoRollback not enabled: {reason}",
-                "data": {"host_id": host.id}
-            }
-        
-        # Step 1: Create rollback plan
-        plan_result = rollback_engine.create_plan(
-            host_id=host.id,
-            snapshot_id=snapshot_id,
-            safe_paths=safe_paths,
-            conflict_policy=conflict_policy,
-            cleanup_extensions=cleanup_extensions,
-            dry_run=dry_run,
-            require_approval=require_approval if mode != "AUTO_EXECUTE" else False,
-            created_by="playbook"
-        )
-        
-        if not plan_result.get("success"):
-            return {
-                "success": False,
-                "message": f"Failed to create rollback plan: {plan_result.get('error')}",
-                "data": plan_result
-            }
-        
-        plan_id = plan_result["data"]["plan_id"]
-        
-        # If PLAN_ONLY, stop here
-        if mode == "PLAN_ONLY":
-            return {
-                "success": True,
-                "message": f"{'[DRY RUN] ' if dry_run else ''}Rollback plan created (plan_id: {plan_id})",
-                "data": plan_result["data"]
-            }
-        
-        # If EXECUTE_AFTER_APPROVAL, plan is created but not executed
-        if mode == "EXECUTE_AFTER_APPROVAL":
-            return {
-                "success": True,
-                "message": f"{'[DRY RUN] ' if dry_run else ''}Rollback plan created, awaiting approval (plan_id: {plan_id})",
-                "data": plan_result["data"]
-            }
-        
-        # AUTO_EXECUTE mode - approve and execute immediately
-        if mode == "AUTO_EXECUTE":
-            # Auto-approve
-            approve_result = rollback_engine.approve_plan(plan_id, "auto_execute_policy")
-            if not approve_result.get("success"):
-                return {
-                    "success": False,
-                    "message": f"Failed to approve plan: {approve_result.get('error')}",
-                    "data": {"plan_id": plan_id}
-                }
-            
-            # Execute
-            exec_result = rollback_engine.execute_plan(plan_id)
-            if not exec_result.get("success"):
-                return {
-                    "success": False,
-                    "message": f"Failed to execute plan: {exec_result.get('error')}",
-                    "data": {"plan_id": plan_id}
-                }
-            
-            return {
-                "success": True,
-                "message": f"{'[DRY RUN] ' if dry_run else ''}AutoRollback executed (plan_id: {plan_id})",
-                "data": {
-                    **plan_result["data"],
-                    "task_id": exec_result["data"].get("task_id"),
-                    "executed": True
-                }
-            }
-        
-        return {
-            "success": False,
-            "message": f"Unknown autorollback mode: {mode}"
         }
     
     # Helper methods

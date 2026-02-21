@@ -645,55 +645,6 @@ def compliance_report_page(request: Request, run_id: int, db: Session = Depends(
     })
 
 
-@router.get("/rollback", response_class=HTMLResponse)
-def rollback_page(request: Request, user: AuthUser = Depends(require_user), db: Session = Depends(get_db)):
-    """AutoRollback management page (protected)."""
-    if isinstance(user, RedirectResponse):
-        return user
-    
-    return templates.TemplateResponse("rollback.html", {
-        "request": request,
-        "user": user
-    })
-
-
-# =============================================================================
-# BACKUP & RECOVERY PAGES
-# =============================================================================
-
-@router.get("/backup/plans", response_class=HTMLResponse)
-def backup_plans_page(request: Request, user: AuthUser = Depends(require_user), db: Session = Depends(get_db)):
-    """Backup Plans management page (protected)."""
-    if isinstance(user, RedirectResponse):
-        return user
-    
-    return templates.TemplateResponse("backup_plans.html", {
-        "request": request,
-        "user": user
-    })
-
-
-@router.get("/backup/recovery", response_class=HTMLResponse)
-def backup_recovery_page(
-    request: Request, 
-    host_id: int = None,
-    user: AuthUser = Depends(require_user), 
-    db: Session = Depends(get_db)
-):
-    """Backup & Recovery page for hosts (protected)."""
-    if isinstance(user, RedirectResponse):
-        return user
-    
-    hosts = crud.get_all_hosts(db)
-    
-    return templates.TemplateResponse("backup_recovery.html", {
-        "request": request,
-        "user": user,
-        "hosts": hosts,
-        "selected_host_id": host_id
-    })
-
-
 @router.get("/environment", response_class=HTMLResponse)
 def environment_page(
     request: Request,

@@ -24,7 +24,7 @@ from sqlalchemy import func, desc, and_
 from ..database import get_db
 from ..models import (
     AuthUser, UserRole, Host, Run, RunStatus, Alert, RunEvent, EventType,
-    Playbook, BackupSnapshot, RollbackPlan, ComplianceReport, MITRE_MAPPING
+    Playbook, ComplianceReport, MITRE_MAPPING
 )
 from ..models_business import (
     BusinessSettings, Organization, OrganizationUser, RoiCalcHistory,
@@ -270,18 +270,6 @@ def identify_gaps(db: Session) -> List[dict]:
             "link": "/business/training"
         })
     
-    # Check for backup/rollback coverage
-    hosts = db.query(Host).count()
-    hosts_with_backup = db.query(BackupSnapshot.host_id).distinct().count()
-    
-    if hosts_with_backup < hosts * 0.8:
-        gaps.append({
-            "title": "Insufficient Backup Coverage",
-            "description": f"Only {hosts_with_backup}/{hosts} endpoints have backups",
-            "severity": "CRITICAL",
-            "recommendation": "Enable automated backups for all critical endpoints",
-            "link": "/rollback"
-        })
     
     # Check for repeated high-severity alerts
     high_alerts = db.query(Alert.rule_id, func.count(Alert.id).label('count')).filter(
@@ -1308,16 +1296,10 @@ async def rto_rpo_tracker(
     
     settings = get_business_settings(db, user.id)
     
-    # Get hosts with backup status
     hosts = db.query(Host).all()
     
     host_metrics = []
     for host in hosts:
-        # Get latest backup snapshot
-        latest_backup = db.query(BackupSnapshot).filter(
-            BackupSnapshot.host_id == host.id
-        ).order_by(desc(BackupSnapshot.created_at)).first()
-        
         # Get recent completed runs for RTO calculation
         recent_runs = db.query(Run).filter(
             Run.host_id == host.id,
@@ -1337,24 +1319,13 @@ async def rto_rpo_tracker(
         # Check if target is breached
         rto_breach = avg_rto and avg_rto > settings.target_rto_minutes
         
-        # RPO from backup timestamp
-        rpo_minutes = None
-        if latest_backup and latest_backup.completed_at:
-            rpo_minutes = (datetime.utcnow() - latest_backup.completed_at).total_seconds() / 60
-        
-        rpo_breach = rpo_minutes and rpo_minutes > settings.target_rpo_minutes
-        
         host_metrics.append({
             "host": host,
-            "backup_enabled": latest_backup is not None,
-            "last_backup": latest_backup.completed_at if latest_backup else None,
             "target_rto": settings.target_rto_minutes,
             "achieved_rto": round(avg_rto, 1) if avg_rto else None,
             "rto_breach": rto_breach,
             "target_rpo": settings.target_rpo_minutes,
-            "achieved_rpo": round(rpo_minutes, 1) if rpo_minutes else None,
-            "rpo_breach": rpo_breach,
-            "recovery_runs": len(recent_runs)
+            "runs_count": len(recent_runs)
         })
     
     # Calculate overall success rate

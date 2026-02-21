@@ -212,9 +212,7 @@ class LessonsLearnedGenerator:
         recovery_events = self.db.query(RunEvent).filter(
             RunEvent.run_id == self.run_id,
             RunEvent.event_type.in_([
-                EventType.RECOVERY_COMPLETED,
-                EventType.HOST_NETWORK_RESTORED,
-                EventType.ROLLBACK_COMPLETED
+                EventType.HOST_NETWORK_RESTORED
             ])
         ).order_by(RunEvent.timestamp).first()
         
@@ -363,9 +361,7 @@ class LessonsLearnedGenerator:
         recovery_events = self.db.query(RunEvent).filter(
             RunEvent.run_id == self.run_id,
             RunEvent.event_type.in_([
-                EventType.RECOVERY_COMPLETED,
-                EventType.HOST_NETWORK_RESTORED,
-                EventType.ROLLBACK_COMPLETED
+                EventType.HOST_NETWORK_RESTORED
             ])
         ).count()
         
@@ -386,11 +382,7 @@ class LessonsLearnedGenerator:
         # Check for recovery failures
         recovery_failures = self.db.query(RunEvent).filter(
             RunEvent.run_id == self.run_id,
-            RunEvent.event_type.in_([
-                EventType.RECOVERY_FAILED,
-                EventType.HOST_RESTORE_FAILED,
-                EventType.ROLLBACK_FAILED
-            ])
+            RunEvent.event_type == EventType.HOST_ISOLATION_FAILED
         ).count()
         
         if recovery_failures > 0:

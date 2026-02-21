@@ -6,9 +6,6 @@ Provides a unified incident response timeline showing all events during a Run:
 - Task lifecycle events
 - Detection/alerts
 - Playbook/response actions
-- Snapshot events
-- Rollback events
-- Recovery events
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -24,7 +21,7 @@ import io
 from ..database import get_db
 from ..models import (
     Run, RunEvent, Task, Alert, EventType,
-    ResponseExecution, RollbackPlan, BackupSnapshot
+    ResponseExecution
 )
 from ..deps.auth import require_user
 
@@ -51,20 +48,9 @@ EVENT_CATEGORIES = {
         EventType.PLAYBOOK_TRIGGERED, EventType.RESPONSE_TASK_CREATED, EventType.RESPONSE_EXECUTED,
         EventType.HOST_ISOLATED, EventType.HOST_DEISOLATED, EventType.CONTAINMENT_STARTED,
         EventType.CONTAINMENT_COMPLETED,
-        # New containment events
         EventType.HOST_ISOLATION_REQUESTED, EventType.HOST_RESTORE_REQUESTED,
         EventType.HOST_NETWORK_RESTORED, EventType.PATH_BLOCK_REQUESTED, EventType.PATH_BLOCKED,
         EventType.QUARANTINE_REQUESTED, EventType.RANSOMWARE_ARTIFACTS_RECEIVED
-    ],
-    "rollback": [
-        EventType.SNAPSHOT_CREATED, EventType.SNAPSHOT_FAILED,
-        EventType.ROLLBACK_PLANNED, EventType.ROLLBACK_APPROVED, EventType.ROLLBACK_STARTED,
-        EventType.ROLLBACK_FILE_RESTORED, EventType.ROLLBACK_FILE_CONFLICT, EventType.ROLLBACK_FILE_FAILED,
-        EventType.ROLLBACK_VERIFY_STARTED, EventType.ROLLBACK_VERIFY_COMPLETED,
-        EventType.ROLLBACK_COMPLETED, EventType.ROLLBACK_FAILED
-    ],
-    "recovery": [
-        EventType.RECOVERY_STARTED, EventType.RECOVERY_COMPLETED, EventType.RECOVERY_FAILED
     ]
 }
 
@@ -75,10 +61,6 @@ EVENT_SEVERITY = {
     EventType.ALERT_RECEIVED: "high",
     EventType.DETECTION_CONFIRMED: "critical",
     EventType.HOST_ISOLATED: "high",
-    EventType.ROLLBACK_FAILED: "critical",
-    EventType.ROLLBACK_FILE_FAILED: "medium",
-    EventType.RECOVERY_FAILED: "critical",
-    EventType.SNAPSHOT_FAILED: "high",
     # Containment events
     EventType.HOST_ISOLATION_REQUESTED: "high",
     EventType.HOST_NETWORK_RESTORED: "medium",
@@ -105,14 +87,6 @@ EVENT_ICONS = {
     EventType.RESPONSE_EXECUTED: "bi-lightning",
     EventType.HOST_ISOLATED: "bi-shield-lock",
     EventType.HOST_DEISOLATED: "bi-unlock",
-    EventType.SNAPSHOT_CREATED: "bi-camera",
-    EventType.ROLLBACK_PLANNED: "bi-arrow-counterclockwise",
-    EventType.ROLLBACK_APPROVED: "bi-check2-square",
-    EventType.ROLLBACK_STARTED: "bi-arrow-repeat",
-    EventType.ROLLBACK_COMPLETED: "bi-arrow-counterclockwise",
-    EventType.ROLLBACK_FAILED: "bi-x-octagon",
-    EventType.RECOVERY_STARTED: "bi-heart-pulse",
-    EventType.RECOVERY_COMPLETED: "bi-heart",
     # Containment events
     EventType.HOST_ISOLATION_REQUESTED: "bi-wifi-off",
     EventType.HOST_RESTORE_REQUESTED: "bi-wifi",
@@ -150,9 +124,7 @@ def calculate_ir_metrics(events: List[RunEvent], run: Run) -> Dict[str, Any]:
         "time_to_recover": None,
         "total_alerts": 0,
         "total_tasks": 0,
-        "failed_tasks": 0,
-        "rollback_performed": False,
-        "files_restored": 0
+        "failed_tasks": 0
     }
     
     run_start = run.started_at
@@ -174,12 +146,6 @@ def calculate_ir_metrics(events: List[RunEvent], run: Run) -> Dict[str, Any]:
         elif event.event_type == EventType.HOST_ISOLATED:
             if first_containment is None:
                 first_containment = event.timestamp
-        
-        elif event.event_type == EventType.ROLLBACK_COMPLETED:
-            metrics["rollback_performed"] = True
-            recovery_complete = event.timestamp
-            if event.details and isinstance(event.details, dict):
-                metrics["files_restored"] = event.details.get("files_restored", 0)
         
         elif event.event_type == EventType.RUN_COMPLETED:
             if recovery_complete is None:
@@ -248,21 +214,6 @@ def format_event_title(event: RunEvent) -> str:
         EventType.HOST_DEISOLATED: "Host De-isolated",
         EventType.CONTAINMENT_STARTED: "Containment Started",
         EventType.CONTAINMENT_COMPLETED: "Containment Completed",
-        EventType.SNAPSHOT_CREATED: "Baseline Snapshot Created",
-        EventType.SNAPSHOT_FAILED: "Snapshot Creation Failed",
-        EventType.ROLLBACK_PLANNED: "Rollback Plan Created",
-        EventType.ROLLBACK_APPROVED: "Rollback Approved",
-        EventType.ROLLBACK_STARTED: "Rollback Execution Started",
-        EventType.ROLLBACK_FILE_RESTORED: "File Restored",
-        EventType.ROLLBACK_FILE_CONFLICT: "File Conflict Detected",
-        EventType.ROLLBACK_FILE_FAILED: "File Restore Failed",
-        EventType.ROLLBACK_VERIFY_STARTED: "Hash Verification Started",
-        EventType.ROLLBACK_VERIFY_COMPLETED: "Hash Verification Completed",
-        EventType.ROLLBACK_COMPLETED: "Rollback Completed",
-        EventType.ROLLBACK_FAILED: "Rollback Failed",
-        EventType.RECOVERY_STARTED: "Recovery Started",
-        EventType.RECOVERY_COMPLETED: "Recovery Completed",
-        EventType.RECOVERY_FAILED: "Recovery Failed",
         EventType.STOP_REQUESTED: "Stop Requested",
         EventType.STOP_EXECUTED: "Run Stopped",
     }
@@ -373,7 +324,7 @@ def get_timeline_summary(
     key_events = []
     key_types = [
         EventType.RUN_STARTED, EventType.ALERT_RECEIVED, EventType.HOST_ISOLATED,
-        EventType.ROLLBACK_COMPLETED, EventType.RUN_COMPLETED
+        EventType.RUN_COMPLETED
     ]
     for event in events:
         if event.event_type in key_types:

@@ -8,9 +8,8 @@ from sqlalchemy import desc, func
 from .models import (
     Host, Scenario, Run, Task, Alert, Playbook,
     RunEvent, AffectedFile, Metric, IOC, ELKConfig,
-    RecoveryPlan, RecoveryEvent, BusinessImpact, ComplianceReport,
-    HostStatus, RunStatus, TaskStatus, EventType, FileActionType, IOCType,
-    RecoveryPlanStatus, RecoveryEventType
+    BusinessImpact, ComplianceReport,
+    HostStatus, RunStatus, TaskStatus, EventType, FileActionType, IOCType
 )
 
 
@@ -418,20 +417,8 @@ def delete_run(db: Session, run_id: int, force: bool = False) -> dict:
     db.query(AffectedFile).filter(AffectedFile.run_id == run_id).delete()
     
     # Advanced features (if they exist)
-    # Recovery Plans
-    from .models import RecoveryPlan, RecoveryEvent, BehaviorProfile, WhatIfScenario
+    from .models import BehaviorProfile, WhatIfScenario
     from .models import IRSession, RunFeedback, BusinessImpact, ComplianceReport
-    
-    # Recovery events (via recovery plans)
-    recovery_plans = db.query(RecoveryPlan).filter(RecoveryPlan.run_id == run_id).all()
-    for plan in recovery_plans:
-        db.query(RecoveryEvent).filter(RecoveryEvent.recovery_plan_id == plan.id).delete()
-        counts["recovery_events"] = counts.get("recovery_events", 0) + 1
-    
-    # Recovery Plans
-    recovery_count = db.query(RecoveryPlan).filter(RecoveryPlan.run_id == run_id).count()
-    db.query(RecoveryPlan).filter(RecoveryPlan.run_id == run_id).delete()
-    counts["recovery_plans"] = recovery_count
     
     # Behavior Profiles
     behavior_count = db.query(BehaviorProfile).filter(BehaviorProfile.run_id == run_id).count()
@@ -973,97 +960,6 @@ def set_host_isolation_policy(
     return host
 
 
-# ============ Recovery Plan Operations ============
-
-def get_recovery_plan_by_id(db: Session, plan_id: int) -> Optional[RecoveryPlan]:
-    return db.query(RecoveryPlan).filter(RecoveryPlan.id == plan_id).first()
-
-
-def get_recovery_plan_by_run(db: Session, run_id: int) -> Optional[RecoveryPlan]:
-    return db.query(RecoveryPlan).filter(RecoveryPlan.run_id == run_id).first()
-
-
-def get_recovery_plans_by_host(db: Session, host_id: int) -> List[RecoveryPlan]:
-    return db.query(RecoveryPlan).filter(
-        RecoveryPlan.host_id == host_id
-    ).order_by(desc(RecoveryPlan.created_at)).all()
-
-
-def create_recovery_plan(
-    db: Session,
-    run_id: int,
-    host_id: int,
-    notes: Optional[str] = None
-) -> RecoveryPlan:
-    plan = RecoveryPlan(
-        run_id=run_id,
-        host_id=host_id,
-        status=RecoveryPlanStatus.PLANNED,
-        notes=notes
-    )
-    db.add(plan)
-    db.commit()
-    db.refresh(plan)
-    return plan
-
-
-def update_recovery_plan_status(
-    db: Session,
-    plan_id: int,
-    status: RecoveryPlanStatus,
-    completed_at: Optional[datetime] = None
-) -> Optional[RecoveryPlan]:
-    plan = get_recovery_plan_by_id(db, plan_id)
-    if plan:
-        plan.status = status
-        if completed_at:
-            plan.completed_at = completed_at
-        elif status in [RecoveryPlanStatus.COMPLETED, RecoveryPlanStatus.FAILED]:
-            plan.completed_at = datetime.utcnow()
-        db.commit()
-        db.refresh(plan)
-    return plan
-
-
-# ============ Recovery Event Operations ============
-
-def create_recovery_event(
-    db: Session,
-    recovery_plan_id: int,
-    event_type: RecoveryEventType,
-    details: Optional[dict] = None
-) -> RecoveryEvent:
-    event = RecoveryEvent(
-        recovery_plan_id=recovery_plan_id,
-        event_type=event_type,
-        details=details
-    )
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-    return event
-
-
-def get_recovery_events_by_plan(db: Session, plan_id: int) -> List[RecoveryEvent]:
-    return db.query(RecoveryEvent).filter(
-        RecoveryEvent.recovery_plan_id == plan_id
-    ).order_by(RecoveryEvent.timestamp).all()
-
-
-# ============ Recovery Task Tracking ============
-
-def get_recovery_tasks_by_run(db: Session, run_id: int) -> List[Task]:
-    """Get all recovery-related tasks for a run."""
-    return db.query(Task).filter(
-        Task.run_id == run_id,
-        Task.type.in_([
-            "response_deisolate_host",
-            "recovery_enable_user",
-            "recovery_restore_files_from_quarantine"
-        ])
-    ).order_by(Task.created_at).all()
-
-
 def get_containment_tasks_by_run(db: Session, run_id: int) -> List[Task]:
     """Get all containment-related tasks for a run."""
     return db.query(Task).filter(
@@ -1077,70 +973,3 @@ def get_containment_tasks_by_run(db: Session, run_id: int) -> List[Task]:
     ).order_by(Task.created_at).all()
 
 
-def check_recovery_plan_completion(db: Session, plan_id: int) -> bool:
-    """
-    Check if all recovery tasks for a plan are completed.
-    Returns True if plan status was updated to COMPLETED or FAILED.
-    """
-    plan = get_recovery_plan_by_id(db, plan_id)
-    if not plan or plan.status in [RecoveryPlanStatus.COMPLETED, RecoveryPlanStatus.FAILED]:
-        return False
-    
-    recovery_tasks = get_recovery_tasks_by_run(db, plan.run_id)
-    if not recovery_tasks:
-        return False
-    
-    all_done = all(t.status in [TaskStatus.COMPLETED, TaskStatus.FAILED] for t in recovery_tasks)
-    if all_done:
-        any_failed = any(t.status == TaskStatus.FAILED for t in recovery_tasks)
-        new_status = RecoveryPlanStatus.FAILED if any_failed else RecoveryPlanStatus.COMPLETED
-        update_recovery_plan_status(db, plan_id, new_status)
-        return True
-    return False
-
-
-# ============ Business Impact Recovery Update ============
-
-def update_business_impact_actuals(
-    db: Session,
-    run_id: int,
-    actual_recovery_hours: float,
-    cost_per_hour: Optional[float] = None
-) -> Optional[BusinessImpact]:
-    """Update business impact with actual recovery metrics."""
-    impact = db.query(BusinessImpact).filter(BusinessImpact.run_id == run_id).first()
-    if impact:
-        impact.actual_recovery_hours = actual_recovery_hours
-        if cost_per_hour:
-            impact.actual_total_cost = actual_recovery_hours * cost_per_hour
-        else:
-            impact.actual_total_cost = actual_recovery_hours * impact.assumed_cost_per_hour
-        db.commit()
-        db.refresh(impact)
-    return impact
-
-
-# ============ Compliance Report Recovery Update ============
-
-def update_compliance_report_recovery(
-    db: Session,
-    run_id: int,
-    deisolation_time: Optional[datetime] = None,
-    recovery_completed_time: Optional[datetime] = None,
-    containment_summary: Optional[str] = None,
-    recovery_summary: Optional[str] = None
-) -> Optional[ComplianceReport]:
-    """Update compliance report with recovery information."""
-    report = db.query(ComplianceReport).filter(ComplianceReport.run_id == run_id).first()
-    if report:
-        if deisolation_time:
-            report.incident_deisolation = deisolation_time
-        if recovery_completed_time:
-            report.incident_recovery_completed = recovery_completed_time
-        if containment_summary:
-            report.containment_actions_summary = containment_summary
-        if recovery_summary:
-            report.recovery_actions_summary = recovery_summary
-        db.commit()
-        db.refresh(report)
-    return report

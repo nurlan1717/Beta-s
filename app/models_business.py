@@ -364,7 +364,4 @@ EVENT_COMPLIANCE_MAP = {
     "PLAYBOOK_TRIGGERED": {"nist": ["RS.RP"], "iso": ["A.16"]},
     "HOST_ISOLATED": {"nist": ["RS.MI"], "iso": ["A.16"]},
     "CONTAINMENT_COMPLETED": {"nist": ["RS.MI"], "iso": ["A.16"]},
-    "RECOVERY_STARTED": {"nist": ["RC.RP"], "iso": ["A.17"]},
-    "RECOVERY_COMPLETED": {"nist": ["RC.RP", "RC.IM"], "iso": ["A.17"]},
-    "ROLLBACK_COMPLETED": {"nist": ["RC.RP"], "iso": ["A.17"]},
 }
