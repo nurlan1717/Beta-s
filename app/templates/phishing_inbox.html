@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Phishing Inbox - RANSOMRUN{% endblock %}
+{% block page_title %}Training Inbox{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="/phishing">Phishing Lab</a></li>
+        <li class="breadcrumb-item active">Inbox</li>
+    </ol>
+</nav>
+
+<!-- User Selection -->
+<div class="card mb-4">
+    <div class="card-body" style="padding: 16px 20px;">
+        <form method="GET" action="/phishing/inbox" style="display: flex; gap: 12px; align-items: center;">
+            <label style="color: #a1a1aa; font-size: 14px; white-space: nowrap;">View inbox for:</label>
+            <select name="email" class="form-select" style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa; max-width: 300px;">
+                <option value="">Select a user...</option>
+                {% for email in available_emails %}
+                <option value="{{ email }}" {% if selected_email == email %}selected{% endif %}>{{ email }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary" style="background: #8b5cf6; border: none;">
+                <i class="bi bi-search me-1"></i>View
+            </button>
+        </form>
+    </div>
+</div>
+
+{% if selected_email %}
+<!-- Inbox Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+    <h2 style="margin: 0; font-size: 16px; font-weight: 600; color: #fafafa;">
+        <i class="bi bi-inbox me-2" style="color: #60a5fa;"></i>
+        Inbox for {{ selected_email }}
+        {% if messages %}
+        <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171; margin-left: 8px;">
+            {{ messages | selectattr('is_opened', 'equalto', false) | list | length }} unread
+        </span>
+        {% endif %}
+    </h2>
+</div>
+
+<!-- Messages List -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if messages %}
+        <div class="list-group list-group-flush" style="background: transparent;">
+            {% for m in messages %}
+            <a href="/phishing/message/{{ m.id }}" class="list-group-item list-group-item-action" 
+               style="background: {% if not m.is_opened %}rgba(59, 130, 246, 0.05){% else %}transparent{% endif %}; 
+                      border: none; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <div style="display: flex; align-items: flex-start; gap: 16px;">
+                    <!-- Unread indicator -->
+                    <div style="width: 8px; height: 8px; border-radius: 50%; margin-top: 8px;
+                                background: {% if not m.is_opened %}#3b82f6{% else %}transparent{% endif %};"></div>
+                    
+                    <!-- Message content -->
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-weight: {% if not m.is_opened %}600{% else %}400{% endif %}; color: #fafafa;">
+                                {{ m.subject[:60] }}{% if m.subject|length > 60 %}...{% endif %}
+                            </span>
+                            <span style="font-size: 12px; color: #71717a; white-space: nowrap; margin-left: 16px;">
+                                {{ m.sent_at.strftime('%b %d, %I:%M %p') if m.sent_at else '' }}
+                            </span>
+                        </div>
+                        <div style="font-size: 13px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            From: IT Support &lt;phishing-sim@ransomrun.local&gt;
+                        </div>
+                    </div>
+                    
+                    <!-- Status badges -->
+                    <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                        {% if m.is_clicked %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">Clicked</span>
+                        {% endif %}
+                        {% if m.is_reported %}
+                        <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80;">Reported</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="padding: 60px; text-align: center;">
+            <i class="bi bi-inbox" style="font-size: 48px; color: #3f3f46; margin-bottom: 16px;"></i>
+            <h3 style="color: #71717a; font-size: 16px; margin-bottom: 8px;">No Messages</h3>
+            <p style="color: #52525b; font-size: 14px;">This inbox is empty. Launch a campaign to send training messages.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<!-- No user selected -->
+<div class="card">
+    <div class="card-body" style="padding: 60px; text-align: center;">
+        <i class="bi bi-person-circle" style="font-size: 48px; color: #3f3f46; margin-bottom: 16px;"></i>
+        <h3 style="color: #71717a; font-size: 16px; margin-bottom: 8px;">Select a User</h3>
+        <p style="color: #52525b; font-size: 14px;">Choose a training user from the dropdown above to view their inbox.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

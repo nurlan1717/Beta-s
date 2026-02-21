@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Message - RANSOMRUN{% endblock %}
+{% block page_title %}Training Message{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="/phishing">Phishing Lab</a></li>
+        <li class="breadcrumb-item"><a href="/phishing/inbox?email={{ recipient.email }}">Inbox</a></li>
+        <li class="breadcrumb-item active">Message</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Message Card -->
+        <div class="card">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h2 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #fafafa;">
+                            {{ message.subject }}
+                        </h2>
+                        <div style="font-size: 13px; color: #71717a;">
+                            From: <span style="color: #a1a1aa;">IT Support &lt;phishing-sim@ransomrun.local&gt;</span>
+                        </div>
+                        <div style="font-size: 13px; color: #71717a;">
+                            To: <span style="color: #a1a1aa;">{{ recipient.display_name }} &lt;{{ recipient.email }}&gt;</span>
+                        </div>
+                        <div style="font-size: 13px; color: #71717a;">
+                            Date: <span style="color: #a1a1aa;">{{ message.sent_at.strftime('%B %d, %Y at %I:%M %p') if message.sent_at else 'N/A' }}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        {% if message.is_clicked %}
+                        <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #f87171;">Clicked</span>
+                        {% endif %}
+                        {% if message.is_reported %}
+                        <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80;">Reported</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body" style="padding: 0;">
+                <!-- Email Content (rendered HTML) -->
+                <div style="background: #fafafa; color: #1f2937; padding: 24px; min-height: 400px;">
+                    {{ message.body_html | safe }}
+                </div>
+            </div>
+            <div class="card-footer" style="background: #1f1f23; border-top: 1px solid #27272a; padding: 16px 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <a href="/phishing/inbox?email={{ recipient.email }}" class="btn" style="background: #27272a; color: #d4d4d8; border: none;">
+                        <i class="bi bi-arrow-left me-2"></i>Back to Inbox
+                    </a>
+                    {% if not message.is_reported %}
+                    <button id="reportBtn" class="btn" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3);">
+                        <i class="bi bi-flag me-2"></i>Report as Phishing
+                    </button>
+                    {% else %}
+                    <span style="color: #4ade80; font-size: 14px;">
+                        <i class="bi bi-check-circle me-2"></i>You reported this message
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Training Info Card -->
+        <div class="card mb-4">
+            <div class="card-header" style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.1) 0%, rgba(234, 179, 8, 0.05) 100%); border-bottom: 1px solid rgba(234, 179, 8, 0.2); padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600; color: #fbbf24;">
+                    <i class="bi bi-lightbulb me-2"></i>Training Exercise
+                </h5>
+            </div>
+            <div class="card-body" style="font-size: 13px; color: #a1a1aa;">
+                <p>This is a <strong style="color: #fbbf24;">phishing awareness training</strong> message.</p>
+                <p>In a real attack, clicking links in suspicious emails could:</p>
+                <ul style="padding-left: 20px; margin-bottom: 16px;">
+                    <li>Install malware on your computer</li>
+                    <li>Steal your credentials</li>
+                    <li>Compromise company data</li>
+                    <li>Lead to ransomware infection</li>
+                </ul>
+                <p style="margin-bottom: 0;"><strong style="color: #4ade80;">Good practice:</strong> Always report suspicious emails using the "Report as Phishing" button.</p>
+            </div>
+        </div>
+        
+        <!-- Message Stats -->
+        <div class="card">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-graph-up me-2" style="color: #60a5fa;"></i>Your Response
+                </h5>
+            </div>
+            <div class="card-body">
+                <div style="display: grid; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #27272a;">
+                        <span style="color: #a1a1aa;">Opened</span>
+                        {% if message.is_opened %}
+                        <span style="color: #fbbf24;"><i class="bi bi-check-circle-fill me-1"></i>{{ message.opened_at.strftime('%I:%M %p') if message.opened_at else 'Yes' }}</span>
+                        {% else %}
+                        <span style="color: #3f3f46;">No</span>
+                        {% endif %}
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #27272a;">
+                        <span style="color: #a1a1aa;">Clicked Link</span>
+                        {% if message.is_clicked %}
+                        <span style="color: #f87171;"><i class="bi bi-exclamation-circle-fill me-1"></i>{{ message.clicked_at.strftime('%I:%M %p') if message.clicked_at else 'Yes' }}</span>
+                        {% else %}
+                        <span style="color: #4ade80;"><i class="bi bi-shield-check me-1"></i>No</span>
+                        {% endif %}
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                        <span style="color: #a1a1aa;">Reported</span>
+                        {% if message.is_reported %}
+                        <span style="color: #4ade80;"><i class="bi bi-flag-fill me-1"></i>{{ message.reported_at.strftime('%I:%M %p') if message.reported_at else 'Yes' }}</span>
+                        {% else %}
+                        <span style="color: #71717a;">Not yet</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('reportBtn')?.addEventListener('click', async function() {
+    try {
+        const resp = await fetch('/api/phishing/report/{{ message.id }}', { method: 'POST' });
+        const data = await resp.json();
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error reporting message');
+    }
+});
+</script>
+{% endblock %}

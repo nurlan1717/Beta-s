@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Scenarios - RansomRun{% endblock %}
+{% block page_title %}Attack Scenarios{% endblock %}
+
+{% block content %}
+<!-- Action Buttons -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <span class="text-muted">Manage ransomware simulation scenarios</span>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="showImportModal()">
+            <i class="bi bi-upload"></i> Import Scenario
+        </button>
+        <a href="/scenarios/new" class="btn btn-danger btn-sm">
+            <i class="bi bi-plus-lg"></i> Create Custom Scenario
+        </a>
+    </div>
+</div>
+
+<!-- Safety Notice -->
+<div class="alert alert-info mb-4" style="border-left: 4px solid #0dcaf0;">
+    <i class="bi bi-shield-check me-2"></i>
+    <strong>Simulation Only:</strong> All behaviors are safe simulations. No real encryption, no network exfiltration, no destructive actions.
+</div>
+
+<!-- Built-in Scenarios Section -->
+<h5 class="mb-3" style="color: #71717a;">
+    <i class="bi bi-box-seam me-2"></i>Built-in Scenarios
+</h5>
+<div class="row g-4 mb-5">
+    {% for scenario in scenarios if not scenario.is_custom %}
+    <div class="col-lg-4 col-md-6">
+        <div class="panel h-100" style="display: flex; flex-direction: column;">
+            <div class="panel-header">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="panel-title mb-1">{{ scenario.name }}</h3>
+                        <code style="font-size: 11px;">{{ scenario.key }}</code>
+                    </div>
+                    <span class="badge bg-secondary">Built-in</span>
+                </div>
+            </div>
+            <div class="panel-body" style="flex: 1;">
+                <p style="color: #a1a1aa; font-size: 13px; white-space: pre-line; margin: 0;">{{ scenario.description[:200] }}{% if scenario.description|length > 200 %}...{% endif %}</p>
+                {% if scenario.config and scenario.config.tags %}
+                <div class="mt-2">
+                    {% for tag in scenario.config.tags[:3] %}
+                    <span class="badge bg-dark" style="font-size: 10px;">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div style="padding: 16px 20px; border-top: 1px solid #27272a;">
+                <div class="d-flex gap-2">
+                    <a href="/scenarios/{{ scenario.id }}" class="btn btn-outline-secondary btn-sm flex-grow-1">
+                        <i class="bi bi-eye"></i> View
+                    </a>
+                    <button class="btn btn-outline-info btn-sm" onclick="cloneScenario({{ scenario.id }}, '{{ scenario.name }}')">
+                        <i class="bi bi-copy"></i> Clone
+                    </button>
+                    <a href="/simulate?scenario_id={{ scenario.id }}" class="btn btn-danger btn-sm">
+                        <i class="bi bi-play-fill"></i> Run
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="panel">
+            <div class="empty-state">
+                <i class="bi bi-box-seam"></i>
+                <h3>No Built-in Scenarios</h3>
+                <p>Built-in scenarios are seeded on startup.</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Custom Scenarios Section -->
+<h5 class="mb-3" style="color: #71717a;">
+    <i class="bi bi-pencil-square me-2"></i>Custom Scenarios
+</h5>
+<div class="row g-4 mb-4">
+    {% set custom_scenarios = scenarios | selectattr('is_custom') | list %}
+    {% if custom_scenarios %}
+    {% for scenario in custom_scenarios %}
+    <div class="col-lg-4 col-md-6">
+        <div class="panel h-100" style="display: flex; flex-direction: column; border: 1px solid #3f3f46;">
+            <div class="panel-header">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h3 class="panel-title mb-1">{{ scenario.name }}</h3>
+                        <code style="font-size: 11px;">{{ scenario.key }}</code>
+                    </div>
+                    <span class="badge bg-success">Custom</span>
+                </div>
+            </div>
+            <div class="panel-body" style="flex: 1;">
+                <p style="color: #a1a1aa; font-size: 13px; white-space: pre-line; margin: 0;">{{ scenario.description[:200] if scenario.description else 'No description' }}{% if scenario.description and scenario.description|length > 200 %}...{% endif %}</p>
+                {% if scenario.config and scenario.config.tags %}
+                <div class="mt-2">
+                    {% for tag in scenario.config.tags[:3] %}
+                    <span class="badge bg-dark" style="font-size: 10px;">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="mt-2" style="font-size: 11px; color: #71717a;">
+                    <i class="bi bi-person me-1"></i>{{ scenario.created_by or 'admin' }}
+                    {% if scenario.created_at %}
+                    <span class="ms-2"><i class="bi bi-calendar me-1"></i>{{ scenario.created_at.strftime('%Y-%m-%d') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div style="padding: 16px 20px; border-top: 1px solid #27272a;">
+                <div class="d-flex gap-2">
+                    <a href="/scenarios/{{ scenario.id }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="/scenarios/{{ scenario.id }}/edit" class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <button class="btn btn-outline-info btn-sm" onclick="cloneScenario({{ scenario.id }}, '{{ scenario.name }}')">
+                        <i class="bi bi-copy"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="exportScenario({{ scenario.id }})">
+                        <i class="bi bi-download"></i>
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="deleteScenario({{ scenario.id }}, '{{ scenario.name }}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <a href="/simulate?scenario_id={{ scenario.id }}" class="btn btn-danger btn-sm flex-grow-1">
+                        <i class="bi bi-play-fill"></i> Run
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="col-12">
+        <div class="panel" style="border: 2px dashed #3f3f46;">
+            <div class="empty-state" style="padding: 40px;">
+                <i class="bi bi-plus-circle" style="font-size: 48px; color: #71717a;"></i>
+                <h3>No Custom Scenarios Yet</h3>
+                <p style="color: #a1a1aa;">Create your own ransomware simulation scenarios or clone a built-in one.</p>
+                <a href="/scenarios/new" class="btn btn-danger mt-2">
+                    <i class="bi bi-plus-lg"></i> Create Custom Scenario
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Import Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="background: #18181b; border: 1px solid #27272a;">
+            <div class="modal-header" style="border-bottom: 1px solid #27272a;">
+                <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Import Scenario</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Paste the exported scenario JSON below. A new unique key will be generated.
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Scenario JSON</label>
+                    <textarea id="importJson" class="form-control" rows="10" 
+                        style="background: #09090b; border-color: #27272a; color: #fff; font-family: monospace;"
+                        placeholder='{"name": "My Scenario", "category": "crypto", "config": {...}}'></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid #27272a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="importScenario()">
+                    <i class="bi bi-upload me-2"></i>Import
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clone Modal -->
+<div class="modal fade" id="cloneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: #18181b; border: 1px solid #27272a;">
+            <div class="modal-header" style="border-bottom: 1px solid #27272a;">
+                <h5 class="modal-title"><i class="bi bi-copy me-2"></i>Clone Scenario</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cloneSourceId">
+                <div class="mb-3">
+                    <label class="form-label">New Scenario Name</label>
+                    <input type="text" id="cloneName" class="form-control" 
+                        style="background: #09090b; border-color: #27272a; color: #fff;">
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid #27272a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info" onclick="submitClone()">
+                    <i class="bi bi-copy me-2"></i>Clone
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showImportModal() {
+    new bootstrap.Modal(document.getElementById('importModal')).show();
+}
+
+function cloneScenario(id, name) {
+    document.getElementById('cloneSourceId').value = id;
+    document.getElementById('cloneName').value = name + ' (Copy)';
+    new bootstrap.Modal(document.getElementById('cloneModal')).show();
+}
+
+async function submitClone() {
+    const id = document.getElementById('cloneSourceId').value;
+    const name = document.getElementById('cloneName').value;
+    
+    try {
+        const response = await fetch(`/api/scenarios/${id}/clone?new_name=${encodeURIComponent(name)}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Clone failed: ' + data.message);
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deleteScenario(id, name) {
+    if (!confirm(`Delete scenario "${name}"?\n\nThis cannot be undone.`)) return;
+    
+    try {
+        const response = await fetch(`/api/scenarios/${id}`, { method: 'DELETE' });
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Delete failed: ' + data.message);
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function exportScenario(id) {
+    try {
+        const response = await fetch(`/api/scenarios/${id}/export`);
+        const data = await response.json();
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `scenario_${data.key}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        alert('Export failed: ' + e.message);
+    }
+}
+
+async function importScenario() {
+    const jsonText = document.getElementById('importJson').value;
+    
+    try {
+        const importData = JSON.parse(jsonText);
+        
+        const response = await fetch('/api/scenarios/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(importData)
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Import failed: ' + data.message);
+        }
+    } catch (e) {
+        alert('Invalid JSON or import error: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

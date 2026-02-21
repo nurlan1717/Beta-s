@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Alert #{{ alert.id }} - RansomRun{% endblock %}
+{% block page_title %}Alert Detail{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Alert Info -->
+    <div class="col-lg-8">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Alert #{{ alert.id }}</h3>
+                {% if alert.severity >= 12 %}
+                <span class="badge badge-danger">Critical ({{ alert.severity }})</span>
+                {% elif alert.severity >= 8 %}
+                <span class="badge badge-warning">High ({{ alert.severity }})</span>
+                {% elif alert.severity >= 4 %}
+                <span class="badge badge-info">Medium ({{ alert.severity }})</span>
+                {% else %}
+                <span class="badge badge-gray">Low ({{ alert.severity }})</span>
+                {% endif %}
+            </div>
+            <div class="panel-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div style="margin-bottom: 16px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 4px;">Rule ID</div>
+                            <code style="font-size: 16px;">{{ alert.rule_id }}</code>
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 4px;">Description</div>
+                            <div style="color: #fafafa;">{{ alert.rule_description or 'No description' }}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 4px;">Timestamp</div>
+                            <div style="color: #fafafa;">{{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') if alert.timestamp else '—' }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="margin-bottom: 16px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 4px;">Source Agent</div>
+                            <div style="color: #fafafa;">{{ alert.agent_name or 'Unknown' }}</div>
+                        </div>
+                        {% if alert.host %}
+                        <div style="margin-bottom: 16px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 4px;">Linked Host</div>
+                            <a href="/hosts/{{ alert.host.id }}">{{ alert.host.name }}</a>
+                        </div>
+                        {% endif %}
+                        {% if alert.run_id %}
+                        <div>
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 4px;">Linked Simulation</div>
+                            <a href="/runs/{{ alert.run_id }}">Run #{{ alert.run_id }}</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Raw JSON -->
+        <div class="panel mt-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Raw Alert Data</h3>
+            </div>
+            <div class="panel-body">
+                {% if alert.raw %}
+                <pre style="background: #0f0f14; padding: 16px; border-radius: 8px; font-size: 12px; color: #a1a1aa; overflow-x: auto; margin: 0;">{{ alert.raw | tojson(indent=2) }}</pre>
+                {% else %}
+                <p style="color: #71717a; margin: 0;">No raw data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- MITRE Mapping -->
+    <div class="col-lg-4">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">MITRE ATT&CK</h3>
+            </div>
+            <div class="panel-body">
+                {% if alert.rule_id in mitre_mapping %}
+                {% set mitre = mitre_mapping[alert.rule_id] %}
+                <div style="text-align: center; padding: 20px 0;">
+                    <span class="badge badge-purple" style="font-size: 18px; padding: 8px 16px;">{{ mitre.technique }}</span>
+                    <div style="margin-top: 12px; color: #fafafa; font-weight: 500;">{{ mitre.name }}</div>
+                </div>
+                <hr style="border-color: #27272a;">
+                <div style="font-size: 13px; color: #a1a1aa;">
+                    <p>This alert is mapped to MITRE ATT&CK technique <strong>{{ mitre.technique }}</strong>.</p>
+                    <a href="https://attack.mitre.org/techniques/{{ mitre.technique.replace('.', '/') }}/" 
+                       target="_blank" class="btn btn-ghost btn-sm w-100">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>View on MITRE
+                    </a>
+                </div>
+                {% else %}
+                <div class="empty-state" style="padding: 30px 0;">
+                    <i class="bi bi-question-circle" style="font-size: 2rem;"></i>
+                    <h3 style="font-size: 14px;">No Mapping</h3>
+                    <p style="font-size: 12px;">This rule is not mapped to a MITRE technique.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="panel mt-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Actions</h3>
+            </div>
+            <div class="panel-body">
+                <a href="/siem/explorer?rule={{ alert.rule_id }}" class="btn btn-ghost btn-sm w-100 mb-2">
+                    <i class="bi bi-search me-2"></i>Find Similar Alerts
+                </a>
+                {% if alert.host %}
+                <a href="/hosts/{{ alert.host.id }}" class="btn btn-ghost btn-sm w-100 mb-2">
+                    <i class="bi bi-pc-display me-2"></i>View Host
+                </a>
+                {% endif %}
+                {% if alert.run_id %}
+                <a href="/runs/{{ alert.run_id }}" class="btn btn-ghost btn-sm w-100">
+                    <i class="bi bi-play-circle me-2"></i>View Simulation
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="/siem/explorer" class="btn btn-ghost">
+        <i class="bi bi-arrow-left me-2"></i>Back to Explorer
+    </a>
+</div>
+{% endblock %}

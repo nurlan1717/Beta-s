@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}RansomRun - Ransomware Simulation Platform{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <style>
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #18181b;
+            --bg-tertiary: #27272a;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --accent-primary: #ef4444;
+            --accent-secondary: #dc2626;
+            --border-color: #3f3f46;
+        }
+        
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Public Navbar */
+        .public-navbar {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 0;
+        }
+        
+        .public-navbar .navbar-brand {
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        
+        .public-navbar .nav-link {
+            color: var(--text-secondary);
+            margin: 0 0.5rem;
+            transition: color 0.2s;
+        }
+        
+        .public-navbar .nav-link:hover {
+            color: var(--text-primary);
+        }
+        
+        .btn-primary {
+            background: var(--accent-primary);
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-secondary);
+        }
+        
+        .btn-outline-primary {
+            border: 1px solid var(--accent-primary);
+            color: var(--accent-primary);
+            background: transparent;
+            padding: 0.5rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-outline-primary:hover {
+            background: var(--accent-primary);
+            color: white;
+        }
+        
+        /* Footer */
+        .public-footer {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 3rem 0 2rem;
+            margin-top: 5rem;
+        }
+        
+        .public-footer a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .public-footer a:hover {
+            color: var(--text-primary);
+        }
+        
+        /* Utility classes */
+        .text-muted {
+            color: var(--text-secondary) !important;
+        }
+        
+        .bg-dark-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Public Navigation -->
+    <nav class="public-navbar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="/" class="navbar-brand">
+                    <i class="bi bi-shield-lock"></i> RansomRun
+                </a>
+                
+                <div class="d-flex align-items-center gap-3">
+                    {% block nav_links %}
+                    <a href="/#features" class="nav-link">Features</a>
+                    <a href="/#how-it-works" class="nav-link">How it Works</a>
+                    <a href="/docs" class="nav-link">Docs</a>
+                    {% endblock %}
+                    
+                    {% if user %}
+                    <a href="/dashboard" class="btn btn-outline-primary">Dashboard</a>
+                    <a href="/logout" class="btn btn-primary">Logout</a>
+                    {% else %}
+                    <a href="/login" class="btn btn-outline-primary">Login</a>
+                    <a href="/signup" class="btn btn-primary">Sign Up</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="public-footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5 class="mb-3"><i class="bi bi-shield-lock"></i> RansomRun</h5>
+                    <p class="text-muted">
+                        Lab-safe ransomware simulation platform for SOC training, 
+                        university research, and DFIR education.
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="mb-3">Resources</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="/docs">Documentation</a></li>
+                        <li><a href="https://github.com/ransomrun" target="_blank">GitHub</a></li>
+                        <li><a href="/#features">Features</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="mb-3">Legal</h6>
+                    <p class="text-muted small">
+                        <i class="bi bi-exclamation-triangle"></i> 
+                        <strong>Educational Use Only</strong><br>
+                        This platform is designed for controlled lab environments. 
+                        Unauthorized use against production systems is illegal.
+                    </p>
+                </div>
+            </div>
+            <hr style="border-color: var(--border-color); margin: 2rem 0 1rem;">
+            <div class="text-center text-muted small">
+                &copy; 2024 RansomRun. All rights reserved.
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

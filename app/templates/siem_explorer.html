@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Alert Explorer - RansomRun{% endblock %}
+{% block page_title %}Alert Explorer{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<div class="panel mb-4">
+    <div class="panel-header">
+        <h3 class="panel-title">Filters</h3>
+    </div>
+    <div class="panel-body">
+        <form id="filterForm" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label" style="color: #a1a1aa; font-size: 12px;">Host</label>
+                <select id="filterHost" class="form-select form-select-sm" style="background: #18181b; border-color: #27272a; color: #fafafa;">
+                    <option value="">All Hosts</option>
+                    {% for host in hosts %}
+                    <option value="{{ host.id }}">{{ host.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="color: #a1a1aa; font-size: 12px;">Rule ID</label>
+                <select id="filterRule" class="form-select form-select-sm" style="background: #18181b; border-color: #27272a; color: #fafafa;">
+                    <option value="">All Rules</option>
+                    {% for rule_id in rule_ids|sort %}
+                    <option value="{{ rule_id }}">{{ rule_id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" style="color: #a1a1aa; font-size: 12px;">Min Severity</label>
+                <select id="filterSeverity" class="form-select form-select-sm" style="background: #18181b; border-color: #27272a; color: #fafafa;">
+                    <option value="">Any</option>
+                    <option value="12">Critical (12+)</option>
+                    <option value="8">High (8+)</option>
+                    <option value="4">Medium (4+)</option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="button" onclick="applyFilters()" class="btn btn-primary btn-sm me-2">Apply</button>
+                <button type="button" onclick="clearFilters()" class="btn btn-ghost btn-sm">Clear</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Alerts Table -->
+<div class="panel">
+    <div class="panel-header">
+        <h3 class="panel-title">Alerts</h3>
+        <span class="badge badge-gray" id="alertCount">{{ alerts|length }} total</span>
+    </div>
+    <table class="data-table" id="alertsTable">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Rule ID</th>
+                <th>Description</th>
+                <th>Source</th>
+                <th>Severity</th>
+                <th>MITRE</th>
+                <th>Run</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in alerts %}
+            <tr data-host="{{ alert.host_id or '' }}" data-rule="{{ alert.rule_id }}" data-severity="{{ alert.severity }}">
+                <td>{{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') if alert.timestamp else '—' }}</td>
+                <td><code>{{ alert.rule_id }}</code></td>
+                <td>{{ alert.rule_description|truncate(40) if alert.rule_description else '—' }}</td>
+                <td>
+                    {% if alert.host %}
+                    <a href="/hosts/{{ alert.host.id }}">{{ alert.agent_name or alert.host.name }}</a>
+                    {% else %}
+                    {{ alert.agent_name or '—' }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if alert.severity >= 12 %}
+                    <span class="badge badge-danger">{{ alert.severity }}</span>
+                    {% elif alert.severity >= 8 %}
+                    <span class="badge badge-warning">{{ alert.severity }}</span>
+                    {% elif alert.severity >= 4 %}
+                    <span class="badge badge-info">{{ alert.severity }}</span>
+                    {% else %}
+                    <span class="badge badge-gray">{{ alert.severity }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if alert.rule_id in mitre_mapping %}
+                    <span class="badge badge-purple">{{ mitre_mapping[alert.rule_id].technique }}</span>
+                    {% else %}
+                    <span style="color: #52525b;">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if alert.run_id %}
+                    <a href="/runs/{{ alert.run_id }}" class="btn btn-ghost btn-sm">#{{ alert.run_id }}</a>
+                    {% else %}
+                    <span style="color: #52525b;">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/siem/alerts/{{ alert.id }}" class="btn btn-ghost btn-sm">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% if not alerts %}
+    <div class="empty-state">
+        <i class="bi bi-shield-check"></i>
+        <h3>No Alerts Found</h3>
+        <p>No alerts match the current filters.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function applyFilters() {
+    const hostFilter = document.getElementById('filterHost').value;
+    const ruleFilter = document.getElementById('filterRule').value;
+    const severityFilter = parseInt(document.getElementById('filterSeverity').value) || 0;
+    
+    const rows = document.querySelectorAll('#alertsTable tbody tr');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const host = row.dataset.host;
+        const rule = row.dataset.rule;
+        const severity = parseInt(row.dataset.severity) || 0;
+        
+        let show = true;
+        
+        if (hostFilter && host !== hostFilter) show = false;
+        if (ruleFilter && rule !== ruleFilter) show = false;
+        if (severityFilter && severity < severityFilter) show = false;
+        
+        row.style.display = show ? '' : 'none';
+        if (show) visibleCount++;
+    });
+    
+    document.getElementById('alertCount').textContent = visibleCount + ' shown';
+}
+
+function clearFilters() {
+    document.getElementById('filterHost').value = '';
+    document.getElementById('filterRule').value = '';
+    document.getElementById('filterSeverity').value = '';
+    
+    const rows = document.querySelectorAll('#alertsTable tbody tr');
+    rows.forEach(row => row.style.display = '');
+    
+    document.getElementById('alertCount').textContent = rows.length + ' total';
+}
+</script>
+{% endblock %}

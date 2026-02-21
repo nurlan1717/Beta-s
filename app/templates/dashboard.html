@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - RansomRun{% endblock %}
+{% block page_title %}Security Operations Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-box">
+        <div class="label">Connected Endpoints</div>
+        <div class="value">{{ total_hosts }}</div>
+    </div>
+    <div class="stat-box">
+        <div class="label">Total Simulations</div>
+        <div class="value">{{ total_runs }}</div>
+    </div>
+    <div class="stat-box">
+        <div class="label">Completed Successfully</div>
+        <div class="value">{{ successful_runs }}</div>
+    </div>
+    <div class="stat-box highlight">
+        <div class="label">Active Alerts</div>
+        <div class="value">{{ recent_alerts|length }}</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Recent Activity -->
+    <div class="col-lg-8">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Recent Security Events</h3>
+                <a href="/alerts" class="btn btn-ghost btn-sm">View all</a>
+            </div>
+            {% if recent_alerts %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Rule</th>
+                        <th>Description</th>
+                        <th>Source</th>
+                        <th>Level</th>
+                        <th>MITRE</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in recent_alerts %}
+                    <tr>
+                        <td>{{ alert.timestamp.strftime('%b %d, %H:%M') if alert.timestamp else '—' }}</td>
+                        <td><code>{{ alert.rule_id }}</code></td>
+                        <td>{{ alert.rule_description or '—' }}</td>
+                        <td>{{ alert.agent_name or 'Unknown' }}</td>
+                        <td>
+                            {% if alert.severity >= 12 %}
+                            <span class="badge badge-danger">Critical</span>
+                            {% elif alert.severity >= 8 %}
+                            <span class="badge badge-warning">High</span>
+                            {% elif alert.severity >= 4 %}
+                            <span class="badge badge-info">Medium</span>
+                            {% else %}
+                            <span class="badge badge-gray">Low</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if alert.rule_id in mitre_mapping %}
+                            <span class="badge badge-purple">{{ mitre_mapping[alert.rule_id].technique }}</span>
+                            {% else %}
+                            <span style="color: #52525b;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i class="bi bi-shield-check"></i>
+                <h3>No Security Events</h3>
+                <p>Your environment is quiet. Run a simulation to generate activity and test your detection capabilities.</p>
+                <a href="/simulate" class="btn btn-primary">
+                    <i class="bi bi-play-fill"></i> Launch Simulation
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="col-lg-4">
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Quick Actions</h3>
+            </div>
+            <div class="panel-body">
+                <a href="/simulate" class="btn btn-danger w-100 mb-3" style="padding: 14px;">
+                    <i class="bi bi-lightning-charge-fill"></i> Start New Simulation
+                </a>
+                <a href="/hosts" class="btn btn-secondary w-100 mb-2">
+                    <i class="bi bi-hdd-network"></i> Manage Endpoints
+                </a>
+                <a href="/playbooks" class="btn btn-secondary w-100 mb-2">
+                    <i class="bi bi-file-earmark-code"></i> Configure Playbooks
+                </a>
+                <a href="/runs" class="btn btn-secondary w-100">
+                    <i class="bi bi-clock-history"></i> View History
+                </a>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">System Status</h3>
+            </div>
+            <div class="panel-body">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 10px; height: 10px; background: #22c55e; border-radius: 50%;"></div>
+                    <div>
+                        <div style="font-weight: 500; color: #fafafa;">API Server</div>
+                        <div style="font-size: 12px; color: #71717a;">Operational</div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 10px; height: 10px; background: #22c55e; border-radius: 50%;"></div>
+                    <div>
+                        <div style="font-weight: 500; color: #fafafa;">Database</div>
+                        <div style="font-size: 12px; color: #71717a;">Connected</div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 10px; height: 10px; background: {% if total_hosts > 0 %}#22c55e{% else %}#eab308{% endif %}; border-radius: 50%;"></div>
+                    <div>
+                        <div style="font-weight: 500; color: #fafafa;">Agent Network</div>
+                        <div style="font-size: 12px; color: #71717a;">{{ total_hosts }} endpoint{% if total_hosts != 1 %}s{% endif %} registered</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

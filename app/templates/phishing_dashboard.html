@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Phishing Dashboard - RANSOMRUN{% endblock %}
+{% block page_title %}Phishing Awareness Dashboard{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="/phishing">Phishing Lab</a></li>
+        <li class="breadcrumb-item active">Dashboard</li>
+    </ol>
+</nav>
+
+<!-- Overall Stats -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px;">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #a78bfa;">
+            <i class="bi bi-envelope-paper"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.total_campaigns }}</div>
+            <div class="stat-label">Total Campaigns</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #60a5fa;">
+            <i class="bi bi-send"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.total_messages }}</div>
+            <div class="stat-label">Messages Sent</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(234, 179, 8, 0.1); color: #fbbf24;">
+            <i class="bi bi-cursor"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.total_clicked }}</div>
+            <div class="stat-label">Total Clicks</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(34, 197, 94, 0.1); color: #4ade80;">
+            <i class="bi bi-flag"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.total_reported }}</div>
+            <div class="stat-label">Total Reports</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Rate Metrics -->
+        <div class="card mb-4">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-graph-up me-2" style="color: #60a5fa;"></i>
+                    Overall Metrics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 36px; font-weight: 700; color: #fbbf24;">
+                                {{ "%.1f"|format(stats.avg_open_rate) }}%
+                            </div>
+                            <div style="color: #a1a1aa; font-size: 14px;">Average Open Rate</div>
+                            <div style="margin-top: 12px; height: 8px; background: #27272a; border-radius: 4px; overflow: hidden;">
+                                <div style="height: 100%; width: {{ stats.avg_open_rate }}%; background: linear-gradient(90deg, #fbbf24, #f59e0b);"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 36px; font-weight: 700; color: #f87171;">
+                                {{ "%.1f"|format(stats.avg_click_rate) }}%
+                            </div>
+                            <div style="color: #a1a1aa; font-size: 14px;">Average Click Rate</div>
+                            <div style="margin-top: 12px; height: 8px; background: #27272a; border-radius: 4px; overflow: hidden;">
+                                <div style="height: 100%; width: {{ stats.avg_click_rate }}%; background: linear-gradient(90deg, #f87171, #ef4444);"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div style="text-align: center; padding: 20px;">
+                            <div style="font-size: 36px; font-weight: 700; color: #4ade80;">
+                                {{ "%.1f"|format(stats.avg_report_rate) }}%
+                            </div>
+                            <div style="color: #a1a1aa; font-size: 14px;">Average Report Rate</div>
+                            <div style="margin-top: 12px; height: 8px; background: #27272a; border-radius: 4px; overflow: hidden;">
+                                <div style="height: 100%; width: {{ stats.avg_report_rate }}%; background: linear-gradient(90deg, #4ade80, #22c55e);"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Campaign Comparison -->
+        <div class="card">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-bar-chart me-2" style="color: #a78bfa;"></i>
+                    Campaign Performance
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                {% if campaign_stats %}
+                <table class="table table-dark mb-0" style="background: transparent;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #27272a;">
+                            <th style="padding: 14px 16px; font-weight: 500; color: #a1a1aa;">Campaign</th>
+                            <th style="padding: 14px 16px; font-weight: 500; color: #a1a1aa;">Sent</th>
+                            <th style="padding: 14px 16px; font-weight: 500; color: #a1a1aa;">Open Rate</th>
+                            <th style="padding: 14px 16px; font-weight: 500; color: #a1a1aa;">Click Rate</th>
+                            <th style="padding: 14px 16px; font-weight: 500; color: #a1a1aa;">Report Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in campaign_stats %}
+                        <tr style="border-bottom: 1px solid #27272a;">
+                            <td style="padding: 14px 16px;">
+                                <a href="/phishing/campaign/{{ item.campaign.id }}" style="color: #fafafa;">
+                                    {{ item.campaign.name }}
+                                </a>
+                            </td>
+                            <td style="padding: 14px 16px; color: #a1a1aa;">{{ item.stats.sent }}</td>
+                            <td style="padding: 14px 16px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="flex: 1; height: 6px; background: #27272a; border-radius: 3px; max-width: 80px;">
+                                        <div style="height: 100%; width: {{ item.stats.open_rate }}%; background: #fbbf24; border-radius: 3px;"></div>
+                                    </div>
+                                    <span style="color: #fbbf24; font-size: 13px;">{{ "%.0f"|format(item.stats.open_rate) }}%</span>
+                                </div>
+                            </td>
+                            <td style="padding: 14px 16px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="flex: 1; height: 6px; background: #27272a; border-radius: 3px; max-width: 80px;">
+                                        <div style="height: 100%; width: {{ item.stats.click_rate }}%; background: #f87171; border-radius: 3px;"></div>
+                                    </div>
+                                    <span style="color: #f87171; font-size: 13px;">{{ "%.0f"|format(item.stats.click_rate) }}%</span>
+                                </div>
+                            </td>
+                            <td style="padding: 14px 16px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="flex: 1; height: 6px; background: #27272a; border-radius: 3px; max-width: 80px;">
+                                        <div style="height: 100%; width: {{ item.stats.report_rate }}%; background: #4ade80; border-radius: 3px;"></div>
+                                    </div>
+                                    <span style="color: #4ade80; font-size: 13px;">{{ "%.0f"|format(item.stats.report_rate) }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="padding: 40px; text-align: center; color: #71717a;">
+                    No campaign data yet. Launch a campaign to see metrics.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <!-- Risk Assessment -->
+        <div class="card mb-4">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-shield-exclamation me-2" style="color: #f87171;"></i>
+                    Risk Assessment
+                </h5>
+            </div>
+            <div class="card-body">
+                {% set risk_score = stats.avg_click_rate %}
+                {% if risk_score < 10 %}
+                    {% set risk_level = "Low" %}
+                    {% set risk_color = "#4ade80" %}
+                    {% set risk_bg = "rgba(34, 197, 94, 0.1)" %}
+                {% elif risk_score < 25 %}
+                    {% set risk_level = "Medium" %}
+                    {% set risk_color = "#fbbf24" %}
+                    {% set risk_bg = "rgba(234, 179, 8, 0.1)" %}
+                {% else %}
+                    {% set risk_level = "High" %}
+                    {% set risk_color = "#f87171" %}
+                    {% set risk_bg = "rgba(239, 68, 68, 0.1)" %}
+                {% endif %}
+                
+                <div style="text-align: center; padding: 20px; background: {{ risk_bg }}; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="font-size: 14px; color: #a1a1aa; margin-bottom: 8px;">Organization Risk Level</div>
+                    <div style="font-size: 28px; font-weight: 700; color: {{ risk_color }};">{{ risk_level }}</div>
+                </div>
+                
+                <div style="font-size: 13px; color: #a1a1aa;">
+                    {% if risk_level == "Low" %}
+                    <p><i class="bi bi-check-circle me-2" style="color: #4ade80;"></i>Your team shows good phishing awareness.</p>
+                    {% elif risk_level == "Medium" %}
+                    <p><i class="bi bi-exclamation-circle me-2" style="color: #fbbf24;"></i>Some users need additional training.</p>
+                    {% else %}
+                    <p><i class="bi bi-x-circle me-2" style="color: #f87171;"></i>Immediate training intervention recommended.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="card">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-lightning me-2" style="color: #fbbf24;"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div style="display: grid; gap: 12px;">
+                    <a href="/phishing/new" class="btn" style="background: rgba(139, 92, 246, 0.1); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.2); text-align: left; padding: 12px 16px;">
+                        <i class="bi bi-plus-circle me-2"></i>Create New Campaign
+                    </a>
+                    <a href="/phishing" class="btn" style="background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); text-align: left; padding: 12px 16px;">
+                        <i class="bi bi-list-ul me-2"></i>View All Campaigns
+                    </a>
+                    <a href="/phishing/inbox" class="btn" style="background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); text-align: left; padding: 12px 16px;">
+                        <i class="bi bi-inbox me-2"></i>Check Training Inbox
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

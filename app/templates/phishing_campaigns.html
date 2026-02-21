@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Phishing Lab - RANSOMRUN{% endblock %}
+{% block page_title %}Phishing Awareness Simulator{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item active">Phishing Lab</li>
+    </ol>
+</nav>
+
+<!-- Safety Banner -->
+<div class="alert" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac; margin-bottom: 24px;">
+    <i class="bi bi-shield-check me-2"></i>
+    <strong>Lab Safe Mode:</strong> All phishing simulations are internal training only. 
+    Emails are delivered to in-app inbox or local MailHog. Allowed domains: {{ config.allowlist_domains | join(', ') }}
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px;">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #a78bfa;">
+            <i class="bi bi-envelope-paper"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.total_campaigns }}</div>
+            <div class="stat-label">Total Campaigns</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #60a5fa;">
+            <i class="bi bi-send"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.total_messages }}</div>
+            <div class="stat-label">Messages Sent</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(234, 179, 8, 0.1); color: #fbbf24;">
+            <i class="bi bi-cursor"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ "%.1f"|format(stats.avg_click_rate) }}%</div>
+            <div class="stat-label">Avg Click Rate</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(34, 197, 94, 0.1); color: #4ade80;">
+            <i class="bi bi-flag"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ "%.1f"|format(stats.avg_report_rate) }}%</div>
+            <div class="stat-label">Avg Report Rate</div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Campaigns</h2>
+    <div style="display: flex; gap: 12px;">
+        <a href="/phishing/inbox" class="btn btn-outline-secondary" style="border-color: #3f3f46; color: #a1a1aa;">
+            <i class="bi bi-inbox me-2"></i>View Inbox
+        </a>
+        <a href="/phishing/dashboard" class="btn btn-outline-secondary" style="border-color: #3f3f46; color: #a1a1aa;">
+            <i class="bi bi-graph-up me-2"></i>Dashboard
+        </a>
+        <a href="/phishing/new" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none;">
+            <i class="bi bi-plus-lg me-2"></i>New Campaign
+        </a>
+    </div>
+</div>
+
+<!-- Campaigns Table -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if campaigns %}
+        <table class="table table-dark mb-0" style="background: transparent;">
+            <thead>
+                <tr style="border-bottom: 1px solid #27272a;">
+                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Campaign</th>
+                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Status</th>
+                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Recipients</th>
+                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Open Rate</th>
+                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Click Rate</th>
+                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Report Rate</th>
+                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Created</th>
+                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in campaigns %}
+                <tr style="border-bottom: 1px solid #27272a;">
+                    <td style="padding: 16px;">
+                        <a href="/phishing/campaign/{{ item.campaign.id }}" style="color: #fafafa; font-weight: 500;">
+                            {{ item.campaign.name }}
+                        </a>
+                        {% if item.campaign.description %}
+                        <div style="font-size: 12px; color: #71717a; margin-top: 4px;">
+                            {{ item.campaign.description[:50] }}{% if item.campaign.description|length > 50 %}...{% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 16px;">
+                        {% if item.campaign.status.value == 'DRAFT' %}
+                        <span class="badge" style="background: rgba(113, 113, 122, 0.2); color: #a1a1aa;">Draft</span>
+                        {% elif item.campaign.status.value == 'RUNNING' %}
+                        <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80;">Running</span>
+                        {% elif item.campaign.status.value == 'PAUSED' %}
+                        <span class="badge" style="background: rgba(234, 179, 8, 0.2); color: #fbbf24;">Paused</span>
+                        {% else %}
+                        <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">Ended</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 16px; color: #d4d4d8;">{{ item.recipient_count }}</td>
+                    <td style="padding: 16px;">
+                        <span style="color: #fbbf24;">{{ "%.1f"|format(item.stats.open_rate) }}%</span>
+                    </td>
+                    <td style="padding: 16px;">
+                        <span style="color: #f87171;">{{ "%.1f"|format(item.stats.click_rate) }}%</span>
+                    </td>
+                    <td style="padding: 16px;">
+                        <span style="color: #4ade80;">{{ "%.1f"|format(item.stats.report_rate) }}%</span>
+                    </td>
+                    <td style="padding: 16px; color: #71717a; font-size: 13px;">
+                        {{ item.campaign.created_at.strftime('%Y-%m-%d') }}
+                    </td>
+                    <td style="padding: 16px;">
+                        <div style="display: flex; gap: 8px;">
+                            <a href="/phishing/campaign/{{ item.campaign.id }}" class="btn btn-sm" style="background: #27272a; color: #d4d4d8; border: none;">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            {% if item.campaign.status.value == 'DRAFT' %}
+                            <button class="btn btn-sm launch-btn" data-id="{{ item.campaign.id }}" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: none;">
+                                <i class="bi bi-play-fill"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 60px; text-align: center;">
+            <i class="bi bi-envelope-paper" style="font-size: 48px; color: #3f3f46; margin-bottom: 16px;"></i>
+            <h3 style="color: #71717a; font-size: 16px; margin-bottom: 8px;">No Campaigns Yet</h3>
+            <p style="color: #52525b; font-size: 14px; margin-bottom: 24px;">Create your first phishing awareness campaign to start training.</p>
+            <a href="/phishing/new" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none;">
+                <i class="bi bi-plus-lg me-2"></i>Create Campaign
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.launch-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const id = this.dataset.id;
+        if (!confirm('Launch this campaign? Messages will be sent to all recipients.')) return;
+        
+        try {
+            const resp = await fetch(`/api/phishing/campaigns/${id}/launch`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                alert(`Campaign launched! ${data.messages_created} messages sent.`);
+                location.reload();
+            } else {
+                alert('Error: ' + (data.detail || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Error launching campaign');
+        }
+    });
+});
+</script>
+{% endblock %}

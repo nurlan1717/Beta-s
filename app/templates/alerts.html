@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Alerts - RansomRun{% endblock %}
+{% block page_title %}Security Alerts{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h3 class="panel-title">Alert Feed</h3>
+        <span class="badge badge-gray">{{ alerts|length }} total</span>
+    </div>
+    {% if alerts %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Rule</th>
+                <th>Description</th>
+                <th>Source</th>
+                <th>Severity</th>
+                <th>MITRE</th>
+                <th>Simulation</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in alerts %}
+            <tr>
+                <td>{{ alert.timestamp.strftime('%b %d, %H:%M:%S') if alert.timestamp else '—' }}</td>
+                <td><code>{{ alert.rule_id }}</code></td>
+                <td>{{ alert.rule_description or '—' }}</td>
+                <td>
+                    {% if alert.host %}
+                    <a href="/hosts/{{ alert.host.id }}">{{ alert.agent_name or alert.host.name }}</a>
+                    {% else %}
+                    {{ alert.agent_name or 'Unknown' }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if alert.severity >= 12 %}
+                    <span class="badge badge-danger">Critical</span>
+                    {% elif alert.severity >= 8 %}
+                    <span class="badge badge-warning">High</span>
+                    {% elif alert.severity >= 4 %}
+                    <span class="badge badge-info">Medium</span>
+                    {% else %}
+                    <span class="badge badge-gray">Low</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if alert.rule_id in mitre_mapping %}
+                    <span class="badge badge-purple" title="{{ mitre_mapping[alert.rule_id].name }}">
+                        {{ mitre_mapping[alert.rule_id].technique }}
+                    </span>
+                    {% else %}
+                    <span style="color: #52525b;">—</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if alert.run_id %}
+                    <a href="/runs/{{ alert.run_id }}" class="btn btn-ghost btn-sm">#{{ alert.run_id }}</a>
+                    {% else %}
+                    <span style="color: #52525b;">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <i class="bi bi-shield-check"></i>
+        <h3>No Alerts Received</h3>
+        <p>Alerts from Wazuh SIEM will appear here. Run a simulation or configure the webhook.</p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="panel mt-4">
+    <div class="panel-header">
+        <h3 class="panel-title">Wazuh Integration</h3>
+    </div>
+    <div class="panel-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div style="margin-bottom: 20px;">
+                    <div style="font-size: 12px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Webhook Endpoint</div>
+                    <code style="display: block; background: #0f0f14; padding: 12px; border-radius: 6px;">POST http://&lt;server-ip&gt;:8000/api/alerts/wazuh</code>
+                </div>
+                
+                <div style="font-size: 12px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Test Command</div>
+                <pre style="background: #0f0f14; padding: 12px; border-radius: 6px; font-size: 12px; color: #a1a1aa; margin: 0; overflow-x: auto;">curl -X POST http://localhost:8000/api/alerts/wazuh \
+  -H "Content-Type: application/json" \
+  -d '{"rule":{"id":"100101","description":"Test","level":10},"agent":{"name":"WIN10-01"}}'</pre>
+            </div>
+            <div class="col-md-6">
+                <div style="font-size: 12px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Expected JSON Format</div>
+                <pre style="background: #0f0f14; padding: 12px; border-radius: 6px; font-size: 12px; color: #a1a1aa; margin: 0;">{
+  "rule": {
+    "id": "100101",
+    "description": "Shadow copies deleted",
+    "level": 12
+  },
+  "agent": { "name": "WIN10-01" },
+  "timestamp": "2025-12-07T10:11:12Z"
+}</pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

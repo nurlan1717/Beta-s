@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Playbooks - RansomRun{% endblock %}
+{% block page_title %}Response Playbooks{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    {% for playbook in playbooks %}
+    <div class="col-lg-6">
+        <div class="panel h-100">
+            <div class="panel-header">
+                <h3 class="panel-title">{{ playbook.name }}</h3>
+                {% if playbook.enabled %}
+                <span class="badge badge-success">Active</span>
+                {% else %}
+                <span class="badge badge-gray">Disabled</span>
+                {% endif %}
+            </div>
+            <div class="panel-body">
+                <div style="display: flex; gap: 24px; margin-bottom: 16px;">
+                    <div>
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Trigger Rule</div>
+                        <code>{{ playbook.rule_id }}</code>
+                    </div>
+                    {% if playbook.rule_id in mitre_mapping %}
+                    <div>
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">MITRE Technique</div>
+                        <span class="badge badge-purple">{{ mitre_mapping[playbook.rule_id].technique }}</span>
+                        <span style="color: #a1a1aa; font-size: 12px;">{{ mitre_mapping[playbook.rule_id].name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Response Actions</div>
+                {% for action in playbook.actions %}
+                <div style="background: #0f0f14; border-radius: 6px; padding: 10px 12px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+                    <code style="background: transparent; padding: 0;">{{ action.type }}</code>
+                    {% if action.parameters %}
+                    <span style="font-size: 11px; color: #71717a;">{{ action.parameters | tojson }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="panel">
+            <div class="empty-state">
+                <i class="bi bi-file-earmark-code"></i>
+                <h3>No Playbooks Configured</h3>
+                <p>Playbooks are automatically seeded on startup.</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row mt-4 g-4">
+    <div class="col-lg-6">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">How Playbooks Work</h3>
+            </div>
+            <div class="panel-body" style="font-size: 13px; color: #a1a1aa;">
+                <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                    <div style="color: #3b82f6; font-weight: 600;">1.</div>
+                    <div>Wazuh alert arrives via webhook with a <code>rule_id</code></div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                    <div style="color: #3b82f6; font-weight: 600;">2.</div>
+                    <div>System matches the rule to an enabled playbook</div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                    <div style="color: #3b82f6; font-weight: 600;">3.</div>
+                    <div>Response tasks are created for the affected endpoint</div>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <div style="color: #3b82f6; font-weight: 600;">4.</div>
+                    <div>Agent executes containment actions automatically</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Available Actions</h3>
+            </div>
+            <div class="panel-body">
+                <div style="margin-bottom: 12px;">
+                    <code>response_kill_process</code>
+                    <div style="font-size: 12px; color: #71717a;">Terminates a process via taskkill</div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <code>response_disable_user</code>
+                    <div style="font-size: 12px; color: #71717a;">Disables a Windows user account</div>
+                </div>
+                <div>
+                    <code>response_isolate_host</code>
+                    <div style="font-size: 12px; color: #71717a;">Blocks network via Windows Firewall</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel mt-4">
+    <div class="panel-header">
+        <h3 class="panel-title">MITRE ATT&CK Reference</h3>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Rule ID</th>
+                <th>Technique</th>
+                <th>Name</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rule_id, mapping in mitre_mapping.items() %}
+            <tr>
+                <td><code>{{ rule_id }}</code></td>
+                <td><span class="badge badge-purple">{{ mapping.technique }}</span></td>
+                <td>{{ mapping.name }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

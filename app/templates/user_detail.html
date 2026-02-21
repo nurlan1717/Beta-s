@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.full_name or user.username }} - SOC CV - RansomRun{% endblock %}
+{% block page_title %}Analyst Profile{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="/users" class="btn btn-ghost btn-sm mb-2">
+            <i class="bi bi-arrow-left me-1"></i> Back to Analysts
+        </a>
+        <h2 style="color: #fafafa; margin: 0;">
+            {{ user.full_name or user.username }}
+            <span class="badge badge-{% if user.role.value == 'admin' %}danger{% elif user.role.value == 'senior_analyst' %}warning{% else %}info{% endif %} ms-2">
+                {{ user.role.value|replace('_', ' ')|title }}
+            </span>
+        </h2>
+    </div>
+    <button onclick="window.print()" class="btn btn-secondary btn-sm">
+        <i class="bi bi-printer me-1"></i> Export SOC CV
+    </button>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Profile Info -->
+    <div class="col-lg-4">
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Profile</h3>
+            </div>
+            <div class="panel-body text-center">
+                <div style="width: 80px; height: 80px; background: #27272a; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                    <i class="bi bi-person" style="font-size: 32px; color: #a1a1aa;"></i>
+                </div>
+                <h4 style="color: #fafafa; margin-bottom: 4px;">{{ user.full_name or user.username }}</h4>
+                <p style="color: #71717a; margin-bottom: 16px;">@{{ user.username }}</p>
+                <div style="font-size: 12px; color: #a1a1aa;">
+                    Member since {{ user.created_at.strftime('%B %Y') if user.created_at else 'Unknown' }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Stats -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Statistics</h3>
+            </div>
+            <div class="panel-body">
+                <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #27272a;">
+                    <span style="color: #a1a1aa;">IR Sessions</span>
+                    <strong style="color: #fafafa;">{{ sessions|length }}</strong>
+                </div>
+                {% if skill_profile and skill_profile.metrics %}
+                <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #27272a;">
+                    <span style="color: #a1a1aa;">Avg Detection Time</span>
+                    <strong style="color: #fafafa;">{{ skill_profile.metrics.avg_detection_ack_s|round(1) if skill_profile.metrics.avg_detection_ack_s else '—' }}s</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #27272a;">
+                    <span style="color: #a1a1aa;">Avg Response Time</span>
+                    <strong style="color: #fafafa;">{{ skill_profile.metrics.avg_response_s|round(1) if skill_profile.metrics.avg_response_s else '—' }}s</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 12px 0;">
+                    <span style="color: #a1a1aa;">Runs Handled</span>
+                    <strong style="color: #fafafa;">{{ skill_profile.metrics.runs_handled|default(0) }}</strong>
+                </div>
+                {% else %}
+                <p style="color: #71717a; font-size: 13px; margin: 12px 0 0;">No metrics available yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column: Skills & Feedback -->
+    <div class="col-lg-8">
+        <!-- Strengths & Weaknesses -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Skills Assessment</h3>
+            </div>
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div style="font-size: 11px; color: #22c55e; text-transform: uppercase; margin-bottom: 8px;">Strengths</div>
+                        {% if skill_profile and skill_profile.strengths %}
+                        <div style="font-size: 13px; color: #a1a1aa; white-space: pre-line;">{{ skill_profile.strengths }}</div>
+                        {% else %}
+                        <p style="color: #71717a; font-size: 13px;">Complete more IR sessions to identify strengths.</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <div style="font-size: 11px; color: #ef4444; text-transform: uppercase; margin-bottom: 8px;">Areas for Improvement</div>
+                        {% if skill_profile and skill_profile.weaknesses %}
+                        <div style="font-size: 13px; color: #a1a1aa; white-space: pre-line;">{{ skill_profile.weaknesses }}</div>
+                        {% else %}
+                        <p style="color: #71717a; font-size: 13px;">Complete more IR sessions to identify areas for improvement.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Feedback -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Recent Coach Feedback</h3>
+            </div>
+            <div class="panel-body">
+                {% if feedbacks %}
+                {% for fb in feedbacks %}
+                <div style="background: #0f0f14; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <a href="/runs/{{ fb.run_id }}" style="color: #3b82f6;">Run #{{ fb.run_id }}</a>
+                        <span style="font-size: 11px; color: #71717a;">{{ fb.created_at.strftime('%Y-%m-%d') if fb.created_at else '' }}</span>
+                    </div>
+                    <div style="font-size: 12px; color: #a1a1aa;">
+                        {{ fb.positives[:150] if fb.positives else '' }}...
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="color: #71717a; font-size: 13px;">No feedback available yet.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- IR Sessions -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">IR Session History</h3>
+                <span class="badge badge-gray">{{ sessions|length }}</span>
+            </div>
+            {% if sessions %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Run</th>
+                        <th>Started</th>
+                        <th>Ended</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for session in sessions %}
+                    <tr>
+                        <td><a href="/runs/{{ session.run_id }}">#{{ session.run_id }}</a></td>
+                        <td>{{ session.started_at.strftime('%Y-%m-%d %H:%M') if session.started_at else '—' }}</td>
+                        <td>{{ session.ended_at.strftime('%Y-%m-%d %H:%M') if session.ended_at else 'Ongoing' }}</td>
+                        <td>
+                            {% if session.started_at and session.ended_at %}
+                            {{ ((session.ended_at - session.started_at).total_seconds() / 60)|round(1) }} min
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state" style="padding: 30px;">
+                <i class="bi bi-clipboard-data"></i>
+                <h3>No Sessions</h3>
+                <p>This analyst hasn't participated in any IR sessions yet.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .sidebar, .topbar, button, .btn { display: none !important; }
+        .main-content { margin-left: 0 !important; }
+        .panel { break-inside: avoid; }
+        body { background: white !important; color: black !important; }
+        .panel { background: white !important; border: 1px solid #ccc !important; }
+    }
+</style>
+{% endblock %}

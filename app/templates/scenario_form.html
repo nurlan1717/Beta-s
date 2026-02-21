@@ -1,0 +1,337 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if scenario else 'Create' }} Scenario - RansomRun{% endblock %}
+{% block page_title %}{{ 'Edit' if scenario else 'Create Custom' }} Scenario{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Safety Notice -->
+        <div class="alert alert-info mb-4" style="border-left: 4px solid #0dcaf0;">
+            <i class="bi bi-shield-check me-2"></i>
+            <strong>Simulation Only:</strong> All behaviors configured here are safe simulations. 
+            No real encryption or data exfiltration is performed.
+        </div>
+
+        <form id="scenarioForm" method="POST">
+            <!-- Basic Info -->
+            <div class="panel mb-4">
+                <div class="panel-header">
+                    <h3 class="panel-title"><i class="bi bi-info-circle me-2"></i>Basic Information</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Scenario Name <span class="text-danger">*</span></label>
+                            <input type="text" name="name" class="form-control" required
+                                value="{{ scenario.name if scenario else '' }}"
+                                placeholder="e.g., Finance Locker Lab"
+                                style="background: #09090b; border-color: #27272a; color: #fff;">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Category</label>
+                            <select name="category" class="form-select" style="background: #09090b; border-color: #27272a; color: #fff;">
+                                <option value="crypto" {{ 'selected' if not scenario or (scenario and scenario.category and scenario.category.value == 'crypto') else '' }}>Crypto Ransomware</option>
+                                <option value="locker" {{ 'selected' if scenario and scenario.category and scenario.category.value == 'locker' else '' }}>Locker</option>
+                                <option value="wiper" {{ 'selected' if scenario and scenario.category and scenario.category.value == 'wiper' else '' }}>Wiper</option>
+                                <option value="exfil" {{ 'selected' if scenario and scenario.category and scenario.category.value == 'exfil' else '' }}>Exfiltration</option>
+                                <option value="fake" {{ 'selected' if scenario and scenario.category and scenario.category.value == 'fake' else '' }}>Fake/Training</option>
+                                <option value="multi-stage" {{ 'selected' if scenario and scenario.category and scenario.category.value == 'multi-stage' else '' }}>Multi-Stage</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description</label>
+                            <textarea name="description" class="form-control" rows="3"
+                                placeholder="Describe what this scenario simulates..."
+                                style="background: #09090b; border-color: #27272a; color: #fff;">{{ scenario.description if scenario else '' }}</textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Behavior Style</label>
+                            <select name="behavior_style" class="form-select" style="background: #09090b; border-color: #27272a; color: #fff;">
+                                {% set current_style = config.behavior_style if config else 'LOUD_CRYPTO' %}
+                                <option value="LOUD_CRYPTO" {{ 'selected' if current_style == 'LOUD_CRYPTO' else '' }}>Loud Crypto (Fast, Obvious)</option>
+                                <option value="STEALTHY" {{ 'selected' if current_style == 'STEALTHY' else '' }}>Stealthy (Slow, Subtle)</option>
+                                <option value="LOCKER_LIKE" {{ 'selected' if current_style == 'LOCKER_LIKE' else '' }}>Locker-Like (Screen Lock Focus)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Intensity Level (1-5)</label>
+                            <input type="range" name="intensity_level" class="form-range" min="1" max="5" 
+                                value="{{ config.intensity_level if config else 3 }}"
+                                oninput="document.getElementById('intensityValue').textContent = this.value">
+                            <div class="d-flex justify-content-between" style="font-size: 11px; color: #71717a;">
+                                <span>1 - Minimal</span>
+                                <span id="intensityValue" class="badge bg-danger">{{ config.intensity_level if config else 3 }}</span>
+                                <span>5 - Maximum</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target Configuration -->
+            <div class="panel mb-4">
+                <div class="panel-header">
+                    <h3 class="panel-title"><i class="bi bi-folder me-2"></i>Target Configuration</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Target Directories</label>
+                            <textarea name="target_dirs" class="form-control" rows="3"
+                                placeholder="C:\RansomLab&#10;C:\Users\employee01\Documents&#10;(one per line)"
+                                style="background: #09090b; border-color: #27272a; color: #fff; font-family: monospace;">{% if config and config.directories_to_target %}{{ config.directories_to_target | join('\n') }}{% else %}C:\RansomLab{% endif %}</textarea>
+                            <small class="text-muted">One directory per line. System directories (C:\Windows, C:\Program Files) are blocked for safety.</small>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">File Extensions to Target</label>
+                            <input type="text" name="file_extensions" class="form-control"
+                                value="{% if config and config.file_extensions %}{{ config.file_extensions | join(', ') }}{% else %}.docx, .xlsx, .pdf, .txt{% endif %}"
+                                placeholder=".docx, .xlsx, .pdf, .txt"
+                                style="background: #09090b; border-color: #27272a; color: #fff;">
+                            <small class="text-muted">Comma-separated, each starting with a dot.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Max Files</label>
+                            <input type="number" name="max_files" class="form-control" min="1" max="1000"
+                                value="{{ config.max_files if config else 150 }}"
+                                style="background: #09090b; border-color: #27272a; color: #fff;">
+                            <small class="text-muted">Maximum: 1000</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Rename Extension</label>
+                            <input type="text" name="rename_extension" class="form-control"
+                                value="{{ config.rename_pattern if config else '.locked' }}"
+                                placeholder=".locked"
+                                style="background: #09090b; border-color: #27272a; color: #fff;">
+                            <small class="text-muted">Extension added to "encrypted" files.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Delay Between Steps (seconds)</label>
+                            <input type="number" name="delay_seconds" class="form-control" min="0" max="300"
+                                value="{{ config.optional_delay_seconds if config else 0 }}"
+                                style="background: #09090b; border-color: #27272a; color: #fff;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ransom Note -->
+            <div class="panel mb-4">
+                <div class="panel-header">
+                    <h3 class="panel-title"><i class="bi bi-file-text me-2"></i>Ransom Note</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Filename</label>
+                            <input type="text" name="ransom_note_filename" class="form-control"
+                                value="{{ config.ransom_note.filename if config and config.ransom_note else 'README_RESTORE.txt' }}"
+                                placeholder="README_RESTORE.txt"
+                                style="background: #09090b; border-color: #27272a; color: #fff;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Drop Locations</label>
+                            <input type="text" name="ransom_note_locations" class="form-control"
+                                value="{% if config and config.ransom_note and config.ransom_note.locations %}{{ config.ransom_note.locations | join(', ') }}{% else %}target_root, desktop{% endif %}"
+                                placeholder="target_root, desktop"
+                                style="background: #09090b; border-color: #27272a; color: #fff;">
+                            <small class="text-muted">Options: target_root, desktop, or specific paths</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Note Content</label>
+                            <textarea name="ransom_note_content" class="form-control" rows="6"
+                                placeholder="Your files have been encrypted..."
+                                style="background: #09090b; border-color: #27272a; color: #fff; font-family: monospace;">{% if config and config.ransom_note %}{{ config.ransom_note.content }}{% else %}YOUR FILES HAVE BEEN ENCRYPTED!
+
+All your important files have been encrypted.
+To recover your files, follow the instructions below.
+
+WARNING: This is a SIMULATION for security training purposes.
+Your files have only been renamed, not actually encrypted.
+
+--- RANSOMRUN TRAINING PLATFORM ---{% endif %}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulation Options -->
+            <div class="panel mb-4">
+                <div class="panel-header">
+                    <h3 class="panel-title"><i class="bi bi-gear me-2"></i>Simulation Options</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="row g-4">
+                        <!-- VSS Admin -->
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="simulate_vssadmin" id="vssadmin"
+                                    {{ 'checked' if config and config.simulate_vssadmin else '' }}>
+                                <label class="form-check-label" for="vssadmin">
+                                    <strong>Simulate Shadow Copy Deletion</strong>
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1">Runs vssadmin delete shadows (requires admin)</small>
+                        </div>
+
+                        <!-- Persistence -->
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="simulate_persistence" id="persistence"
+                                    {{ 'checked' if config and config.simulate_persistence else '' }}
+                                    onchange="document.getElementById('persistenceOptions').style.display = this.checked ? 'block' : 'none'">
+                                <label class="form-check-label" for="persistence">
+                                    <strong>Simulate Persistence</strong>
+                                </label>
+                            </div>
+                            <div id="persistenceOptions" class="mt-2" style="display: {{ 'block' if config and config.simulate_persistence else 'none' }};">
+                                <select name="persistence_type" class="form-select form-select-sm" style="background: #09090b; border-color: #27272a; color: #fff;">
+                                    <option value="registry_run_key" {{ 'selected' if not config or config.persistence_type == 'registry_run_key' else '' }}>Registry Run Key</option>
+                                    <option value="scheduled_task" {{ 'selected' if config and config.persistence_type == 'scheduled_task' else '' }}>Scheduled Task</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Exfiltration -->
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="simulate_exfiltration" id="exfil"
+                                    {{ 'checked' if config and config.simulate_exfiltration else '' }}
+                                    onchange="document.getElementById('exfilOptions').style.display = this.checked ? 'block' : 'none'">
+                                <label class="form-check-label" for="exfil">
+                                    <strong>Simulate Exfiltration Preparation</strong>
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1">Creates local ZIP archive only (no network upload)</small>
+                            <div id="exfilOptions" class="mt-2" style="display: {{ 'block' if config and config.simulate_exfiltration else 'none' }};">
+                                <input type="text" name="exfil_target_dir" class="form-control form-control-sm"
+                                    value="{{ config.exfil_target_dir if config else 'C:\\RansomLab\\ExfilSim' }}"
+                                    placeholder="C:\RansomLab\ExfilSim"
+                                    style="background: #09090b; border-color: #27272a; color: #fff;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="panel mb-4">
+                <div class="panel-header">
+                    <h3 class="panel-title"><i class="bi bi-tags me-2"></i>Tags</h3>
+                </div>
+                <div class="panel-body">
+                    <input type="text" name="tags" class="form-control"
+                        value="{% if config and config.tags %}{{ config.tags | join(', ') }}{% endif %}"
+                        placeholder="MITRE:T1486, TRAINING:INTERMEDIATE"
+                        style="background: #09090b; border-color: #27272a; color: #fff;">
+                    <small class="text-muted">Comma-separated tags for MITRE techniques, training levels, etc.</small>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="d-flex gap-3">
+                <a href="/scenarios" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Cancel
+                </a>
+                <button type="submit" class="btn btn-danger flex-grow-1">
+                    <i class="bi bi-check-lg me-2"></i>{{ 'Update' if scenario else 'Create' }} Scenario
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <div class="panel" style="position: sticky; top: 20px;">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-lightbulb me-2"></i>Tips</h3>
+            </div>
+            <div class="panel-body" style="font-size: 13px; color: #a1a1aa;">
+                <h6 style="color: #fff;">Target Directories</h6>
+                <p>Use dedicated lab directories like <code>C:\RansomLab</code>. System directories are blocked for safety.</p>
+                
+                <h6 style="color: #fff;">Intensity Level</h6>
+                <ul class="mb-3">
+                    <li><strong>1-2:</strong> Few files, good for demos</li>
+                    <li><strong>3:</strong> Moderate, balanced testing</li>
+                    <li><strong>4-5:</strong> Many files, stress testing</li>
+                </ul>
+                
+                <h6 style="color: #fff;">Behavior Styles</h6>
+                <ul class="mb-3">
+                    <li><strong>LOUD_CRYPTO:</strong> Fast, obvious ransomware</li>
+                    <li><strong>STEALTHY:</strong> Slow, subtle operations</li>
+                    <li><strong>LOCKER_LIKE:</strong> Focus on screen lock</li>
+                </ul>
+                
+                <h6 style="color: #fff;">MITRE Tags</h6>
+                <p>Common techniques:</p>
+                <ul class="mb-0">
+                    <li><code>MITRE:T1486</code> - Data Encrypted for Impact</li>
+                    <li><code>MITRE:T1490</code> - Inhibit System Recovery</li>
+                    <li><code>MITRE:T1547</code> - Boot/Logon Autostart</li>
+                    <li><code>MITRE:T1560</code> - Archive Collected Data</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('scenarioForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    // Build request object
+    const data = {
+        name: formData.get('name'),
+        description: formData.get('description') || '',
+        category: formData.get('category'),
+        behavior_style: formData.get('behavior_style'),
+        intensity_level: parseInt(formData.get('intensity_level')),
+        target_dirs: formData.get('target_dirs').split('\n').map(s => s.trim()).filter(s => s),
+        file_extensions: formData.get('file_extensions').split(',').map(s => s.trim()).filter(s => s),
+        max_files: parseInt(formData.get('max_files')),
+        rename_extension: formData.get('rename_extension'),
+        ransom_note_filename: formData.get('ransom_note_filename'),
+        ransom_note_content: formData.get('ransom_note_content'),
+        ransom_note_locations: formData.get('ransom_note_locations').split(',').map(s => s.trim()).filter(s => s),
+        simulate_vssadmin: formData.get('simulate_vssadmin') === 'on',
+        simulate_persistence: formData.get('simulate_persistence') === 'on',
+        persistence_type: formData.get('persistence_type'),
+        simulate_exfiltration: formData.get('simulate_exfiltration') === 'on',
+        exfil_target_dir: formData.get('exfil_target_dir'),
+        delay_seconds: parseInt(formData.get('delay_seconds')) || 0,
+        tags: formData.get('tags').split(',').map(s => s.trim()).filter(s => s)
+    };
+    
+    try {
+        const isEdit = {{ 'true' if scenario else 'false' }};
+        const url = isEdit ? '/api/scenarios/{{ scenario.id if scenario else 0 }}' : '/api/scenarios';
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            window.location.href = '/scenarios/' + result.scenario_id;
+        } else {
+            let errorMsg = result.message;
+            if (result.errors && result.errors.length > 0) {
+                errorMsg += '\n\n' + result.errors.map(e => `${e.field}: ${e.message}`).join('\n');
+            }
+            alert('Error: ' + errorMsg);
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block title %}{{ scenario.name }} - RansomRun{% endblock %}
+{% block page_title %}Scenario Details{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Header -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h2 class="mb-2" style="color: #fff;">{{ scenario.name }}</h2>
+                        <code style="font-size: 12px;">{{ scenario.key }}</code>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        {% if scenario.is_custom %}
+                        <span class="badge bg-success">Custom</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Built-in</span>
+                        {% endif %}
+                        <span class="badge bg-dark">{{ scenario.category.value if scenario.category else 'crypto' }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-body">
+                {% if scenario.description %}
+                <p style="color: #a1a1aa; white-space: pre-line;">{{ scenario.description }}</p>
+                {% else %}
+                <p style="color: #71717a; font-style: italic;">No description provided.</p>
+                {% endif %}
+                
+                {% if scenario.is_custom %}
+                <div class="mt-3 pt-3" style="border-top: 1px solid #27272a; font-size: 12px; color: #71717a;">
+                    <i class="bi bi-person me-1"></i>Created by: {{ scenario.created_by or 'admin' }}
+                    {% if scenario.created_at %}
+                    <span class="ms-3"><i class="bi bi-calendar me-1"></i>{{ scenario.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    {% endif %}
+                    {% if scenario.updated_at %}
+                    <span class="ms-3"><i class="bi bi-clock me-1"></i>Updated: {{ scenario.updated_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Safety Notice -->
+        <div class="alert alert-info mb-4" style="border-left: 4px solid #0dcaf0;">
+            <i class="bi bi-shield-check me-2"></i>
+            <strong>Simulation Only:</strong> All behaviors are safe simulations. No real encryption, no network exfiltration, no destructive actions.
+        </div>
+
+        {% if config %}
+        <!-- Target Configuration -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-folder me-2"></i>Target Configuration</h3>
+            </div>
+            <div class="panel-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h6 style="color: #71717a;">Target Directories</h6>
+                        {% if config.directories_to_target %}
+                        <ul class="list-unstyled mb-0">
+                            {% for dir in config.directories_to_target %}
+                            <li><code>{{ dir }}</code></li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <span class="text-muted">Default (C:\RansomTest)</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <h6 style="color: #71717a;">File Extensions</h6>
+                        {% if config.file_extensions %}
+                        {% for ext in config.file_extensions %}
+                        <span class="badge bg-dark me-1">{{ ext }}</span>
+                        {% endfor %}
+                        {% else %}
+                        <span class="text-muted">All files</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <h6 style="color: #71717a;">Max Files</h6>
+                        <span class="badge bg-danger">{{ config.max_files if config.max_files else 'Unlimited' }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 style="color: #71717a;">Rename Extension</h6>
+                        <code>{{ config.rename_pattern if config.rename_pattern else '.locked' }}</code>
+                    </div>
+                    <div class="col-md-4">
+                        <h6 style="color: #71717a;">Delay Between Steps</h6>
+                        <span>{{ config.optional_delay_seconds if config.optional_delay_seconds else 0 }}s</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Behavior Settings -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-sliders me-2"></i>Behavior Settings</h3>
+            </div>
+            <div class="panel-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h6 style="color: #71717a;">Behavior Style</h6>
+                        <span class="badge bg-warning text-dark">{{ config.behavior_style if config.behavior_style else 'LOUD_CRYPTO' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 style="color: #71717a;">Intensity Level</h6>
+                        <div class="d-flex align-items-center gap-2">
+                            {% set intensity = config.intensity_level if config.intensity_level else 3 %}
+                            {% for i in range(1, 6) %}
+                            <span class="badge {{ 'bg-danger' if i <= intensity else 'bg-dark' }}">{{ i }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ransom Note -->
+        {% if config.ransom_note %}
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-file-text me-2"></i>Ransom Note</h3>
+            </div>
+            <div class="panel-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <h6 style="color: #71717a;">Filename</h6>
+                        <code>{{ config.ransom_note.filename }}</code>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 style="color: #71717a;">Drop Locations</h6>
+                        {% for loc in config.ransom_note.locations %}
+                        <span class="badge bg-dark me-1">{{ loc }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <h6 style="color: #71717a;">Content Preview</h6>
+                <pre style="background: #09090b; padding: 16px; border-radius: 8px; color: #a1a1aa; font-size: 12px; max-height: 200px; overflow-y: auto; margin: 0;">{{ config.ransom_note.content }}</pre>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Simulation Components -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-gear me-2"></i>Simulation Components</h3>
+            </div>
+            <div class="panel-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if config.simulate_vssadmin %}
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            {% else %}
+                            <i class="bi bi-x-circle text-muted"></i>
+                            {% endif %}
+                            <span>Shadow Copy Deletion (vssadmin)</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if config.simulate_persistence %}
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <span>Persistence ({{ config.persistence_type if config.persistence_type else 'registry' }})</span>
+                            {% else %}
+                            <i class="bi bi-x-circle text-muted"></i>
+                            <span>Persistence</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if config.simulate_exfiltration %}
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <span>Exfiltration Prep (local ZIP only)</span>
+                            {% else %}
+                            <i class="bi bi-x-circle text-muted"></i>
+                            <span>Exfiltration</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if config.simulate_network_beacon %}
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            {% else %}
+                            <i class="bi bi-x-circle text-muted"></i>
+                            {% endif %}
+                            <span>Network Beacon (simulated)</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center gap-2">
+                            {% if config.quarantine_mode %}
+                            <i class="bi bi-check-circle-fill text-warning"></i>
+                            <span>Quarantine Mode (wiper simulation)</span>
+                            {% else %}
+                            <i class="bi bi-x-circle text-muted"></i>
+                            <span>Quarantine Mode</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags -->
+        {% if config.tags %}
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-tags me-2"></i>Tags</h3>
+            </div>
+            <div class="panel-body">
+                {% for tag in config.tags %}
+                <span class="badge bg-dark me-1 mb-1" style="font-size: 12px;">{{ tag }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="panel mb-4">
+            <div class="panel-body">
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-info-circle" style="font-size: 32px;"></i>
+                    <p class="mt-2">No detailed configuration available for this scenario.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Actions -->
+        <div class="panel mb-4" style="position: sticky; top: 20px;">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-lightning me-2"></i>Actions</h3>
+            </div>
+            <div class="panel-body">
+                <div class="d-grid gap-2">
+                    <a href="/simulate?scenario_id={{ scenario.id }}" class="btn btn-danger">
+                        <i class="bi bi-play-fill me-2"></i>Run This Scenario
+                    </a>
+                    
+                    <button class="btn btn-outline-info" onclick="cloneScenario()">
+                        <i class="bi bi-copy me-2"></i>Clone to Custom
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary" onclick="exportScenario()">
+                        <i class="bi bi-download me-2"></i>Export as JSON
+                    </button>
+                    
+                    {% if scenario.is_custom %}
+                    <hr style="border-color: #27272a;">
+                    <a href="/scenarios/{{ scenario.id }}/edit" class="btn btn-outline-warning">
+                        <i class="bi bi-pencil me-2"></i>Edit Scenario
+                    </a>
+                    <button class="btn btn-outline-danger" onclick="deleteScenario()">
+                        <i class="bi bi-trash me-2"></i>Delete Scenario
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Related Runs -->
+        {% if runs %}
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-clock-history me-2"></i>Recent Runs</h3>
+            </div>
+            <div class="panel-body" style="max-height: 300px; overflow-y: auto;">
+                {% for run in runs[:10] %}
+                <a href="/runs/{{ run.id }}" class="d-block text-decoration-none mb-2 p-2" style="background: #09090b; border-radius: 6px;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span style="color: #fff;">Run #{{ run.id }}</span>
+                        <span class="badge {{ 'bg-success' if run.status.value == 'COMPLETED' else 'bg-warning' if run.status.value == 'RUNNING' else 'bg-secondary' }}">
+                            {{ run.status.value }}
+                        </span>
+                    </div>
+                    <small style="color: #71717a;">{{ run.host.name if run.host else 'Unknown' }}</small>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Clone Modal -->
+<div class="modal fade" id="cloneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: #18181b; border: 1px solid #27272a;">
+            <div class="modal-header" style="border-bottom: 1px solid #27272a;">
+                <h5 class="modal-title"><i class="bi bi-copy me-2"></i>Clone Scenario</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">New Scenario Name</label>
+                    <input type="text" id="cloneName" class="form-control" 
+                        value="{{ scenario.name }} (Copy)"
+                        style="background: #09090b; border-color: #27272a; color: #fff;">
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid #27272a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info" onclick="submitClone()">
+                    <i class="bi bi-copy me-2"></i>Clone
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function cloneScenario() {
+    new bootstrap.Modal(document.getElementById('cloneModal')).show();
+}
+
+async function submitClone() {
+    const name = document.getElementById('cloneName').value;
+    
+    try {
+        const response = await fetch(`/api/scenarios/{{ scenario.id }}/clone?new_name=${encodeURIComponent(name)}`, {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = '/scenarios/' + data.scenario_id;
+        } else {
+            alert('Clone failed: ' + data.message);
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function exportScenario() {
+    try {
+        const response = await fetch('/api/scenarios/{{ scenario.id }}/export');
+        const data = await response.json();
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `scenario_{{ scenario.key }}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        alert('Export failed: ' + e.message);
+    }
+}
+
+async function deleteScenario() {
+    if (!confirm('Delete scenario "{{ scenario.name }}"?\n\nThis cannot be undone.')) return;
+    
+    try {
+        const response = await fetch('/api/scenarios/{{ scenario.id }}', { method: 'DELETE' });
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = '/scenarios';
+        } else {
+            alert('Delete failed: ' + data.message);
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+</script>
+{% endblock %}

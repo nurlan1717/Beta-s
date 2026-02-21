@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit Campaign{% else %}New Campaign{% endif %} - RANSOMRUN{% endblock %}
+{% block page_title %}{% if is_edit %}Edit Campaign{% else %}Create Campaign{% endif %}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="/phishing">Phishing Lab</a></li>
+        <li class="breadcrumb-item active">{% if is_edit %}{{ campaign.name }}{% else %}New Campaign{% endif %}</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <!-- Campaign Form -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-envelope-paper me-2" style="color: #8b5cf6;"></i>
+                    Campaign Details
+                </h5>
+            </div>
+            <div class="card-body" style="padding: 24px;">
+                <form id="campaignForm">
+                    <div class="mb-4">
+                        <label class="form-label" style="color: #a1a1aa; font-size: 13px; font-weight: 500;">Campaign Name</label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ campaign.name if campaign else '' }}" required
+                               style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label" style="color: #a1a1aa; font-size: 13px; font-weight: 500;">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"
+                                  style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">{{ campaign.description if campaign else '' }}</textarea>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label" style="color: #a1a1aa; font-size: 13px; font-weight: 500;">Email Template</label>
+                            <select class="form-select" id="template_key" name="template_key"
+                                    style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                                <option value="">Select a template...</option>
+                                {% for t in templates %}
+                                <option value="{{ t.key }}" {% if campaign and campaign.template_key == t.key %}selected{% endif %}>
+                                    [{{ t.category }}] {{ t.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="color: #a1a1aa; font-size: 13px; font-weight: 500;">Delivery Mode</label>
+                            <select class="form-select" id="delivery_mode" name="delivery_mode"
+                                    style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                                <option value="IN_APP" {% if not campaign or campaign.delivery_mode.value == 'IN_APP' %}selected{% endif %}>
+                                    In-App Inbox (Recommended)
+                                </option>
+                                <option value="MAIL_SINK" {% if not mail_sink_enabled %}disabled{% endif %} {% if campaign and campaign.delivery_mode.value == 'MAIL_SINK' %}selected{% endif %}>
+                                    Local Mail Sink (MailHog)
+                                </option>
+                            </select>
+                            <div class="form-text" style="color: #52525b; font-size: 12px;">
+                                In-App delivers to the training inbox in this web app. MailHog delivers only to a local mail sink (not real Gmail/VM inbox).
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label" style="color: #a1a1aa; font-size: 13px; font-weight: 500;">Trigger Scenario (on click)</label>
+                            <select class="form-select" id="scenario_id" name="scenario_id"
+                                    style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                                <option value="">None (landing page only)</option>
+                                {% for s in scenarios %}
+                                <option value="{{ s.id }}" {% if campaign and campaign.scenario_id == s.id %}selected{% endif %}>
+                                    {{ s.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text" style="color: #52525b; font-size: 12px;">
+                                Optional: Run a safe simulation when user clicks the phishing link.
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="color: #a1a1aa; font-size: 13px; font-weight: 500;">Target Group Tag</label>
+                            <input type="text" class="form-control" id="target_group_tag" name="target_group_tag"
+                                   value="{{ campaign.target_group_tag if campaign else '' }}"
+                                   placeholder="e.g., finance, hr, it"
+                                   style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px;">
+                        <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none;">
+                            <i class="bi bi-check-lg me-2"></i>{% if is_edit %}Update{% else %}Create{% endif %} Campaign
+                        </button>
+                        {% if is_edit and campaign.status.value == 'DRAFT' %}
+                        <button type="button" id="launchBtn" class="btn" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3);">
+                            <i class="bi bi-play-fill me-2"></i>Launch Campaign
+                        </button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        {% if is_edit %}
+        <!-- Recipients Section -->
+        <div class="card mb-4">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-people me-2" style="color: #60a5fa;"></i>
+                    Recipients ({{ recipients|length }})
+                </h5>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#importModal"
+                            style="background: #27272a; color: #d4d4d8; border: none;">
+                        <i class="bi bi-upload me-1"></i>Import CSV
+                    </button>
+                    <button type="button" class="btn btn-sm" data-bs-toggle="modal" data-bs-target="#addRecipientModal"
+                            style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: none;">
+                        <i class="bi bi-plus-lg me-1"></i>Add
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if recipients %}
+                <table class="table table-dark mb-0" style="background: transparent;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #27272a;">
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Name</th>
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Email</th>
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Department</th>
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Host</th>
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in recipients %}
+                        <tr style="border-bottom: 1px solid #27272a;">
+                            <td style="padding: 12px 16px; color: #fafafa;">{{ r.display_name }}</td>
+                            <td style="padding: 12px 16px; color: #a1a1aa;">{{ r.email }}</td>
+                            <td style="padding: 12px 16px; color: #71717a;">{{ r.department or '-' }}</td>
+                            <td style="padding: 12px 16px; color: #71717a;">
+                                {% if r.host %}{{ r.host.name }}{% else %}-{% endif %}
+                            </td>
+                            <td style="padding: 12px 16px;">
+                                <button class="btn btn-sm delete-recipient" data-id="{{ r.id }}"
+                                        style="background: rgba(239, 68, 68, 0.1); color: #f87171; border: none;">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="padding: 40px; text-align: center; color: #71717a;">
+                    <i class="bi bi-people" style="font-size: 32px; margin-bottom: 12px; display: block;"></i>
+                    No recipients added yet. Add recipients or import from CSV.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Messages Section (if campaign is running) -->
+        {% if messages %}
+        <div class="card">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-envelope me-2" style="color: #fbbf24;"></i>
+                    Messages ({{ messages|length }})
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-dark mb-0" style="background: transparent;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #27272a;">
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Recipient</th>
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Subject</th>
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Opened</th>
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Clicked</th>
+                            <th style="padding: 12px 16px; font-weight: 500; color: #a1a1aa; font-size: 13px;">Reported</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in messages %}
+                        <tr style="border-bottom: 1px solid #27272a;">
+                            <td style="padding: 12px 16px; color: #fafafa;">{{ m.recipient.display_name }}</td>
+                            <td style="padding: 12px 16px; color: #a1a1aa;">{{ m.subject[:40] }}...</td>
+                            <td style="padding: 12px 16px;">
+                                {% if m.is_opened %}
+                                <i class="bi bi-check-circle-fill" style="color: #fbbf24;"></i>
+                                {% else %}
+                                <i class="bi bi-circle" style="color: #3f3f46;"></i>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 12px 16px;">
+                                {% if m.is_clicked %}
+                                <i class="bi bi-check-circle-fill" style="color: #f87171;"></i>
+                                {% else %}
+                                <i class="bi bi-circle" style="color: #3f3f46;"></i>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 12px 16px;">
+                                {% if m.is_reported %}
+                                <i class="bi bi-check-circle-fill" style="color: #4ade80;"></i>
+                                {% else %}
+                                <i class="bi bi-circle" style="color: #3f3f46;"></i>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        {% if is_edit and stats %}
+        <!-- Stats Card -->
+        <div class="card mb-4">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-graph-up me-2" style="color: #4ade80;"></i>
+                    Campaign Stats
+                </h5>
+            </div>
+            <div class="card-body">
+                <div style="display: grid; gap: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #a1a1aa;">Messages Sent</span>
+                        <span style="color: #fafafa; font-weight: 600;">{{ stats.sent }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #a1a1aa;">Opened</span>
+                        <span style="color: #fbbf24; font-weight: 600;">{{ stats.opened }} ({{ "%.1f"|format(stats.open_rate) }}%)</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #a1a1aa;">Clicked</span>
+                        <span style="color: #f87171; font-weight: 600;">{{ stats.clicked }} ({{ "%.1f"|format(stats.click_rate) }}%)</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #a1a1aa;">Reported</span>
+                        <span style="color: #4ade80; font-weight: 600;">{{ stats.reported }} ({{ "%.1f"|format(stats.report_rate) }}%)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Help Card -->
+        <div class="card">
+            <div class="card-header" style="background: #1f1f23; border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h5 style="margin: 0; font-size: 16px; font-weight: 600;">
+                    <i class="bi bi-info-circle me-2" style="color: #60a5fa;"></i>
+                    How It Works
+                </h5>
+            </div>
+            <div class="card-body" style="font-size: 13px; color: #a1a1aa;">
+                <ol style="padding-left: 20px; margin: 0;">
+                    <li style="margin-bottom: 12px;">Create a campaign and select an email template</li>
+                    <li style="margin-bottom: 12px;">Add recipients (must use allowed domains: {{ allowlist_domains | join(', ') }})</li>
+                    <li style="margin-bottom: 12px;">Optionally link a simulation scenario to trigger on click</li>
+                    <li style="margin-bottom: 12px;">Launch the campaign to send messages</li>
+                    <li>Track opens, clicks, and reports in the dashboard</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Recipient Modal -->
+<div class="modal fade" id="addRecipientModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: #18181b; border: 1px solid #27272a;">
+            <div class="modal-header" style="border-bottom: 1px solid #27272a;">
+                <h5 class="modal-title" style="color: #fafafa;">Add Recipient</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addRecipientForm">
+                    <div class="mb-3">
+                        <label class="form-label" style="color: #a1a1aa;">Display Name</label>
+                        <input type="text" class="form-control" id="r_name" required
+                               style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="color: #a1a1aa;">Email</label>
+                        <input type="email" class="form-control" id="r_email" required
+                               placeholder="user@lab.local"
+                               style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                        <div class="form-text" style="color: #52525b;">Must use allowed domain: {{ allowlist_domains | join(', ') }}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="color: #a1a1aa;">Department</label>
+                        <input type="text" class="form-control" id="r_dept"
+                               style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" style="color: #a1a1aa;">Target Host (for simulation)</label>
+                        <select class="form-select" id="r_host"
+                                style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                            <option value="">None</option>
+                            {% if not hosts %}
+                            <option value="" disabled>No endpoints registered yet (start an agent)</option>
+                            {% endif %}
+                            {% for h in hosts %}
+                            <option value="{{ h.id }}">{{ h.name }}{% if h.ip_address %} ({{ h.ip_address }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid #27272a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background: #27272a; border: none;">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveRecipientBtn" style="background: #8b5cf6; border: none;">Add Recipient</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import CSV Modal -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background: #18181b; border: 1px solid #27272a;">
+            <div class="modal-header" style="border-bottom: 1px solid #27272a;">
+                <h5 class="modal-title" style="color: #fafafa;">Import Recipients from CSV</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="importForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label" style="color: #a1a1aa;">CSV File</label>
+                        <input type="file" class="form-control" id="csvFile" accept=".csv" required
+                               style="background: #27272a; border: 1px solid #3f3f46; color: #fafafa;">
+                        <div class="form-text" style="color: #52525b;">
+                            CSV must have columns: email, display_name (or name), department (optional)
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid #27272a;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background: #27272a; border: none;">Cancel</button>
+                <button type="button" class="btn btn-primary" id="importBtn" style="background: #8b5cf6; border: none;">Import</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const campaignId = {{ campaign.id if campaign else 'null' }};
+const isEdit = {{ 'true' if is_edit else 'false' }};
+
+// Campaign form submit
+document.getElementById('campaignForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const data = {
+        name: document.getElementById('name').value,
+        description: document.getElementById('description').value,
+        template_key: document.getElementById('template_key').value || null,
+        delivery_mode: document.getElementById('delivery_mode').value,
+        scenario_id: document.getElementById('scenario_id').value ? parseInt(document.getElementById('scenario_id').value) : null,
+        target_group_tag: document.getElementById('target_group_tag').value || null
+    };
+    
+    const url = isEdit ? `/api/phishing/campaigns/${campaignId}` : '/api/phishing/campaigns';
+    const method = isEdit ? 'PUT' : 'POST';
+    
+    try {
+        const resp = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        
+        if (result.success) {
+            if (!isEdit) {
+                window.location.href = `/phishing/campaign/${result.campaign_id}`;
+            } else {
+                alert('Campaign updated!');
+            }
+        } else {
+            alert('Error: ' + (result.detail || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error saving campaign');
+    }
+});
+
+// Launch button
+if (document.getElementById('launchBtn')) {
+    document.getElementById('launchBtn').addEventListener('click', async function() {
+        if (!confirm('Launch this campaign? Messages will be sent to all recipients.')) return;
+        
+        try {
+            const resp = await fetch(`/api/phishing/campaigns/${campaignId}/launch`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                alert(`Campaign launched! ${data.messages_created} messages sent.`);
+                location.reload();
+            } else {
+                alert('Error: ' + (data.detail || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Error launching campaign');
+        }
+    });
+}
+
+// Add recipient
+document.getElementById('saveRecipientBtn').addEventListener('click', async function() {
+    const data = {
+        display_name: document.getElementById('r_name').value,
+        email: document.getElementById('r_email').value,
+        department: document.getElementById('r_dept').value || null,
+        host_id: document.getElementById('r_host').value ? parseInt(document.getElementById('r_host').value) : null
+    };
+    
+    try {
+        const resp = await fetch(`/api/phishing/campaigns/${campaignId}/recipients`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        
+        if (result.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + (result.detail || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error adding recipient');
+    }
+});
+
+// Delete recipient
+document.querySelectorAll('.delete-recipient').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        if (!confirm('Delete this recipient?')) return;
+        
+        const id = this.dataset.id;
+        try {
+            const resp = await fetch(`/api/phishing/recipients/${id}`, { method: 'DELETE' });
+            const result = await resp.json();
+            if (result.success) {
+                location.reload();
+            }
+        } catch (e) {
+            alert('Error deleting recipient');
+        }
+    });
+});
+
+// Import CSV
+document.getElementById('importBtn').addEventListener('click', async function() {
+    const fileInput = document.getElementById('csvFile');
+    if (!fileInput.files[0]) {
+        alert('Please select a CSV file');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('campaign_id', campaignId);
+    formData.append('file', fileInput.files[0]);
+    
+    try {
+        const resp = await fetch('/api/phishing/recipients/import', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await resp.json();
+        
+        if (result.success) {
+            alert(`Imported ${result.imported} recipients. Rejected: ${result.rejected}`);
+            location.reload();
+        } else {
+            alert('Error: ' + (result.detail || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error importing CSV');
+    }
+});
+</script>
+{% endblock %}

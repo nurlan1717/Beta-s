@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}SIEM Overview - RansomRun{% endblock %}
+{% block page_title %}SIEM Overview{% endblock %}
+
+{% block content %}
+<!-- Stats Grid -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-box">
+            <div class="stat-value">{{ stats.total_alerts }}</div>
+            <div class="stat-label">Total Alerts (24h)</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-box">
+            <div class="stat-value" style="color: #ef4444;">{{ stats.alerts_by_severity.critical }}</div>
+            <div class="stat-label">Critical Alerts</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-box">
+            <div class="stat-value" style="color: #f59e0b;">{{ stats.alerts_by_severity.high }}</div>
+            <div class="stat-label">High Severity</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-box">
+            <div class="stat-value">{{ stats.alerts_by_rule|length }}</div>
+            <div class="stat-label">Unique Rules</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- ELK Connection Status -->
+    <div class="col-lg-4">
+        <div class="panel h-100">
+            <div class="panel-header">
+                <h3 class="panel-title">ELK SIEM Connection</h3>
+                <span style="background: linear-gradient(135deg, #00bfb3 0%, #f9b110 100%); color: #000; font-weight: 600; padding: 2px 8px; border-radius: 4px; font-size: 10px;">ELK</span>
+            </div>
+            <div class="panel-body">
+                {% if elk_config %}
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: #22c55e;"></div>
+                    <span style="color: #fafafa;">Configured</span>
+                </div>
+                <div style="font-size: 13px; color: #a1a1aa; margin-bottom: 8px;">
+                    <strong>URL:</strong> {{ elk_config.url }}
+                </div>
+                <div style="font-size: 13px; color: #a1a1aa; margin-bottom: 8px;">
+                    <strong>Alerts Index:</strong> {{ elk_config.index_alerts }}
+                </div>
+                {% if elk_config.last_sync %}
+                <div style="font-size: 13px; color: #a1a1aa;">
+                    <strong>Last Sync:</strong> {{ elk_config.last_sync.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+                {% endif %}
+                {% else %}
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: #f9b110;"></div>
+                    <span style="color: #a1a1aa;">Using Environment Config</span>
+                </div>
+                <p style="font-size: 13px; color: #71717a;">
+                    ELK connection configured via environment variables.
+                </p>
+                {% endif %}
+                
+                <hr style="border-color: #27272a; margin: 16px 0;">
+                
+                <div style="font-size: 12px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">API Endpoints</div>
+                <code style="font-size: 11px; display: block; background: #0f0f14; padding: 8px; border-radius: 4px; margin-bottom: 4px;">
+                    GET /api/siem/elk/alerts
+                </code>
+                <code style="font-size: 11px; display: block; background: #0f0f14; padding: 8px; border-radius: 4px;">
+                    GET /api/siem/elk/status
+                </code>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Rules -->
+    <div class="col-lg-8">
+        <div class="panel h-100">
+            <div class="panel-header">
+                <h3 class="panel-title">Top Triggered Rules (24h)</h3>
+                <a href="/siem/explorer" class="btn btn-ghost btn-sm">View All</a>
+            </div>
+            {% if stats.alerts_by_rule %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Rule ID</th>
+                        <th>MITRE Technique</th>
+                        <th>Count</th>
+                        <th>Bar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% set max_count = (
+                        stats.alerts_by_rule.values()
+                        | map(attribute='count', default=0)
+                        | max
+                    ) if stats.alerts_by_rule else 1 %}
+
+                    {% if max_count == 0 %}
+                        {% set max_count = 1 %}
+                    {% endif %}
+                    
+
+                    {% for rule_id, data in stats.alerts_by_rule.items() %}
+                    <tr>
+                        <td><code>{{ rule_id }}</code></td>
+                        <td>
+                            {% if mitre_mapping.get(rule_id) %}
+                            <span class="badge badge-purple">{{ mitre_mapping[rule_id].technique }}</span>
+                            <span style="color: #a1a1aa; font-size: 12px;">{{ mitre_mapping[rule_id].name }}</span>
+                            {% else %}
+                            <span style="color: #52525b;">—</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ data.count if data.count is defined else data }}</strong></td>
+                        <td style="width: 150px;">
+                            {% set count = data.count if data is mapping and data.count is defined else data %}
+
+                            <div style="background: #27272a; border-radius: 4px; height: 8px; width: 100%;">
+                                <div style="background: #3b82f6; border-radius: 4px; height: 8px; width: {{ (count / max_count * 100)|int }}%;"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i class="bi bi-shield-check"></i>
+                <h3>No Alerts</h3>
+                <p>No alerts received in the last 24 hours.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Recent Alerts -->
+<div class="panel mt-4">
+    <div class="panel-header">
+        <h3 class="panel-title">Recent Alerts</h3>
+        <a href="/siem/explorer" class="btn btn-ghost btn-sm">Explorer</a>
+    </div>
+    {% if recent_alerts %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Rule</th>
+                <th>Description</th>
+                <th>Source</th>
+                <th>Severity</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for alert in recent_alerts %}
+            <tr>
+                <td>{{ alert.timestamp.strftime('%H:%M:%S') if alert.timestamp else '—' }}</td>
+                <td><code>{{ alert.rule_id }}</code></td>
+                <td>{{ alert.rule_description|truncate(50) if alert.rule_description else '—' }}</td>
+                <td>{{ alert.agent_name or '—' }}</td>
+                <td>
+                    {% if alert.severity >= 12 %}
+                    <span class="badge badge-danger">Critical</span>
+                    {% elif alert.severity >= 8 %}
+                    <span class="badge badge-warning">High</span>
+                    {% elif alert.severity >= 4 %}
+                    <span class="badge badge-info">Medium</span>
+                    {% else %}
+                    <span class="badge badge-gray">Low</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="/siem/alerts/{{ alert.id }}" class="btn btn-ghost btn-sm">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <i class="bi bi-bell-slash"></i>
+        <h3>No Recent Alerts</h3>
+        <p>Alerts will appear here when received from ELK.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Alerts Over Time Chart (Simple) -->
+<div class="panel mt-4">
+    <div class="panel-header">
+        <h3 class="panel-title">Alert Activity (24h)</h3>
+    </div>
+    <div class="panel-body">
+        <div style="display: flex; align-items: flex-end; gap: 4px; height: 100px;">
+            {% set max_hourly = alerts_over_time|map(attribute='count')|max if alerts_over_time else 1 %}
+            {% for bucket in alerts_over_time %}
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center;">
+                <div style="background: #3b82f6; width: 100%; border-radius: 2px 2px 0 0; 
+                            height: {{ (bucket.count / max_hourly * 80)|int if max_hourly > 0 else 0 }}px; min-height: 2px;"
+                     title="{{ bucket.time }}: {{ bucket.count }} alerts"></div>
+            </div>
+            {% endfor %}
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: #71717a;">
+            <span>24h ago</span>
+            <span>Now</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

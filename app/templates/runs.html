@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}Simulations - RansomRun{% endblock %}
+{% block page_title %}Simulation History{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <h3 class="panel-title">All Simulation Runs</h3>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <span class="badge badge-gray">{{ runs|length }} total</span>
+            <a href="/simulate" class="btn btn-danger btn-sm">New Simulation</a>
+        </div>
+    </div>
+    {% if runs %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Target Host</th>
+                <th>Scenario</th>
+                <th>Status</th>
+                <th>Started</th>
+                <th>Duration</th>
+                <th style="text-align: right;">Report</th>
+                <th style="text-align: right;">Manage</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in runs %}
+            <tr>
+                <td><a href="/runs/{{ run.id }}">#{{ run.id }}</a></td>
+                <td>
+                    <a href="/hosts/{{ run.host.id }}" style="color: #fafafa;">
+                        {{ run.host.name if run.host else '—' }}
+                    </a>
+                </td>
+                <td>{{ run.scenario.name if run.scenario else '—' }}</td>
+                <td>
+                    <span class="badge badge-{{ run.status.value|lower }}">{{ run.status.value }}</span>
+                </td>
+                <td>{{ run.started_at.strftime('%b %d, %H:%M') if run.started_at else 'Pending' }}</td>
+                <td>
+                    {% if run.started_at and run.ended_at %}
+                        {% set duration = (run.ended_at - run.started_at).total_seconds() %}
+                        {% if duration < 60 %}
+                            {{ duration|int }}s
+                        {% else %}
+                            {{ (duration / 60)|int }}m {{ (duration % 60)|int }}s
+                        {% endif %}
+                    {% elif run.started_at %}
+                        Running...
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                <td style="text-align: right;">
+                    <a href="/runs/{{ run.id }}" class="btn btn-primary btn-sm">View Report</a>
+                </td>
+                <td style="text-align: right;">
+                    {% if run.status.value in ['RUNNING', 'STOPPING', 'PENDING'] %}
+                        <button class="btn btn-warning btn-sm" onclick="confirmStop({{ run.id }}, '{{ run.status.value }}')"
+                                {% if run.status.value == 'STOPPING' %}disabled{% endif %}>
+                            <i class="bi bi-stop-circle"></i> Stop
+                        </button>
+                    {% endif %}
+                    {% if run.status.value in ['COMPLETED', 'FAILED', 'CANCELED'] %}
+                        <button class="btn btn-danger btn-sm" onclick="confirmDelete({{ run.id }})">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    {% endif %}
+                    {% if run.status.value == 'PENDING' %}
+                        <button class="btn btn-danger btn-sm" onclick="confirmDelete({{ run.id }})">
+                            <i class="bi bi-trash"></i> Delete
+                        </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <i class="bi bi-activity"></i>
+        <h3>No Simulations Yet</h3>
+        <p>Launch your first ransomware simulation to test your security controls.</p>
+        <a href="/simulate" class="btn btn-danger">
+            <i class="bi bi-play-fill"></i> Start Simulation
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Status Reference</h3>
+            </div>
+            <div class="panel-body">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <span class="badge badge-pending">Pending</span>
+                    <span style="color: #a1a1aa; font-size: 13px;">Waiting for agent to pick up task</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <span class="badge badge-running">Running</span>
+                    <span style="color: #a1a1aa; font-size: 13px;">Simulation currently in progress</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <span class="badge badge-completed">Completed</span>
+                    <span style="color: #a1a1aa; font-size: 13px;">All tasks finished successfully</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span class="badge badge-failed">Failed</span>
+                    <span style="color: #a1a1aa; font-size: 13px;">One or more tasks encountered errors</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <span class="badge badge-stopping">Stopping</span>
+                    <span style="color: #a1a1aa; font-size: 13px;">Stop command sent to agent</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span class="badge badge-canceled">Canceled</span>
+                    <span style="color: #a1a1aa; font-size: 13px;">Stopped by user</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stop Confirmation Modal -->
+<div id="stopModal" class="modal-overlay" onclick="closeStopModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Stop Simulation</h3>
+            <button class="modal-close" onclick="closeStopModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to stop run <strong>#<span id="stopRunId"></span></strong>?</p>
+            <p class="text-muted" style="font-size: 13px; margin-top: 8px;">
+                This will send a stop command to the agent. The simulation will be marked as CANCELED.
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeStopModal()">Cancel</button>
+            <button class="btn btn-warning" onclick="executeStop()">
+                <i class="bi bi-stop-circle"></i> Stop Simulation
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal-overlay" onclick="closeDeleteModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Delete Simulation</h3>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete run <strong>#<span id="deleteRunId"></span></strong>?</p>
+            <p class="text-danger" style="font-size: 13px; margin-top: 8px;">
+                <i class="bi bi-exclamation-triangle"></i> This action cannot be undone!
+            </p>
+            <p class="text-muted" style="font-size: 13px;">
+                This will permanently remove:
+            </p>
+            <ul class="text-muted" style="font-size: 13px;">
+                <li>Run record and all tasks</li>
+                <li>All alerts and events</li>
+                <li>Metrics, IOCs, and affected files</li>
+                <li>Reports and analysis data</li>
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-danger" onclick="executeDelete()">
+                <i class="bi bi-trash"></i> Delete Permanently
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast"></div>
+
+<style>
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.show {
+    display: flex;
+}
+
+.modal-content {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #27272a;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #fafafa;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: #a1a1aa;
+    font-size: 28px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+}
+
+.modal-close:hover {
+    color: #fafafa;
+}
+
+.modal-body {
+    padding: 20px;
+    color: #d4d4d8;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 20px;
+    border-top: 1px solid #27272a;
+}
+
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 16px 24px;
+    border-radius: 8px;
+    background: #18181b;
+    border: 1px solid #27272a;
+    color: #fafafa;
+    font-size: 14px;
+    z-index: 2000;
+    display: none;
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.toast.show {
+    display: block;
+    animation: slideIn 0.3s ease;
+}
+
+.toast.success {
+    border-left: 4px solid #22c55e;
+}
+
+.toast.error {
+    border-left: 4px solid #ef4444;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.badge-stopping {
+    background: #f59e0b;
+    color: #000;
+}
+
+.badge-canceled {
+    background: #71717a;
+    color: #fff;
+}
+</style>
+
+<script>
+let currentStopRunId = null;
+let currentDeleteRunId = null;
+
+function confirmStop(runId, status) {
+    currentStopRunId = runId;
+    document.getElementById('stopRunId').textContent = runId;
+    document.getElementById('stopModal').classList.add('show');
+}
+
+function closeStopModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('stopModal').classList.remove('show');
+    currentStopRunId = null;
+}
+
+function confirmDelete(runId) {
+    currentDeleteRunId = runId;
+    document.getElementById('deleteRunId').textContent = runId;
+    document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('deleteModal').classList.remove('show');
+    currentDeleteRunId = null;
+}
+
+async function executeStop() {
+    if (!currentStopRunId) return;
+    
+    const runId = currentStopRunId;
+    closeStopModal();
+    
+    try {
+        const response = await fetch(`/api/runs/${runId}/stop`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showToast(`Run #${runId} stopped successfully`, 'success');
+            // Reload page after short delay
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showToast(`Error: ${data.detail || 'Failed to stop run'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Stop error:', error);
+        showToast('Network error: Failed to stop run', 'error');
+    }
+}
+
+async function executeDelete() {
+    if (!currentDeleteRunId) return;
+    
+    const runId = currentDeleteRunId;
+    closeDeleteModal();
+    
+    try {
+        const response = await fetch(`/api/runs/${runId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            const counts = data.counts || {};
+            const total = Object.values(counts).reduce((a, b) => a + b, 0);
+            showToast(`Run #${runId} deleted (${total} related records removed)`, 'success');
+            // Reload page after short delay
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showToast(`Error: ${data.detail || 'Failed to delete run'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Delete error:', error);
+        showToast('Network error: Failed to delete run', 'error');
+    }
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = `toast show ${type}`;
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 4000);
+}
+
+// Close modals on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeStopModal();
+        closeDeleteModal();
+    }
+});
+</script>
+{% endblock %}

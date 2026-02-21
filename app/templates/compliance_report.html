@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Compliance Report - Run #{{ run.id }} - RansomRun{% endblock %}
+{% block page_title %}Compliance Report{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="/runs/{{ run.id }}" class="btn btn-ghost btn-sm mb-2">
+            <i class="bi bi-arrow-left me-1"></i> Back to Run Detail
+        </a>
+        <h2 style="color: #fafafa; margin: 0;">
+            Compliance Report - Run #{{ run.id }}
+            {% if report %}
+            <span class="badge badge-info ms-2">{{ report.report_type.value }}</span>
+            {% endif %}
+        </h2>
+    </div>
+    <div>
+        <button onclick="window.print()" class="btn btn-secondary btn-sm me-2">
+            <i class="bi bi-printer me-1"></i> Print
+        </button>
+        <button onclick="copyReport()" class="btn btn-ghost btn-sm">
+            <i class="bi bi-clipboard me-1"></i> Copy Text
+        </button>
+    </div>
+</div>
+
+{% if report %}
+<div class="row g-4">
+    <!-- Main Report -->
+    <div class="col-lg-8">
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Incident Summary</h3>
+            </div>
+            <div class="panel-body">
+                <div style="font-size: 14px; color: #a1a1aa; line-height: 1.7;" id="reportSummary">
+                    {{ report.summary|safe if report.summary else 'No summary available.' }}
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Mitigation Recommendations</h3>
+            </div>
+            <div class="panel-body">
+                <div style="font-size: 14px; color: #a1a1aa; line-height: 1.7;" id="reportMitigation">
+                    {{ report.mitigation_recommendations|safe if report.mitigation_recommendations else 'No recommendations available.' }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Timeline -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Incident Timeline</h3>
+            </div>
+            <div class="panel-body">
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Incident Start</div>
+                    <div style="color: #fafafa;">{{ report.incident_start.strftime('%Y-%m-%d %H:%M:%S UTC') if report.incident_start else 'N/A' }}</div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Detection Time</div>
+                    <div style="color: #fafafa;">{{ report.incident_detection.strftime('%Y-%m-%d %H:%M:%S UTC') if report.incident_detection else 'N/A' }}</div>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Containment Time</div>
+                    <div style="color: #fafafa;">{{ report.incident_containment.strftime('%Y-%m-%d %H:%M:%S UTC') if report.incident_containment else 'N/A' }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Data Impact -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Data Impact Assessment</h3>
+            </div>
+            <div class="panel-body">
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Personal Data Involved</div>
+                    <div style="color: {% if report.personal_data_involved %}#ef4444{% else %}#22c55e{% endif %};">
+                        {{ 'Yes' if report.personal_data_involved else 'No' }}
+                    </div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Data Subjects Affected</div>
+                    <div style="color: #fafafa; font-size: 20px; font-weight: 600;">{{ report.data_subjects_affected_estimate or 'N/A' }}</div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Risk to Individuals</div>
+                    <span class="badge badge-{% if report.risk_to_individuals == 'High' %}danger{% elif report.risk_to_individuals == 'Moderate' %}warning{% else %}success{% endif %}">
+                        {{ report.risk_to_individuals or 'N/A' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Regulatory -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Regulatory Assessment</h3>
+            </div>
+            <div class="panel-body">
+                <div style="background: {% if report.regulatory_notification_required %}rgba(239, 68, 68, 0.1){% else %}rgba(34, 197, 94, 0.1){% endif %}; border-radius: 8px; padding: 16px; text-align: center;">
+                    <i class="bi bi-{% if report.regulatory_notification_required %}exclamation-triangle{% else %}check-circle{% endif %}" style="font-size: 32px; color: {% if report.regulatory_notification_required %}#ef4444{% else %}#22c55e{% endif %};"></i>
+                    <div style="font-size: 14px; color: #fafafa; margin-top: 8px;">
+                        {% if report.regulatory_notification_required %}
+                        Regulatory Notification May Be Required
+                        {% else %}
+                        No Regulatory Notification Required
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 12px; color: #71717a; margin-top: 4px;">
+                        Based on {{ report.report_type.value }} guidelines
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="panel">
+    <div class="empty-state">
+        <i class="bi bi-file-earmark-text"></i>
+        <h3>No Compliance Report</h3>
+        <p>Generate a compliance report from the run detail page.</p>
+        <a href="/runs/{{ run.id }}" class="btn btn-primary">Go to Run Detail</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .sidebar, .topbar, button, .btn { display: none !important; }
+        .main-content { margin-left: 0 !important; }
+        .panel { break-inside: avoid; }
+        body { background: white !important; color: black !important; }
+        .panel { background: white !important; border: 1px solid #ccc !important; }
+        .panel-body { color: black !important; }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyReport() {
+    const summary = document.getElementById('reportSummary')?.innerText || '';
+    const mitigation = document.getElementById('reportMitigation')?.innerText || '';
+    const text = `COMPLIANCE REPORT - Run #{{ run.id }}\n\n${summary}\n\n${mitigation}`;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Report copied to clipboard');
+    }).catch(err => {
+        alert('Failed to copy: ' + err);
+    });
+}
+</script>
+{% endblock %}

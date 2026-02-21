@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}New Simulation - RansomRun{% endblock %}
+{% block page_title %}Launch Simulation{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Configure Simulation</h3>
+            </div>
+            <div class="panel-body">
+                {% if error %}
+                <div class="alert alert-danger mb-4">
+                    {{ error }}
+                </div>
+                {% endif %}
+                
+                {% if not hosts %}
+                <div class="alert alert-warning">
+                    <strong>No endpoints available.</strong> Deploy the RansomRun agent on at least one Windows machine before running simulations.
+                    <div style="margin-top: 12px;">
+                        <a href="/hosts" class="btn btn-secondary btn-sm">View Setup Instructions</a>
+                    </div>
+                </div>
+                {% elif not scenarios %}
+                <div class="alert alert-warning">
+                    <strong>No scenarios configured.</strong> Scenarios should be seeded automatically on startup.
+                </div>
+                {% else %}
+                <form method="POST" action="/simulate">
+                    <div class="mb-4">
+                        <label for="host_id" class="form-label">Target Endpoint</label>
+                        <select class="form-select" id="host_id" name="host_id" required>
+                            <option value="">Select an endpoint...</option>
+                            {% for host in hosts %}
+                            <option value="{{ host.id }}" {% if request.query_params.get('host_id') == host.id|string %}selected{% endif %}>
+                                {{ host.name }} — {{ host.ip_address or 'No IP' }} ({{ host.status.value }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div style="font-size: 12px; color: #71717a; margin-top: 6px;">
+                            The Windows machine where the simulation will execute
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="scenario_id" class="form-label">Attack Scenario</label>
+                        <select class="form-select" id="scenario_id" name="scenario_id" required>
+                            <option value="">Select a scenario...</option>
+                            {% for scenario in scenarios %}
+                            <option value="{{ scenario.id }}" {% if request.query_params.get('scenario_id') == scenario.id|string %}selected{% endif %}>
+                                {{ scenario.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div style="font-size: 12px; color: #71717a; margin-top: 6px;">
+                            The ransomware behavior pattern to simulate
+                        </div>
+                    </div>
+                    
+                    <div id="scenario-info" style="display: none; background: #0f0f14; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                        <div style="font-size: 12px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Scenario Details</div>
+                        <div id="scenario-desc" style="color: #d4d4d8; white-space: pre-line; font-size: 13px;"></div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px;">
+                        <button type="submit" class="btn btn-danger" style="padding: 12px 24px;">
+                            <i class="bi bi-play-fill"></i> Launch Simulation
+                        </button>
+                        <a href="/runs" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">How It Works</h3>
+            </div>
+            <div class="panel-body">
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 24px; height: 24px; background: #27272a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #a1a1aa; flex-shrink: 0;">1</div>
+                    <div style="font-size: 13px; color: #a1a1aa;">Simulation task is queued for the target endpoint</div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 24px; height: 24px; background: #27272a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #a1a1aa; flex-shrink: 0;">2</div>
+                    <div style="font-size: 13px; color: #a1a1aa;">Agent picks up and executes the attack scenario</div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <div style="width: 24px; height: 24px; background: #27272a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #a1a1aa; flex-shrink: 0;">3</div>
+                    <div style="font-size: 13px; color: #a1a1aa;">Wazuh detects activity and sends alerts</div>
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <div style="width: 24px; height: 24px; background: #27272a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #a1a1aa; flex-shrink: 0;">4</div>
+                    <div style="font-size: 13px; color: #a1a1aa;">Playbooks trigger automated response actions</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel" style="border-color: rgba(234, 179, 8, 0.3);">
+            <div class="panel-header" style="background: rgba(234, 179, 8, 0.1);">
+                <h3 class="panel-title" style="color: #fde047;">
+                    <i class="bi bi-exclamation-triangle"></i> Safety Notice
+                </h3>
+            </div>
+            <div class="panel-body" style="font-size: 13px; color: #a1a1aa;">
+                <p style="margin-bottom: 12px;">This platform is for <strong style="color: #fde047;">lab use only</strong>. Simulations perform real file operations.</p>
+                <ul style="margin: 0; padding-left: 16px;">
+                    <li>Only run on isolated test machines</li>
+                    <li>Files are modified in <code>C:\RansomTest</code></li>
+                    <li>Shadow copies may be deleted</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const scenarioData = {
+    {% for scenario in scenarios %}"{{ scenario.id }}": `{{ scenario.description | replace('`', '\\`') }}`,{% endfor %}
+};
+
+const scenarioSelect = document.getElementById('scenario_id');
+const infoDiv = document.getElementById('scenario-info');
+const descDiv = document.getElementById('scenario-desc');
+
+if (scenarioSelect) {
+    scenarioSelect.addEventListener('change', function() {
+        if (this.value && scenarioData[this.value]) {
+            descDiv.textContent = scenarioData[this.value];
+            infoDiv.style.display = 'block';
+        } else {
+            infoDiv.style.display = 'none';
+        }
+    });
+    if (scenarioSelect.value) scenarioSelect.dispatchEvent(new Event('change'));
+}
+</script>
+{% endblock %}

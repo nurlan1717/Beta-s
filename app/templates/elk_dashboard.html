@@ -1,0 +1,960 @@
+{% extends "base.html" %}
+
+{% block title %}ELK Dashboard - RANSOMRUN{% endblock %}
+
+{% block page_title %}ELK SIEM Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mitre-heatmap {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 8px;
+    }
+    
+    .mitre-cell {
+        background: #27272a;
+        border-radius: 6px;
+        padding: 12px;
+        text-align: center;
+        transition: all 0.2s ease;
+    }
+    
+    .mitre-cell:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    .mitre-cell .technique-id {
+        font-size: 14px;
+        font-weight: 600;
+        color: #fafafa;
+        margin-bottom: 4px;
+    }
+    
+    .mitre-cell .technique-name {
+        font-size: 11px;
+        color: #a1a1aa;
+        line-height: 1.3;
+    }
+    
+    .mitre-cell.level-1 { background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.3); }
+    .mitre-cell.level-2 { background: rgba(234, 179, 8, 0.2); border: 1px solid rgba(234, 179, 8, 0.3); }
+    .mitre-cell.level-3 { background: rgba(249, 115, 22, 0.2); border: 1px solid rgba(249, 115, 22, 0.3); }
+    .mitre-cell.level-4 { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .mitre-cell.level-5 { background: rgba(220, 38, 38, 0.3); border: 1px solid rgba(220, 38, 38, 0.5); }
+    
+    .agent-sidebar {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .agent-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid #27272a;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    
+    .agent-item:hover {
+        background: rgba(39, 39, 42, 0.5);
+    }
+    
+    .agent-item:last-child {
+        border-bottom: none;
+    }
+    
+    .agent-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .agent-icon {
+        width: 36px;
+        height: 36px;
+        background: #27272a;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #a1a1aa;
+    }
+    
+    .agent-name {
+        font-weight: 500;
+        color: #fafafa;
+        font-size: 13px;
+    }
+    
+    .agent-ip {
+        font-size: 12px;
+        color: #71717a;
+    }
+    
+    .connection-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+    }
+    
+    .connection-status.connected {
+        background: rgba(34, 197, 94, 0.1);
+        color: #86efac;
+    }
+    
+    .connection-status.disconnected {
+        background: rgba(239, 68, 68, 0.1);
+        color: #fca5a5;
+    }
+    
+    .connection-status.mock {
+        background: rgba(234, 179, 8, 0.1);
+        color: #fde047;
+    }
+    
+    .search-box {
+        position: relative;
+    }
+    
+    .search-box input {
+        width: 100%;
+        padding-left: 40px;
+    }
+    
+    .search-box i {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #71717a;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #27272a;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .refresh-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .refresh-btn.loading i {
+        animation: spin 1s linear infinite;
+    }
+    
+    .elk-badge {
+        background: linear-gradient(135deg, #00bfb3 0%, #f9b110 100%);
+        color: #000;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        text-transform: uppercase;
+    }
+    
+    /* Live Alert Feed Styles */
+    .alert-feed-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        border-bottom: 1px solid #27272a;
+    }
+    
+    .feed-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+    }
+    
+    .feed-status i.connected { color: #22c55e; }
+    .feed-status i.disconnected { color: #71717a; }
+    .feed-status i.error { color: #ef4444; }
+    
+    .alert-feed-list {
+        max-height: 350px;
+        overflow-y: auto;
+    }
+    
+    .feed-empty {
+        text-align: center;
+        padding: 32px 16px;
+        color: #71717a;
+    }
+    
+    .feed-empty i {
+        font-size: 32px;
+        margin-bottom: 8px;
+    }
+    
+    .feed-alert {
+        padding: 12px 16px;
+        border-bottom: 1px solid #27272a;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+    
+    .feed-alert:hover {
+        background: rgba(39, 39, 42, 0.5);
+    }
+    
+    .feed-alert.new {
+        animation: alertFlash 1s ease;
+    }
+    
+    @keyframes alertFlash {
+        0% { background: rgba(234, 179, 8, 0.3); }
+        100% { background: transparent; }
+    }
+    
+    .feed-alert-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+    
+    .feed-alert .severity-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: 600;
+    }
+    
+    .severity-badge.low { background: #22c55e; color: #000; }
+    .severity-badge.medium { background: #eab308; color: #000; }
+    .severity-badge.high { background: #f97316; color: #000; }
+    .severity-badge.critical { background: #ef4444; color: #fff; }
+    
+    .feed-alert .rule-id {
+        font-family: monospace;
+        font-size: 11px;
+        color: #a1a1aa;
+    }
+    
+    .feed-alert .timestamp {
+        font-size: 11px;
+        color: #71717a;
+        margin-left: auto;
+    }
+    
+    .feed-alert-body {
+        font-size: 12px;
+    }
+    
+    .feed-alert-body .host {
+        color: #60a5fa;
+        margin-bottom: 4px;
+    }
+    
+    .feed-alert-body .summary {
+        color: #d4d4d8;
+        margin-bottom: 4px;
+        line-height: 1.4;
+    }
+    
+    .feed-alert-body .mitre {
+        color: #a78bfa;
+        font-size: 11px;
+    }
+    
+    /* Alert Detail Modal */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-overlay.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 700px;
+        max-height: 80vh;
+        overflow: hidden;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid #27272a;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 16px;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        color: #a1a1aa;
+        font-size: 24px;
+        cursor: pointer;
+    }
+    
+    .modal-body {
+        padding: 20px;
+        overflow-y: auto;
+        max-height: calc(80vh - 60px);
+    }
+    
+    .detail-section {
+        margin-bottom: 20px;
+    }
+    
+    .detail-section h4 {
+        font-size: 13px;
+        color: #a1a1aa;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+    }
+    
+    .detail-table {
+        width: 100%;
+        font-size: 13px;
+    }
+    
+    .detail-table td {
+        padding: 6px 0;
+        border-bottom: 1px solid #27272a;
+    }
+    
+    .detail-table td:first-child {
+        color: #71717a;
+        width: 120px;
+    }
+    
+    .detail-table code {
+        background: #27272a;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    
+    .detail-table code.cmd {
+        display: block;
+        max-width: 400px;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="/siem">SIEM</a></li>
+        <li class="breadcrumb-item active">ELK Dashboard</li>
+    </ol>
+</nav>
+
+<!-- Connection Status -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center gap-3">
+        <div id="connection-status" class="connection-status disconnected">
+            <i class="bi bi-circle-fill" style="font-size: 8px;"></i>
+            <span>Checking connection...</span>
+        </div>
+        <span id="siem-mode-badge" class="elk-badge">ELK Source</span>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2" style="font-size: 13px;">
+            <label class="d-flex align-items-center gap-2 mb-0" style="cursor: pointer;">
+                <input type="checkbox" id="auto-refresh-toggle" class="form-check-input" style="cursor: pointer;">
+                <span>Auto Refresh</span>
+            </label>
+            <select id="auto-refresh-interval" class="form-select form-select-sm" style="width: 100px;">
+                <option value="5">5s</option>
+                <option value="10" selected>10s</option>
+                <option value="30">30s</option>
+                <option value="60">60s</option>
+            </select>
+        </div>
+        <div class="d-flex flex-column align-items-end">
+            <span id="last-updated" class="text-muted" style="font-size: 11px;">Never</span>
+            <span id="last-error" class="text-danger" style="font-size: 10px; display: none;"></span>
+        </div>
+        <button id="refresh-btn" class="btn btn-secondary refresh-btn" onclick="manualRefresh()">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-box">
+        <div class="label">Total Endpoints</div>
+        <div class="value" id="total-agents">-</div>
+    </div>
+    <div class="stat-box">
+        <div class="label">Active Endpoints</div>
+        <div class="value" id="active-agents">-</div>
+    </div>
+    <div class="stat-box">
+        <div class="label">Total Alerts</div>
+        <div class="value" id="total-alerts">-</div>
+    </div>
+    <div class="stat-box highlight">
+        <div class="label">High Severity Alerts</div>
+        <div class="value" id="high-severity">-</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Alerts Table -->
+    <div class="col-lg-8">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">
+                    <i class="bi bi-exclamation-triangle"></i> Recent Alerts
+                </h3>
+                <div class="search-box" style="width: 250px;">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" id="alert-search" placeholder="Search alerts..." onkeyup="searchAlerts(event)">
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Endpoint</th>
+                            <th>Detection Rule</th>
+                            <th>Description</th>
+                            <th>MITRE</th>
+                            <th>Severity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="alerts-table">
+                        <tr>
+                            <td colspan="6" class="text-center py-4">
+                                <div class="loading-spinner"></div>
+                                <div class="mt-2 text-muted">Loading alerts...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- MITRE Heatmap -->
+        <div class="panel mt-4">
+            <div class="panel-header">
+                <h3 class="panel-title">
+                    <i class="bi bi-grid-3x3"></i> MITRE ATT&CK Heatmap
+                </h3>
+            </div>
+            <div class="panel-body">
+                <div id="mitre-heatmap" class="mitre-heatmap">
+                    <div class="text-center text-muted py-4">Loading MITRE data...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar: Live Alerts + Endpoints -->
+    <div class="col-lg-4">
+        <!-- Live Alerts Feed -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">
+                    <i class="bi bi-lightning-charge"></i> Live Alerts Feed
+                </h3>
+            </div>
+            <div class="panel-body p-0" id="live-alerts-feed">
+                <!-- Alert feed widget will be initialized here -->
+            </div>
+        </div>
+        
+        <!-- Endpoints -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">
+                    <i class="bi bi-hdd-network"></i> Endpoints
+                </h3>
+            </div>
+            <div class="p-3">
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" id="agent-search" placeholder="Search endpoints..." onkeyup="filterAgents()">
+                </div>
+            </div>
+            <div class="agent-sidebar" id="agents-list">
+                <div class="text-center py-4 text-muted">
+                    <div class="loading-spinner"></div>
+                    <div class="mt-2">Loading endpoints...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const API_BASE = '/api/siem';
+    let allAgents = [];
+    let autoRefreshTimer = null;
+    let isRefreshing = false;
+    let consecutiveErrors = 0;
+    let currentInterval = 10;
+    let backoffInterval = 10;
+    const MAX_BACKOFF = 60;
+    
+    // LocalStorage keys
+    const STORAGE_KEYS = {
+        AUTO_REFRESH_ENABLED: 'elk_auto_refresh_enabled',
+        AUTO_REFRESH_INTERVAL: 'elk_auto_refresh_interval_seconds'
+    };
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        initAutoRefresh();
+        loadSiemMode();
+        manualRefresh();
+    });
+    
+    function initAutoRefresh() {
+        const toggle = document.getElementById('auto-refresh-toggle');
+        const intervalSelect = document.getElementById('auto-refresh-interval');
+        
+        // Restore settings from localStorage
+        const savedEnabled = localStorage.getItem(STORAGE_KEYS.AUTO_REFRESH_ENABLED);
+        const savedInterval = localStorage.getItem(STORAGE_KEYS.AUTO_REFRESH_INTERVAL);
+        
+        if (savedEnabled === 'true') {
+            toggle.checked = true;
+        }
+        
+        if (savedInterval) {
+            currentInterval = parseInt(savedInterval);
+            intervalSelect.value = savedInterval;
+        }
+        
+        // Event listeners
+        toggle.addEventListener('change', function() {
+            localStorage.setItem(STORAGE_KEYS.AUTO_REFRESH_ENABLED, this.checked);
+            if (this.checked) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        });
+        
+        intervalSelect.addEventListener('change', function() {
+            currentInterval = parseInt(this.value);
+            localStorage.setItem(STORAGE_KEYS.AUTO_REFRESH_INTERVAL, this.value);
+            if (toggle.checked) {
+                startAutoRefresh();
+            }
+        });
+        
+        // Start auto-refresh if enabled
+        if (toggle.checked) {
+            startAutoRefresh();
+        }
+    }
+    
+    function startAutoRefresh() {
+        stopAutoRefresh();
+        const intervalMs = currentInterval * 1000;
+        console.log(`Auto-refresh started: ${currentInterval}s interval`);
+        
+        autoRefreshTimer = setInterval(() => {
+            if (!isRefreshing) {
+                refreshData(false);
+            }
+        }, intervalMs);
+    }
+    
+    function stopAutoRefresh() {
+        if (autoRefreshTimer) {
+            clearInterval(autoRefreshTimer);
+            autoRefreshTimer = null;
+            console.log('Auto-refresh stopped');
+        }
+    }
+    
+    function manualRefresh() {
+        refreshData(true);
+    }
+    
+    async function refreshData(isManual = false) {
+        if (isRefreshing) {
+            console.log('Refresh already in progress, skipping...');
+            return;
+        }
+        
+        isRefreshing = true;
+        const btn = document.getElementById('refresh-btn');
+        btn.classList.add('loading');
+        btn.disabled = true;
+        
+        try {
+            await Promise.all([
+                checkConnection(),
+                loadStats(),
+                loadAlerts(),
+                loadAgents(),
+                loadMitreHeatmap()
+            ]);
+            
+            updateLastUpdated();
+            clearError();
+            consecutiveErrors = 0;
+            backoffInterval = currentInterval;
+            
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+            handleRefreshError(error);
+        } finally {
+            isRefreshing = false;
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    }
+    
+    function updateLastUpdated() {
+        const el = document.getElementById('last-updated');
+        const now = new Date();
+        el.textContent = `Last updated: ${now.toLocaleTimeString()}`;
+    }
+    
+    function handleRefreshError(error) {
+        consecutiveErrors++;
+        const errorEl = document.getElementById('last-error');
+        errorEl.textContent = `Error: ${error.message || 'Connection failed'}`;
+        errorEl.style.display = 'block';
+        
+        // Check if ES is down
+        const statusEl = document.getElementById('connection-status');
+        if (statusEl.classList.contains('disconnected')) {
+            // Apply backoff strategy
+            if (consecutiveErrors >= 3) {
+                backoffInterval = Math.min(backoffInterval * 2, MAX_BACKOFF);
+                console.warn(`ES appears down. Backing off to ${backoffInterval}s interval`);
+                
+                const toggle = document.getElementById('auto-refresh-toggle');
+                if (toggle.checked) {
+                    currentInterval = backoffInterval;
+                    startAutoRefresh();
+                }
+            }
+        }
+    }
+    
+    function clearError() {
+        const errorEl = document.getElementById('last-error');
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+    }
+    
+    async function loadSiemMode() {
+        try {
+            const response = await fetch(`${API_BASE}/elk/status`);
+            const data = await response.json();
+            
+            const badge = document.getElementById('siem-mode-badge');
+            if (data.mock_mode) {
+                badge.textContent = 'MOCK MODE';
+                badge.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+            } else {
+                badge.textContent = 'LIVE ELK';
+                badge.style.background = 'linear-gradient(135deg, #00bfb3 0%, #10b981 100%)';
+            }
+        } catch (error) {
+            console.error('Error loading SIEM mode:', error);
+        }
+    }
+    
+    async function checkConnection() {
+        try {
+            const response = await fetch(`${API_BASE}/elk/status`);
+            const data = await response.json();
+            
+            const statusEl = document.getElementById('connection-status');
+            if (data.connected) {
+                if (data.mock_mode) {
+                    statusEl.className = 'connection-status mock';
+                    statusEl.innerHTML = `
+                        <i class="bi bi-circle-fill" style="font-size: 8px;"></i>
+                        <span>Mock Mode (Offline Development)</span>
+                    `;
+                } else {
+                    statusEl.className = 'connection-status connected';
+                    statusEl.innerHTML = `
+                        <i class="bi bi-circle-fill" style="font-size: 8px;"></i>
+                        <span>Connected to Elasticsearch ${data.version || ''}</span>
+                    `;
+                }
+            } else {
+                statusEl.className = 'connection-status disconnected';
+                statusEl.innerHTML = `
+                    <i class="bi bi-circle-fill" style="font-size: 8px;"></i>
+                    <span>Disconnected: ${data.error || 'Unknown error'}</span>
+                `;
+            }
+        } catch (error) {
+            const statusEl = document.getElementById('connection-status');
+            statusEl.className = 'connection-status disconnected';
+            statusEl.innerHTML = `
+                <i class="bi bi-circle-fill" style="font-size: 8px;"></i>
+                <span>Connection error</span>
+            `;
+            throw error;
+        }
+    }
+    
+    async function loadStats() {
+        try {
+            const response = await fetch(`${API_BASE}/elk/stats?hours=24`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            document.getElementById('total-agents').textContent = data.total_agents || 0;
+            document.getElementById('active-agents').textContent = data.active_agents || 0;
+            document.getElementById('total-alerts').textContent = data.total_alerts || 0;
+            document.getElementById('high-severity').textContent = data.high_severity_alerts || 0;
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            throw error;
+        }
+    }
+    
+    async function loadAlerts(query = '') {
+        try {
+            let url = `${API_BASE}/elk/alerts?limit=20&hours=24`;
+            if (query) {
+                url += `&host_name=${encodeURIComponent(query)}`;
+            }
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            const tbody = document.getElementById('alerts-table');
+            
+            if (!data.alerts || data.alerts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox" style="font-size: 24px;"></i>
+                            <div class="mt-2">No alerts found</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = data.alerts.map(alert => {
+                const timestamp = alert.timestamp ? new Date(alert.timestamp).toLocaleString() : 'N/A';
+                const severityLabel = alert.severity_label || 'LOW';
+                const mitre = alert.mitre || [];
+                const mitreTechnique = Array.isArray(mitre) && mitre.length > 0 ? mitre[0] : 'N/A';
+                
+                let levelClass = 'badge-gray';
+                if (severityLabel === 'CRITICAL') levelClass = 'badge-danger';
+                else if (severityLabel === 'HIGH') levelClass = 'badge-warning';
+                else if (severityLabel === 'MEDIUM') levelClass = 'badge-info';
+                else levelClass = 'badge-success';
+                
+                return `
+                    <tr>
+                        <td><code>${timestamp}</code></td>
+                        <td>${alert.host || 'N/A'}</td>
+                        <td><code>${alert.rule_id || 'N/A'}</code></td>
+                        <td>${(alert.description || alert.rule_name || 'N/A').substring(0, 60)}${(alert.description || '').length > 60 ? '...' : ''}</td>
+                        <td><span class="badge badge-purple">${mitreTechnique}</span></td>
+                        <td><span class="badge ${levelClass}">${severityLabel}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+            document.getElementById('alerts-table').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-danger">
+                        Error loading alerts
+                    </td>
+                </tr>
+            `;
+            throw error;
+        }
+    }
+    
+    async function loadAgents() {
+        try {
+            const response = await fetch(`${API_BASE}/elk/agents`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            allAgents = data.agents || [];
+            renderAgents(allAgents);
+        } catch (error) {
+            console.error('Error loading agents:', error);
+            document.getElementById('agents-list').innerHTML = `
+                <div class="text-center py-4 text-danger">Error loading endpoints</div>
+            `;
+            throw error;
+        }
+    }
+    
+    function renderAgents(agents) {
+        const container = document.getElementById('agents-list');
+        
+        if (!agents || agents.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-hdd-network" style="font-size: 24px;"></i>
+                    <div class="mt-2">No endpoints found</div>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = agents.map(agent => {
+            const statusClass = agent.status === 'active' ? 'badge-online' : 'badge-offline';
+            return `
+                <div class="agent-item" onclick="filterAlertsByAgent('${agent.name}')">
+                    <div class="agent-info">
+                        <div class="agent-icon">
+                            <i class="bi bi-pc-display"></i>
+                        </div>
+                        <div>
+                            <div class="agent-name">${agent.name || 'Unknown'}</div>
+                            <div class="agent-ip">${agent.ip || 'N/A'}</div>
+                        </div>
+                    </div>
+                    <span class="badge ${statusClass}">${agent.status || 'unknown'}</span>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    function filterAgents() {
+        const query = document.getElementById('agent-search').value.toLowerCase();
+        const filtered = allAgents.filter(agent => 
+            (agent.name || '').toLowerCase().includes(query) ||
+            (agent.ip || '').toLowerCase().includes(query)
+        );
+        renderAgents(filtered);
+    }
+    
+    function filterAlertsByAgent(agentName) {
+        const searchBox = document.getElementById('alert-search');
+        if (searchBox) {
+            searchBox.value = agentName;
+            loadAlerts(agentName);
+        }
+    }
+    
+    function searchAlerts(event) {
+        if (event.key === 'Enter') {
+            const query = document.getElementById('alert-search').value;
+            loadAlerts(query);
+        }
+    }
+    
+    async function loadMitreHeatmap() {
+        try {
+            const response = await fetch(`${API_BASE}/elk/mitre/heatmap`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            const container = document.getElementById('mitre-heatmap');
+            const techniques = data.techniques || [];
+            
+            if (techniques.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        No MITRE techniques detected
+                    </div>
+                `;
+                return;
+            }
+            
+            // Sort by count
+            const sortedTechniques = techniques.sort((a, b) => b.count - a.count);
+            const maxCount = Math.max(...techniques.map(t => t.count));
+            
+            container.innerHTML = sortedTechniques.map(tech => {
+                const level = Math.min(5, Math.ceil((tech.count / maxCount) * 5));
+                return `
+                    <div class="mitre-cell level-${level}" title="${tech.technique_name}: ${tech.count} detections">
+                        <div class="technique-id">${tech.technique_id}</div>
+                        <div class="technique-name">${tech.technique_name}</div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Error loading MITRE heatmap:', error);
+            document.getElementById('mitre-heatmap').innerHTML = `
+                <div class="text-center text-danger py-4">Error loading MITRE data</div>
+            `;
+            throw error;
+        }
+    }
+    
+    // Initialize Live Alert Feed (if elk_stream.js exists)
+    let alertFeed = null;
+    function initAlertFeed() {
+        if (typeof AlertFeedWidget !== 'undefined') {
+            alertFeed = new AlertFeedWidget('live-alerts-feed', {
+                maxItems: 15
+            });
+            
+            fetch(`${API_BASE}/elk/status`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.connected && !data.mock_mode) {
+                        alertFeed.connect();
+                    }
+                })
+                .catch(() => {});
+        }
+    }
+    
+    // Try to load alert feed script
+    const script = document.createElement('script');
+    script.src = '/static/js/elk_stream.js';
+    script.onload = initAlertFeed;
+    script.onerror = () => console.log('Live alert feed not available');
+    document.head.appendChild(script);
+</script>
+{% endblock %}

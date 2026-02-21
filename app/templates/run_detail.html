@@ -1,0 +1,1009 @@
+{% extends "base.html" %}
+
+{% block title %}Run #{{ run.id }} - Incident Report - RansomRun{% endblock %}
+{% block page_title %}Incident Report{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="/runs" class="btn btn-ghost btn-sm mb-2">
+            <i class="bi bi-arrow-left me-1"></i> Back to Simulations
+        </a>
+        <h2 style="color: #fafafa; margin: 0;">
+            Run #{{ run.id }}
+            <span class="badge badge-{{ run.status.value|lower }}">{{ run.status.value }}</span>
+        </h2>
+    </div>
+    <button onclick="window.print()" class="btn btn-secondary btn-sm">
+        <i class="bi bi-printer me-1"></i> Print
+    </button>
+</div>
+
+<!-- Stats Grid -->
+<div class="row g-3 mb-4">
+    <div class="col-md-2">
+        <div class="stat-box">
+            <div class="stat-value">{{ summary.total_tasks }}</div>
+            <div class="stat-label">Tasks</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stat-box">
+            <div class="stat-value" style="color: #86efac;">{{ summary.completed_tasks }}</div>
+            <div class="stat-label">Completed</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stat-box">
+            <div class="stat-value" style="color: #fca5a5;">{{ summary.total_alerts }}</div>
+            <div class="stat-label">Alerts</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stat-box">
+            <div class="stat-value">{{ summary.files_affected|default(0) }}</div>
+            <div class="stat-label">Files Affected</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stat-box">
+            <div class="stat-value">{{ summary.iocs_count|default(0) }}</div>
+            <div class="stat-label">IOCs</div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="stat-box">
+            <div class="stat-value">{{ summary.duration or '—' }}</div>
+            <div class="stat-label">Duration</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Run Info + Timeline -->
+    <div class="col-lg-8">
+        <!-- Run Info -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Run Information</h3>
+            </div>
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Host</div>
+                            {% if run.host %}
+                            <a href="/hosts/{{ run.host.id }}">{{ run.host.name }}</a>
+                            <code style="margin-left: 8px; font-size: 11px;">{{ run.host.agent_id }}</code>
+                            {% else %}
+                            <span style="color: #a1a1aa;">N/A</span>
+                            {% endif %}
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Scenario</div>
+                            <span style="color: #fafafa;">{{ run.scenario.name if run.scenario else 'N/A' }}</span>
+                            {% if run.scenario and run.scenario.category %}
+                            <span class="badge badge-gray ms-2">{{ run.scenario.category.value }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Started</div>
+                            <span style="color: #fafafa;">{{ run.started_at.strftime('%Y-%m-%d %H:%M:%S') if run.started_at else 'Not started' }}</span>
+                        </div>
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Ended</div>
+                            <span style="color: #fafafa;">{{ run.ended_at.strftime('%Y-%m-%d %H:%M:%S') if run.ended_at else 'In progress' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Incident Timeline -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Incident Timeline</h3>
+                <span class="badge badge-gray">{{ timeline|length }} events</span>
+            </div>
+            <div class="panel-body" style="max-height: 500px; overflow-y: auto;">
+                {% if timeline %}
+                <div class="timeline">
+                    {% for event in timeline %}
+                    <div class="timeline-item" style="display: flex; gap: 16px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #27272a;">
+                        <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; 
+                                    background: rgba({% if event.color == 'danger' %}239, 68, 68{% elif event.color == 'success' %}34, 197, 94{% elif event.color == 'warning' %}234, 179, 8{% elif event.color == 'info' %}59, 130, 246{% else %}113, 113, 122{% endif %}, 0.15);
+                                    display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-{{ event.icon }}" style="color: {% if event.color == 'danger' %}#fca5a5{% elif event.color == 'success' %}#86efac{% elif event.color == 'warning' %}#fde047{% elif event.color == 'info' %}#93c5fd{% else %}#a1a1aa{% endif %};"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <strong style="color: #fafafa;">{{ event.title }}</strong>
+                                <span style="font-size: 11px; color: #71717a;">{{ event.timestamp.strftime('%H:%M:%S') if event.timestamp else '' }}</span>
+                            </div>
+                            {% if event.description %}
+                            <div style="font-size: 12px; color: #a1a1aa; margin-top: 4px;">{{ event.description|truncate(100) }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state" style="padding: 30px 0;">
+                    <i class="bi bi-clock-history"></i>
+                    <h3>No Timeline Events</h3>
+                    <p>Events will appear as the simulation progresses.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Alerts</h3>
+                <span class="badge badge-danger">{{ alerts|length }}</span>
+            </div>
+            {% if alerts %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Rule</th>
+                        <th>Description</th>
+                        <th>Severity</th>
+                        <th>MITRE</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in alerts %}
+                    <tr>
+                        <td>{{ alert.timestamp.strftime('%H:%M:%S') if alert.timestamp else '—' }}</td>
+                        <td><code>{{ alert.rule_id }}</code></td>
+                        <td>{{ alert.rule_description|truncate(40) if alert.rule_description else '—' }}</td>
+                        <td>
+                            {% if alert.severity >= 12 %}
+                            <span class="badge badge-danger">{{ alert.severity }}</span>
+                            {% elif alert.severity >= 8 %}
+                            <span class="badge badge-warning">{{ alert.severity }}</span>
+                            {% else %}
+                            <span class="badge badge-gray">{{ alert.severity }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if alert.rule_id in mitre_mapping %}
+                            <span class="badge badge-purple">{{ mitre_mapping[alert.rule_id].technique }}</span>
+                            {% else %}
+                            <span style="color: #52525b;">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state" style="padding: 30px 0;">
+                <i class="bi bi-bell-slash"></i>
+                <h3>No Alerts</h3>
+                <p>No alerts recorded for this run.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Right Column: Metrics, IOCs, Tasks -->
+    <div class="col-lg-4">
+        <!-- Metrics -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Metrics</h3>
+            </div>
+            <div class="panel-body">
+                {% if metrics %}
+                {% for name, value in metrics.items() %}
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #27272a;">
+                    <span style="color: #a1a1aa; font-size: 13px;">{{ name.replace('_', ' ').title() }}</span>
+                    <strong style="color: #fafafa;">{{ value|round(2) if value is number else value }}</strong>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="color: #71717a; font-size: 13px; margin: 0;">No metrics recorded.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- IOCs -->
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Indicators of Compromise</h3>
+                <span class="badge badge-gray">{{ iocs|length }}</span>
+            </div>
+            <div class="panel-body" style="max-height: 300px; overflow-y: auto;">
+                {% if iocs %}
+                {% for ioc in iocs %}
+                <div style="background: #0f0f14; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span class="badge badge-info">{{ ioc.ioc_type.value }}</span>
+                        <span style="font-size: 11px; color: #71717a;">{{ ioc.context or '' }}</span>
+                    </div>
+                    <code style="font-size: 11px; word-break: break-all;">{{ ioc.value|truncate(60) }}</code>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="color: #71717a; font-size: 13px; margin: 0;">No IOCs recorded.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Tasks -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Tasks</h3>
+                <span class="badge badge-gray">{{ tasks|length }}</span>
+            </div>
+            <div class="panel-body">
+                {% if tasks %}
+                {% for task in tasks %}
+                <div style="background: #0f0f14; border-radius: 6px; padding: 10px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <code style="font-size: 12px;">{{ task.type }}</code>
+                        <span class="badge badge-{{ task.status.value|lower }}">{{ task.status.value }}</span>
+                    </div>
+                    {% if task.result_message %}
+                    <div style="font-size: 11px; color: #71717a; margin-top: 6px;">{{ task.result_message|truncate(80) }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="color: #71717a; font-size: 13px; margin: 0;">No tasks recorded.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Features Section -->
+<div class="row g-4 mt-2">
+    <!-- Behavior DNA -->
+    <div class="col-lg-6">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-fingerprint me-2"></i>Behavior DNA</h3>
+                {% if behavior_profile %}
+                <span class="badge badge-purple">{{ behavior_profile.profile_label.value if behavior_profile.profile_label else 'Unknown' }}</span>
+                {% endif %}
+            </div>
+            <div class="panel-body">
+                {% if behavior_profile %}
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Intensity</div>
+                        <div style="background: #27272a; border-radius: 4px; height: 8px; margin-top: 4px;">
+                            <div style="background: #ef4444; border-radius: 4px; height: 8px; width: {{ behavior_profile.intensity_score }}%;"></div>
+                        </div>
+                        <span style="font-size: 12px; color: #fafafa;">{{ behavior_profile.intensity_score|round(0) }}%</span>
+                    </div>
+                    <div class="col-6">
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Stealthiness</div>
+                        <div style="background: #27272a; border-radius: 4px; height: 8px; margin-top: 4px;">
+                            <div style="background: #8b5cf6; border-radius: 4px; height: 8px; width: {{ behavior_profile.stealthiness_score }}%;"></div>
+                        </div>
+                        <span style="font-size: 12px; color: #fafafa;">{{ behavior_profile.stealthiness_score|round(0) }}%</span>
+                    </div>
+                </div>
+                
+                {% if behavior_profile.techniques %}
+                <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">MITRE Techniques</div>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;">
+                    {% for tech in behavior_profile.techniques %}
+                    <span class="badge badge-purple">{{ tech.id }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                {% if behavior_profile.dna_vector %}
+                <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">DNA Vector</div>
+                <div style="display: flex; gap: 4px; margin-bottom: 8px;">
+                    {% for key, val in behavior_profile.dna_vector.items() %}
+                    <div style="flex: 1; text-align: center;">
+                        <div style="height: 40px; background: #27272a; border-radius: 4px; position: relative;">
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: {% if key == 'encryption' %}#3b82f6{% elif key == 'recovery_inhibition' %}#ef4444{% elif key == 'exfil' %}#f59e0b{% elif key == 'persistence' %}#8b5cf6{% else %}#71717a{% endif %}; height: {{ val * 100 }}%; border-radius: 4px;"></div>
+                        </div>
+                        <div style="font-size: 9px; color: #71717a; margin-top: 2px;">{{ key[:4] }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div style="text-align: center; padding: 20px;">
+                    <p style="color: #71717a; margin-bottom: 12px;">No behavior profile generated yet.</p>
+                    <button onclick="generateBehaviorProfile()" class="btn btn-primary btn-sm">Generate DNA Profile</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Coach Feedback - Modern Design -->
+    <div class="col-lg-6">
+        <div class="panel" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-lightbulb" style="color: white; font-size: 18px;"></i>
+                    </div>
+                    <span>AI Coach Insights</span>
+                </h3>
+                {% if feedback %}
+                <span class="badge" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; font-size: 10px;">ANALYZED</span>
+                {% endif %}
+            </div>
+            <div class="panel-body" style="padding: 20px;">
+                {% if feedback %}
+                <!-- Success Section -->
+                <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                        <div style="width: 24px; height: 24px; background: rgba(34, 197, 94, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-check-circle-fill" style="color: #22c55e; font-size: 12px;"></i>
+                        </div>
+                        <span style="font-size: 12px; font-weight: 600; color: #22c55e; text-transform: uppercase; letter-spacing: 0.5px;">What Went Well</span>
+                    </div>
+                    <div style="font-size: 13px; color: #d4d4d8; line-height: 1.6; white-space: pre-line;">{{ feedback.positives }}</div>
+                </div>
+                
+                <!-- Improvement Section -->
+                <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                        <div style="width: 24px; height: 24px; background: rgba(239, 68, 68, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-exclamation-triangle-fill" style="color: #ef4444; font-size: 12px;"></i>
+                        </div>
+                        <span style="font-size: 12px; font-weight: 600; color: #ef4444; text-transform: uppercase; letter-spacing: 0.5px;">Areas for Improvement</span>
+                    </div>
+                    <div style="font-size: 13px; color: #d4d4d8; line-height: 1.6; white-space: pre-line;">{{ feedback.negatives }}</div>
+                </div>
+                
+                <!-- Recommendations Section -->
+                <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; padding: 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                        <div style="width: 24px; height: 24px; background: rgba(59, 130, 246, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-arrow-up-right-circle-fill" style="color: #3b82f6; font-size: 12px;"></i>
+                        </div>
+                        <span style="font-size: 12px; font-weight: 600; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.5px;">Recommendations</span>
+                    </div>
+                    <div style="font-size: 13px; color: #d4d4d8; line-height: 1.6; white-space: pre-line;">{{ feedback.recommendations }}</div>
+                </div>
+                
+                <!-- Score Badge -->
+                {% if feedback.score %}
+                <div style="margin-top: 16px; display: flex; justify-content: center;">
+                    <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border-radius: 12px; padding: 12px 24px; text-align: center;">
+                        <div style="font-size: 10px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 1px;">Response Score</div>
+                        <div style="font-size: 28px; font-weight: 700; color: white;">{{ feedback.score }}/100</div>
+                    </div>
+                </div>
+                {% endif %}
+                {% else %}
+                <div style="text-align: center; padding: 40px 20px;">
+                    <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <i class="bi bi-robot" style="color: white; font-size: 28px;"></i>
+                    </div>
+                    <h4 style="color: #fafafa; margin-bottom: 8px; font-size: 16px;">AI Analysis Available</h4>
+                    <p style="color: #71717a; margin-bottom: 16px; font-size: 13px;">Get personalized insights and recommendations based on your simulation results.</p>
+                    <button onclick="generateFeedback()" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border: none; padding: 10px 24px;">
+                        <i class="bi bi-sparkles me-2"></i>Generate AI Insights
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Business Impact & Compliance Row -->
+<div class="row g-4 mt-2">
+    <!-- Business Impact - Modern Design -->
+    <div class="col-lg-6">
+        <div class="panel" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-graph-up-arrow" style="color: white; font-size: 18px;"></i>
+                    </div>
+                    <span>Business Impact</span>
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 20px;">
+                {% if business_impact %}
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 10px; padding: 14px; text-align: center;">
+                        <div style="font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Downtime</div>
+                        <div style="font-size: 24px; color: #f59e0b; font-weight: 700;">{{ business_impact.estimated_downtime_hours }}h</div>
+                    </div>
+                    <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; padding: 14px; text-align: center;">
+                        <div style="font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Recovery</div>
+                        <div style="font-size: 24px; color: #3b82f6; font-weight: 700;">{{ business_impact.estimated_data_recovery_hours }}h</div>
+                    </div>
+                </div>
+                <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; padding: 20px; text-align: center;">
+                    <div style="font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Estimated Total Cost</div>
+                    <div style="font-size: 36px; color: #ef4444; font-weight: 800; text-shadow: 0 0 30px rgba(239, 68, 68, 0.3);">${{ "{:,.0f}".format(business_impact.estimated_total_cost) }}</div>
+                    <div style="display: flex; justify-content: center; gap: 16px; margin-top: 10px;">
+                        <span style="font-size: 11px; color: #a1a1aa;"><i class="bi bi-building me-1"></i>{{ business_impact.business_unit }}</span>
+                        <span style="font-size: 11px; color: #a1a1aa;"><i class="bi bi-speedometer2 me-1"></i>Criticality {{ business_impact.criticality_level }}/5</span>
+                    </div>
+                </div>
+                {% else %}
+                <form id="impactForm">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <label style="font-size: 11px; color: #71717a; display: block; margin-bottom: 6px;">Business Unit</label>
+                            <select id="businessUnit" class="form-select form-select-sm" style="background: #0f0f14; border: 1px solid #27272a; color: #fafafa; border-radius: 8px; padding: 10px;">
+                                <option value="Generic">Generic</option>
+                                <option value="Finance">Finance</option>
+                                <option value="HR">HR</option>
+                                <option value="Production">Production</option>
+                                <option value="IT">IT</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #71717a; display: block; margin-bottom: 6px;">Criticality (1-5)</label>
+                            <input type="number" id="criticality" value="3" min="1" max="5" class="form-control form-control-sm" style="background: #0f0f14; border: 1px solid #27272a; color: #fafafa; border-radius: 8px; padding: 10px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #71717a; display: block; margin-bottom: 6px;">Cost/Hour ($)</label>
+                            <input type="number" id="costPerHour" value="500" class="form-control form-control-sm" style="background: #0f0f14; border: 1px solid #27272a; color: #fafafa; border-radius: 8px; padding: 10px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 11px; color: #71717a; display: block; margin-bottom: 6px;">Data Sensitivity (1-5)</label>
+                            <input type="number" id="dataSensitivity" value="3" min="1" max="5" class="form-control form-control-sm" style="background: #0f0f14; border: 1px solid #27272a; color: #fafafa; border-radius: 8px; padding: 10px;">
+                        </div>
+                    </div>
+                    <button type="button" onclick="calculateImpact()" class="btn btn-primary w-100" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; padding: 12px;">
+                        <i class="bi bi-calculator me-2"></i>Calculate Impact
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Compliance Report - Modern Design -->
+    <div class="col-lg-6">
+        <div class="panel" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-shield-check" style="color: white; font-size: 18px;"></i>
+                    </div>
+                    <span>Compliance Report</span>
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 20px;">
+                {% if compliance_report %}
+                <!-- Status Badges -->
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+                    <span style="background: rgba(6, 182, 212, 0.15); color: #22d3ee; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid rgba(6, 182, 212, 0.3);">
+                        <i class="bi bi-file-text me-1"></i>{{ compliance_report.report_type.value }}
+                    </span>
+                    {% if compliance_report.regulatory_notification_required %}
+                    <span style="background: rgba(239, 68, 68, 0.15); color: #f87171; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid rgba(239, 68, 68, 0.3);">
+                        <i class="bi bi-bell-fill me-1"></i>Notification Required
+                    </span>
+                    {% else %}
+                    <span style="background: rgba(34, 197, 94, 0.15); color: #4ade80; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid rgba(34, 197, 94, 0.3);">
+                        <i class="bi bi-check-circle me-1"></i>No Notification Required
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <!-- Risk Metrics -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                    <div style="background: #0f0f14; border-radius: 10px; padding: 14px;">
+                        <div style="font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Risk to Individuals</div>
+                        <div style="font-size: 18px; font-weight: 600; color: {% if compliance_report.risk_to_individuals == 'High' %}#ef4444{% elif compliance_report.risk_to_individuals == 'Moderate' %}#f59e0b{% else %}#22c55e{% endif %};">
+                            {% if compliance_report.risk_to_individuals == 'High' %}
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            {% elif compliance_report.risk_to_individuals == 'Moderate' %}
+                            <i class="bi bi-exclamation-circle-fill me-1"></i>
+                            {% else %}
+                            <i class="bi bi-check-circle-fill me-1"></i>
+                            {% endif %}
+                            {{ compliance_report.risk_to_individuals or 'None' }}
+                        </div>
+                    </div>
+                    <div style="background: #0f0f14; border-radius: 10px; padding: 14px;">
+                        <div style="font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Data Subjects Affected</div>
+                        <div style="font-size: 18px; font-weight: 600; color: #fafafa;">
+                            <i class="bi bi-people-fill me-1" style="color: #06b6d4;"></i>
+                            {{ compliance_report.data_subjects_affected_estimate or 'N/A' }}
+                        </div>
+                    </div>
+                </div>
+                
+                <a href="/runs/{{ run.id }}/compliance" class="btn w-100" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border: none; color: white; padding: 12px;">
+                    <i class="bi bi-file-earmark-text me-2"></i>View Full Report
+                </a>
+                {% else %}
+                <div style="text-align: center; padding: 40px 20px;">
+                    <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <i class="bi bi-clipboard-check" style="color: white; font-size: 28px;"></i>
+                    </div>
+                    <h4 style="color: #fafafa; margin-bottom: 8px; font-size: 16px;">Compliance Assessment</h4>
+                    <p style="color: #71717a; margin-bottom: 16px; font-size: 13px;">Generate a compliance report to assess regulatory requirements and notification obligations.</p>
+                    <button onclick="generateCompliance()" class="btn btn-primary" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border: none; padding: 10px 24px;">
+                        <i class="bi bi-file-earmark-plus me-2"></i>Generate Report
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Containment & Recovery Section -->
+<div class="row g-4 mt-2">
+    <!-- Containment Status -->
+    <div class="col-lg-6">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-shield-lock me-2"></i>Containment Status</h3>
+                {% if run.host and run.host.is_isolated %}
+                <span class="badge badge-danger">ISOLATED</span>
+                {% else %}
+                <span class="badge badge-success">ONLINE</span>
+                {% endif %}
+            </div>
+            <div class="panel-body">
+                {% if run.host %}
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Host Status</div>
+                        <div style="font-size: 16px; color: {% if run.host.is_isolated %}#ef4444{% else %}#22c55e{% endif %};">
+                            {% if run.host.is_isolated %}
+                            <i class="bi bi-shield-lock-fill"></i> Isolated
+                            {% else %}
+                            <i class="bi bi-shield-check"></i> Normal
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Policy</div>
+                        <div style="font-size: 14px; color: #fafafa;">{{ run.host.isolation_policy or 'Not Set' }}</div>
+                    </div>
+                </div>
+                
+                <!-- Containment Tasks -->
+                <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Containment Tasks</div>
+                <div id="containmentTasks" style="max-height: 150px; overflow-y: auto;">
+                    <div style="text-align: center; color: #71717a; padding: 10px;">
+                        <small>Loading...</small>
+                    </div>
+                </div>
+                
+                <!-- Isolation Controls -->
+                <div class="mt-3 d-flex gap-2">
+                    {% if not run.host.is_isolated %}
+                    <button onclick="isolateHost()" class="btn btn-danger btn-sm flex-fill">
+                        <i class="bi bi-shield-lock"></i> Isolate
+                    </button>
+                    {% else %}
+                    <button onclick="reisolateHost()" class="btn btn-warning btn-sm flex-fill">
+                        <i class="bi bi-arrow-repeat"></i> Re-Isolate
+                    </button>
+                    <button onclick="deisolateHost()" class="btn btn-success btn-sm flex-fill">
+                        <i class="bi bi-shield-check"></i> De-Isolate
+                    </button>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p style="color: #71717a;">No host associated with this run.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recovery Panel -->
+    <div class="col-lg-6">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-arrow-counterclockwise me-2"></i>Recovery Phase</h3>
+                <span id="recoveryStatusBadge" class="badge badge-gray">Loading...</span>
+            </div>
+            <div class="panel-body">
+                <div id="recoveryContent">
+                    <div style="text-align: center; color: #71717a; padding: 20px;">
+                        <small>Loading recovery status...</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- What-If Analysis -->
+<div class="panel mt-4">
+    <div class="panel-header">
+        <h3 class="panel-title"><i class="bi bi-clock-history me-2"></i>What-If Analysis</h3>
+    </div>
+    <div class="panel-body">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div style="font-size: 12px; color: #71717a; margin-bottom: 8px;">Create What-If Scenario</div>
+                <select id="whatifTemplate" class="form-select form-select-sm mb-2" style="background: #18181b; border-color: #27272a; color: #fafafa;">
+                    <option value="extra_powershell_rule">Extra PowerShell Detection Rule</option>
+                    <option value="edr_present">EDR Agent Present</option>
+                    <option value="no_local_admin">User Not Local Admin</option>
+                    <option value="faster_response">Faster SOC Response</option>
+                    <option value="backup_available">Recent Backups Available</option>
+                </select>
+                <button onclick="createWhatIf()" class="btn btn-primary btn-sm w-100">Analyze</button>
+            </div>
+            <div class="col-md-8">
+                {% if whatif_scenarios %}
+                <div style="max-height: 200px; overflow-y: auto;">
+                    {% for scenario in whatif_scenarios %}
+                    <div style="background: #0f0f14; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <strong style="color: #fafafa;">{{ scenario.name }}</strong>
+                            {% if scenario.recalculated_metrics and scenario.recalculated_metrics.risk_reduction %}
+                            <span class="badge badge-success">-{{ scenario.recalculated_metrics.risk_reduction }} risk</span>
+                            {% endif %}
+                        </div>
+                        {% if scenario.recalculated_metrics %}
+                        <div style="font-size: 12px; color: #a1a1aa;">{{ scenario.recalculated_metrics.summary }}</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 30px; color: #71717a;">
+                    <i class="bi bi-lightbulb" style="font-size: 24px;"></i>
+                    <p style="margin-top: 8px;">Select a scenario to see how different defenses would have changed the outcome.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .sidebar, .topbar, button { display: none !important; }
+        .main-content { margin-left: 0 !important; }
+        .panel { break-inside: avoid; }
+        body { background: white !important; color: black !important; }
+        .panel { background: white !important; border: 1px solid #ccc !important; }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const runId = {{ run.id }};
+
+async function generateBehaviorProfile() {
+    try {
+        const resp = await fetch(`/api/advanced/behavior/generate/${runId}`, { method: 'POST' });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert('Failed to generate behavior profile');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function generateFeedback() {
+    try {
+        const resp = await fetch(`/api/advanced/coach/generate/${runId}`, { method: 'POST' });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert('Failed to generate feedback');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function calculateImpact() {
+    const data = {
+        business_unit: document.getElementById('businessUnit').value,
+        criticality_level: parseInt(document.getElementById('criticality').value),
+        cost_per_hour: parseFloat(document.getElementById('costPerHour').value),
+        data_sensitivity: parseInt(document.getElementById('dataSensitivity').value)
+    };
+    
+    try {
+        const resp = await fetch(`/api/advanced/impact/calculate/${runId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert('Failed to calculate impact');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function generateCompliance() {
+    try {
+        const resp = await fetch(`/api/advanced/compliance/generate/${runId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ report_type: 'Generic', data_sensitivity: 3 })
+        });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert('Failed to generate compliance report');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function createWhatIf() {
+    const template = document.getElementById('whatifTemplate').value;
+    
+    try {
+        const resp = await fetch(`/api/advanced/whatif/run/${runId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ template_key: template })
+        });
+        if (resp.ok) {
+            location.reload();
+        } else {
+            alert('Failed to create What-If scenario');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// ============ Containment & Recovery Functions ============
+
+const hostId = {{ run.host.id if run.host else 'null' }};
+
+async function loadContainmentStatus() {
+    try {
+        const resp = await fetch(`/api/runs/${runId}/containment`);
+        if (resp.ok) {
+            const data = await resp.json();
+            renderContainmentTasks(data.containment_tasks);
+        }
+    } catch (e) {
+        console.error('Failed to load containment status:', e);
+    }
+}
+
+function renderContainmentTasks(tasks) {
+    const container = document.getElementById('containmentTasks');
+    if (!tasks || tasks.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #71717a; padding: 10px;"><small>No containment tasks</small></div>';
+        return;
+    }
+    
+    let html = '';
+    for (const task of tasks) {
+        const statusColor = task.status === 'COMPLETED' ? '#22c55e' : task.status === 'FAILED' ? '#ef4444' : '#f59e0b';
+        html += `
+            <div style="background: #0f0f14; border-radius: 6px; padding: 8px; margin-bottom: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <code style="font-size: 11px;">${task.type}</code>
+                    <span class="badge" style="background: ${statusColor}; font-size: 10px;">${task.status}</span>
+                </div>
+                ${task.result_message ? `<div style="font-size: 10px; color: #71717a; margin-top: 4px;">${task.result_message.substring(0, 60)}...</div>` : ''}
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+async function loadRecoveryStatus() {
+    try {
+        const resp = await fetch(`/api/runs/${runId}/recovery`);
+        const badge = document.getElementById('recoveryStatusBadge');
+        const content = document.getElementById('recoveryContent');
+        
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data) {
+                // Recovery plan exists
+                const statusColors = {
+                    'PLANNED': 'badge-info',
+                    'IN_PROGRESS': 'badge-warning',
+                    'COMPLETED': 'badge-success',
+                    'FAILED': 'badge-danger'
+                };
+                badge.className = `badge ${statusColors[data.status] || 'badge-gray'}`;
+                badge.textContent = data.status;
+                
+                let eventsHtml = '';
+                if (data.events && data.events.length > 0) {
+                    eventsHtml = '<div style="max-height: 150px; overflow-y: auto;">';
+                    for (const event of data.events) {
+                        const eventIcons = {
+                            'RECOVERY_STARTED': 'play-circle',
+                            'RECOVERY_TASK_CREATED': 'list-task',
+                            'RECOVERY_TASK_COMPLETED': 'check-circle',
+                            'HOST_DEISOLATED': 'shield-check',
+                            'USER_REENABLED': 'person-check',
+                            'FILES_RESTORED_FROM_QUARANTINE': 'folder-check'
+                        };
+                        const icon = eventIcons[event.event_type] || 'circle';
+                        eventsHtml += `
+                            <div style="display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #27272a;">
+                                <i class="bi bi-${icon}" style="color: #71717a;"></i>
+                                <div style="flex: 1;">
+                                    <div style="font-size: 12px; color: #fafafa;">${event.event_type.replace(/_/g, ' ')}</div>
+                                    <div style="font-size: 10px; color: #71717a;">${event.timestamp || ''}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    eventsHtml += '</div>';
+                }
+                
+                content.innerHTML = `
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <div style="font-size: 11px; color: #71717a;">Created</div>
+                            <div style="font-size: 12px; color: #fafafa;">${data.created_at || 'N/A'}</div>
+                        </div>
+                        <div class="col-6">
+                            <div style="font-size: 11px; color: #71717a;">Completed</div>
+                            <div style="font-size: 12px; color: #fafafa;">${data.completed_at || 'In Progress'}</div>
+                        </div>
+                    </div>
+                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Recovery Events</div>
+                    ${eventsHtml || '<p style="color: #71717a; font-size: 12px;">No events yet</p>'}
+                    <button onclick="checkRecoveryCompletion()" class="btn btn-secondary btn-sm w-100 mt-3">
+                        <i class="bi bi-arrow-clockwise"></i> Check Completion
+                    </button>
+                `;
+            } else {
+                // No recovery plan
+                badge.className = 'badge badge-gray';
+                badge.textContent = 'Not Started';
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <p style="color: #71717a; margin-bottom: 12px;">No recovery plan for this run.</p>
+                        <button onclick="startRecovery()" class="btn btn-primary btn-sm">
+                            <i class="bi bi-arrow-counterclockwise"></i> Start Recovery Phase
+                        </button>
+                    </div>
+                `;
+            }
+        } else {
+            badge.className = 'badge badge-gray';
+            badge.textContent = 'Not Started';
+            content.innerHTML = `
+                <div style="text-align: center; padding: 20px;">
+                    <p style="color: #71717a; margin-bottom: 12px;">No recovery plan for this run.</p>
+                    <button onclick="startRecovery()" class="btn btn-primary btn-sm">
+                        <i class="bi bi-arrow-counterclockwise"></i> Start Recovery Phase
+                    </button>
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.error('Failed to load recovery status:', e);
+    }
+}
+
+async function startRecovery() {
+    if (!confirm('Start recovery phase? This will create tasks to de-isolate the host, re-enable users, and restore files.')) {
+        return;
+    }
+    try {
+        const resp = await fetch(`/api/runs/${runId}/recovery/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Failed: ' + (data.detail || data.message));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function checkRecoveryCompletion() {
+    try {
+        const resp = await fetch(`/api/runs/${runId}/recovery/check-completion`, { method: 'POST' });
+        if (resp.ok) {
+            location.reload();
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function isolateHost() {
+    if (!hostId) { alert('No host associated'); return; }
+    if (!confirm('Isolate this host? This will block network traffic.')) return;
+    
+    try {
+        const resp = await fetch(`/api/hosts/${hostId}/isolate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ policy: 'FIREWALL_BLOCK' })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Failed: ' + (data.detail || data.message));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function reisolateHost() {
+    if (!hostId) { alert('No host associated'); return; }
+    if (!confirm('Re-isolate this host?')) return;
+    
+    try {
+        const resp = await fetch(`/api/hosts/${hostId}/reisolate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ policy: 'FIREWALL_BLOCK' })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Failed: ' + (data.detail || data.message));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deisolateHost() {
+    if (!hostId) { alert('No host associated'); return; }
+    if (!confirm('De-isolate this host? This will restore network connectivity.')) return;
+    
+    try {
+        const resp = await fetch(`/api/hosts/${hostId}/deisolate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Failed: ' + (data.detail || data.message));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// Load containment and recovery status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadContainmentStatus();
+    loadRecoveryStatus();
+});
+</script>
+{% endblock %}

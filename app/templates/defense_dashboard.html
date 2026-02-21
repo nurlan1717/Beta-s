@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Blue Team Defense - RansomRun{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-shield-check text-primary"></i> Blue Team Defense
+            </h1>
+            <p class="text-muted mb-0">Canary Files & Entropy Monitoring</p>
+        </div>
+        <div>
+            <button class="btn btn-success me-2" onclick="startAllMonitoring()">
+                <i class="bi bi-play-fill"></i> Start All
+            </button>
+            <button class="btn btn-danger" onclick="stopAllMonitoring()">
+                <i class="bi bi-stop-fill"></i> Stop All
+            </button>
+        </div>
+    </div>
+
+    <!-- Status Cards -->
+    <div class="row mb-4">
+        <!-- Canary Status -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning text-dark">
+                    <i class="bi bi-file-earmark-lock"></i> Canary Defense
+                </div>
+                <div class="card-body">
+                    <div id="canaryStatus">
+                        {% if status.canary %}
+                        <p><strong>Status:</strong> 
+                            <span class="badge {{ 'bg-success' if status.canary.is_running else 'bg-secondary' }}">
+                                {{ 'ACTIVE' if status.canary.is_running else 'INACTIVE' }}
+                            </span>
+                        </p>
+                        <p><strong>Target:</strong> <code>{{ status.canary.target_dir }}</code></p>
+                        <p><strong>Canary Files:</strong> {{ status.canary.canary_files|length }}</p>
+                        <p><strong>Alerts:</strong> 
+                            <span class="badge {{ 'bg-danger' if status.canary.alerts_count > 0 else 'bg-success' }}">
+                                {{ status.canary.alerts_count }}
+                            </span>
+                        </p>
+                        {% else %}
+                        <p class="text-muted">Not initialized</p>
+                        {% endif %}
+                    </div>
+                    <hr>
+                    <button class="btn btn-sm btn-outline-warning" onclick="deployCanaries()">
+                        <i class="bi bi-plus-circle"></i> Deploy Canaries
+                    </button>
+                    <button class="btn btn-sm btn-outline-success" onclick="startCanaryMonitoring()">
+                        <i class="bi bi-eye"></i> Start Monitor
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Entropy Status -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-graph-up"></i> Entropy Monitor
+                </div>
+                <div class="card-body">
+                    <div id="entropyStatus">
+                        {% if status.entropy %}
+                        <p><strong>Status:</strong> 
+                            <span class="badge {{ 'bg-success' if status.entropy.is_running else 'bg-secondary' }}">
+                                {{ 'ACTIVE' if status.entropy.is_running else 'INACTIVE' }}
+                            </span>
+                        </p>
+                        <p><strong>Target:</strong> <code>{{ status.entropy.target_dir }}</code></p>
+                        <p><strong>Current Entropy:</strong> 
+                            <span class="badge {{ 'bg-danger' if status.entropy.current_entropy > entropy_threshold else 'bg-success' }}">
+                                {{ "%.2f"|format(status.entropy.current_entropy) }} bits
+                            </span>
+                        </p>
+                        <p><strong>Threshold:</strong> {{ entropy_threshold }} bits</p>
+                        <p><strong>Encryption Detected:</strong> 
+                            <span class="badge {{ 'bg-danger' if status.entropy.encryption_detected else 'bg-success' }}">
+                                {{ 'YES' if status.entropy.encryption_detected else 'NO' }}
+                            </span>
+                        </p>
+                        {% else %}
+                        <p class="text-muted">Not initialized</p>
+                        {% endif %}
+                    </div>
+                    <hr>
+                    <button class="btn btn-sm btn-outline-info" onclick="startEntropyMonitoring()">
+                        <i class="bi bi-play"></i> Start Monitor
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="checkEntropy()">
+                        <i class="bi bi-search"></i> Check Now
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-gear"></i> Configuration
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Target Directory</label>
+                        <input type="text" class="form-control" id="targetDir" value="C:\RansomTest">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Canary Files</label>
+                        <select class="form-select" id="canaryFiles" multiple size="4">
+                            {% for file in default_canary_files %}
+                            <option value="{{ file }}" selected>{{ file }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Hold Ctrl to select multiple</small>
+                    </div>
+                    <button class="btn btn-primary w-100" onclick="initializeDefense()">
+                        <i class="bi bi-arrow-repeat"></i> Initialize Defense
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Entropy Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-graph-up-arrow"></i> Real-Time Entropy Analysis
+                </div>
+                <div class="card-body">
+                    <canvas id="entropyChart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <i class="bi bi-exclamation-triangle"></i> Defense Alerts
+                    <span class="badge bg-light text-dark ms-2" id="alertCount">{{ alerts|length }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="alertsTable">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Type</th>
+                                    <th>Severity</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for alert in alerts %}
+                                <tr class="{{ 'table-danger' if alert.severity == 'CRITICAL' else '' }}">
+                                    <td><small>{{ alert.timestamp }}</small></td>
+                                    <td><span class="badge bg-warning">{{ alert.type }}</span></td>
+                                    <td><span class="badge {{ 'bg-danger' if alert.severity == 'CRITICAL' else 'bg-warning' }}">{{ alert.severity }}</span></td>
+                                    <td>{{ alert.message }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No alerts yet</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Entropy Chart
+const ctx = document.getElementById('entropyChart').getContext('2d');
+const entropyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [{
+            label: 'Average Entropy (bits)',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            tension: 0.1,
+            fill: true
+        }, {
+            label: 'Encryption Threshold',
+            data: [],
+            borderColor: 'rgb(255, 99, 132)',
+            borderDash: [5, 5],
+            pointRadius: 0,
+            fill: false
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                min: 0,
+                max: 8.5,
+                title: { display: true, text: 'Entropy (bits)' }
+            },
+            x: {
+                title: { display: true, text: 'Time' }
+            }
+        },
+        plugins: {
+            legend: { position: 'top' }
+        }
+    }
+});
+
+// Load initial history
+{% if entropy_history %}
+const history = {{ entropy_history | tojson }};
+history.forEach((item, idx) => {
+    entropyChart.data.labels.push(idx);
+    entropyChart.data.datasets[0].data.push(item.average_entropy);
+    entropyChart.data.datasets[1].data.push({{ entropy_threshold }});
+});
+entropyChart.update();
+{% endif %}
+
+// API Functions
+async function initializeDefense() {
+    const targetDir = document.getElementById('targetDir').value;
+    const canarySelect = document.getElementById('canaryFiles');
+    const canaryFiles = Array.from(canarySelect.selectedOptions).map(o => o.value);
+    
+    try {
+        const resp = await fetch('/api/defense/initialize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_dir: targetDir, canary_files: canaryFiles })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Defense initialized successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error initializing defense: ' + e);
+    }
+}
+
+async function deployCanaries() {
+    const targetDir = document.getElementById('targetDir').value;
+    try {
+        const resp = await fetch('/api/defense/canary/deploy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_dir: targetDir })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('Canaries deployed: ' + data.result.planted.join(', '));
+            location.reload();
+        }
+    } catch (e) {
+        alert('Error: ' + e);
+    }
+}
+
+async function startCanaryMonitoring() {
+    try {
+        const resp = await fetch('/api/defense/canary/start', { method: 'POST' });
+        const data = await resp.json();
+        alert(data.success ? 'Canary monitoring started!' : 'Error starting monitoring');
+        location.reload();
+    } catch (e) {
+        alert('Error: ' + e);
+    }
+}
+
+async function startEntropyMonitoring() {
+    try {
+        const resp = await fetch('/api/defense/entropy/start', { method: 'POST' });
+        const data = await resp.json();
+        alert(data.success ? 'Entropy monitoring started!' : 'Error starting monitoring');
+        location.reload();
+    } catch (e) {
+        alert('Error: ' + e);
+    }
+}
+
+async function startAllMonitoring() {
+    const targetDir = document.getElementById('targetDir').value;
+    try {
+        const resp = await fetch('/api/defense/start-all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target_dir: targetDir })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            alert('All monitoring started!');
+            location.reload();
+        }
+    } catch (e) {
+        alert('Error: ' + e);
+    }
+}
+
+async function stopAllMonitoring() {
+    try {
+        await fetch('/api/defense/stop-all', { method: 'POST' });
+        alert('All monitoring stopped');
+        location.reload();
+    } catch (e) {
+        alert('Error: ' + e);
+    }
+}
+
+async function checkEntropy() {
+    const targetDir = document.getElementById('targetDir').value;
+    try {
+        const resp = await fetch('/api/defense/entropy/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: targetDir })
+        });
+        const data = await resp.json();
+        alert(`Entropy Check:\nAverage: ${data.average_entropy} bits\nMax: ${data.max_entropy} bits\nFiles: ${data.file_count}\nEncrypted: ${data.is_encrypted ? 'YES!' : 'No'}`);
+    } catch (e) {
+        alert('Error: ' + e);
+    }
+}
+
+// Auto-refresh entropy data
+setInterval(async () => {
+    try {
+        const resp = await fetch('/api/defense/entropy/current');
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.average_entropy !== undefined) {
+                // Update chart
+                const now = new Date().toLocaleTimeString();
+                entropyChart.data.labels.push(now);
+                entropyChart.data.datasets[0].data.push(data.average_entropy);
+                entropyChart.data.datasets[1].data.push({{ entropy_threshold }});
+                
+                // Keep last 30 points
+                if (entropyChart.data.labels.length > 30) {
+                    entropyChart.data.labels.shift();
+                    entropyChart.data.datasets[0].data.shift();
+                    entropyChart.data.datasets[1].data.shift();
+                }
+                
+                // Change color if encrypted
+                if (data.is_encrypted) {
+                    entropyChart.data.datasets[0].borderColor = 'rgb(255, 99, 132)';
+                    entropyChart.data.datasets[0].backgroundColor = 'rgba(255, 99, 132, 0.2)';
+                } else {
+                    entropyChart.data.datasets[0].borderColor = 'rgb(75, 192, 192)';
+                    entropyChart.data.datasets[0].backgroundColor = 'rgba(75, 192, 192, 0.1)';
+                }
+                
+                entropyChart.update();
+            }
+        }
+    } catch (e) {
+        // Ignore errors during refresh
+    }
+}, 2000);
+
+// Auto-refresh alerts
+setInterval(async () => {
+    try {
+        const resp = await fetch('/api/defense/alerts');
+        if (resp.ok) {
+            const data = await resp.json();
+            document.getElementById('alertCount').textContent = data.alerts.length;
+        }
+    } catch (e) {}
+}, 5000);
+</script>
+{% endblock %}
