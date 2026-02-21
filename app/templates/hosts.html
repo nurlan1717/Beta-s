@@ -151,6 +151,68 @@
     </div>
 </div>
 
+<!-- Environment Overview Panel -->
+<div class="panel mt-4">
+    <div class="panel-header">
+        <h3 class="panel-title"><i class="bi bi-diagram-3 me-2"></i>Environment Overview</h3>
+        <a href="/environment" class="btn btn-primary btn-sm">
+            <i class="bi bi-box-arrow-up-right me-1"></i> Open Directory Lab
+        </a>
+    </div>
+    <div class="panel-body">
+        <div class="row g-3" id="envStatsRow">
+            <div class="col-6 col-md-2">
+                <div style="background: #27272a; border-radius: 8px; padding: 12px; text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #8b5cf6;" id="envUsers">-</div>
+                    <div style="font-size: 0.7rem; color: #71717a;">Users</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div style="background: #27272a; border-radius: 8px; padding: 12px; text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #f97316;" id="envPrivileged">-</div>
+                    <div style="font-size: 0.7rem; color: #71717a;">Privileged</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div style="background: #27272a; border-radius: 8px; padding: 12px; text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #3b82f6;" id="envDevices">-</div>
+                    <div style="font-size: 0.7rem; color: #71717a;">Devices</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div style="background: #27272a; border-radius: 8px; padding: 12px; text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #a855f7;" id="envServers">-</div>
+                    <div style="font-size: 0.7rem; color: #71717a;">Servers</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div style="background: #27272a; border-radius: 8px; padding: 12px; text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #ef4444;" id="envDCs">-</div>
+                    <div style="font-size: 0.7rem; color: #71717a;">DCs</div>
+                </div>
+            </div>
+            <div class="col-6 col-md-2">
+                <div style="background: #27272a; border-radius: 8px; padding: 12px; text-align: center;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #22c55e;" id="envManaged">-</div>
+                    <div style="font-size: 0.7rem; color: #71717a;">Agent Managed</div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3" style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <div id="highRiskUser" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 10px 14px; flex: 1; min-width: 200px;">
+                <div style="font-size: 0.7rem; color: #71717a; text-transform: uppercase;">Highest Risk User</div>
+                <div style="font-weight: 600; color: #fafafa;" id="riskUserName">-</div>
+                <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; font-size: 0.65rem;" id="riskUserScore">-</span>
+            </div>
+            <div id="highRiskDevice" style="background: rgba(249, 115, 22, 0.1); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 8px; padding: 10px 14px; flex: 1; min-width: 200px;">
+                <div style="font-size: 0.7rem; color: #71717a; text-transform: uppercase;">Highest Risk Device</div>
+                <div style="font-weight: 600; color: #fafafa;" id="riskDeviceName">-</div>
+                <span class="badge" style="background: rgba(249, 115, 22, 0.2); color: #f97316; font-size: 0.65rem;" id="riskDeviceScore">-</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="panel mt-4">
     <div class="panel-header">
         <h3 class="panel-title">Agent Deployment</h3>
@@ -330,6 +392,36 @@ function bulkExport() {
 
 // Drag and Drop for reordering
 let draggedRow = null;
+
+// Load Environment Stats
+async function loadEnvStats() {
+    try {
+        const resp = await fetch('/api/environment/stats');
+        const data = await resp.json();
+        if (data.success) {
+            document.getElementById('envUsers').textContent = data.total_users || 0;
+            document.getElementById('envPrivileged').textContent = data.privileged_users || 0;
+            document.getElementById('envDevices').textContent = data.total_devices || 0;
+            document.getElementById('envServers').textContent = data.servers || 0;
+            document.getElementById('envDCs').textContent = data.domain_controllers || 0;
+            document.getElementById('envManaged').textContent = data.managed_by_agent || 0;
+            
+            if (data.highest_risk_user) {
+                document.getElementById('riskUserName').textContent = data.highest_risk_user.username;
+                document.getElementById('riskUserScore').textContent = `Risk: ${data.highest_risk_user.risk_score} (${data.highest_risk_user.risk_level.toUpperCase()})`;
+            }
+            if (data.highest_risk_device) {
+                document.getElementById('riskDeviceName').textContent = data.highest_risk_device.hostname;
+                document.getElementById('riskDeviceScore').textContent = `Risk: ${data.highest_risk_device.risk_score} (${data.highest_risk_device.risk_level.toUpperCase()})`;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load env stats:', e);
+    }
+}
+
+// Load env stats on page load
+document.addEventListener('DOMContentLoaded', loadEnvStats);
 
 function enableDragAndDrop() {
     const tbody = document.getElementById('endpointsBody');

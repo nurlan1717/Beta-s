@@ -158,7 +158,7 @@ def get_top_rules(
 
 @router.get("/elk/status")
 def get_elk_status(db: Session = Depends(get_db)):
-    """Get ELK/Elasticsearch connection status."""
+    """Get ELK/Elasticsearch connection status with detected indices."""
     config = crud.get_elk_config(db)
     
     # Try environment-based client if no DB config
@@ -167,12 +167,25 @@ def get_elk_status(db: Session = Depends(get_db)):
     try:
         status = client.test_connection()
         
+        # Detect available indices
+        indices_info = {"winlogbeat": False, "filebeat": False}
+        if status.get('connected'):
+            try:
+                indices_result = client.detect_indices()
+                indices_info = {
+                    "winlogbeat": indices_result.get("winlogbeat", False),
+                    "filebeat": indices_result.get("filebeat", False)
+                }
+            except Exception:
+                pass
+        
         return {
             'configured': config is not None,
             'connected': status.get('connected', False),
             'url': config.url if config else 'From environment',
             'last_sync': config.last_sync.isoformat() if config and config.last_sync else None,
             'source': 'ELK',
+            'indices': indices_info,
             **status
         }
     except Exception as e:
@@ -181,6 +194,142 @@ def get_elk_status(db: Session = Depends(get_db)):
             'connected': False,
             'url': config.url if config else 'From environment',
             'source': 'ELK',
+            'indices': {"winlogbeat": False, "filebeat": False},
+            'error': str(e)
+        }
+
+
+@router.get("/elk/indices")
+def get_elk_indices(db: Session = Depends(get_db)):
+    """Detect which index patterns exist in Elasticsearch."""
+    client = get_elk_client_from_config(db)
+    if not client:
+        client = get_elk_client_from_env()
+    
+    try:
+        result = client.detect_indices()
+        return {
+            **result,
+            'source': 'ELK'
+        }
+    except Exception as e:
+        return {
+            'winlogbeat': False,
+            'filebeat': False,
+            'resolved': {'winlogbeat': [], 'filebeat': []},
+            'error': str(e),
+            'source': 'ELK'
+        }
+
+
+@router.get("/elk/logs")
+def get_elk_logs(
+    source: str = Query("all", regex="^(all|winlogbeat|filebeat)$"),
+    host_name: Optional[str] = None,
+    dataset: Optional[str] = None,
+    service: Optional[str] = None,
+    q: Optional[str] = None,
+    minutes: int = Query(60, ge=1, le=1440),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db)
+):
+    """
+    Get logs from Elasticsearch (winlogbeat and/or filebeat).
+    
+    Query params:
+    - source: "all" | "winlogbeat" | "filebeat"
+    - host_name: Filter by hostname
+    - dataset: Filter by event.dataset / data_stream.dataset
+    - service: Filter by service.name / fileset.module
+    - q: Free text search
+    - minutes: Time range (max 1440 = 24h)
+    - limit: Max results (max 500)
+    """
+    client = get_elk_client_from_config(db)
+    if not client:
+        client = get_elk_client_from_env()
+    
+    try:
+        logs = client.get_logs(
+            source=source,
+            limit=limit,
+            host_name=host_name,
+            dataset=dataset,
+            service=service,
+            q=q,
+            minutes=minutes
+        )
+        return {
+            'logs': logs,
+            'count': len(logs),
+            'source': source,
+            'filters': {
+                'host_name': host_name,
+                'dataset': dataset,
+                'service': service,
+                'q': q,
+                'minutes': minutes
+            }
+        }
+    except Exception as e:
+        return {
+            'logs': [],
+            'count': 0,
+            'source': source,
+            'error': str(e)
+        }
+
+
+@router.get("/elk/filebeat/hosts")
+def get_filebeat_hosts(
+    minutes: int = Query(1440, ge=1, le=10080),
+    db: Session = Depends(get_db)
+):
+    """Get unique hosts from filebeat-* index."""
+    client = get_elk_client_from_config(db)
+    if not client:
+        client = get_elk_client_from_env()
+    
+    try:
+        hosts = client.get_filebeat_hosts(minutes=minutes)
+        return {
+            'hosts': hosts,
+            'count': len(hosts),
+            'source': 'filebeat'
+        }
+    except Exception as e:
+        return {
+            'hosts': [],
+            'count': 0,
+            'source': 'filebeat',
+            'error': str(e)
+        }
+
+
+@router.get("/elk/filebeat/stats")
+def get_filebeat_stats(
+    hours: int = Query(24, ge=1, le=168),
+    db: Session = Depends(get_db)
+):
+    """Get Filebeat statistics."""
+    client = get_elk_client_from_config(db)
+    if not client:
+        client = get_elk_client_from_env()
+    
+    try:
+        stats = client.get_filebeat_stats(hours=hours)
+        return {
+            **stats,
+            'source': 'filebeat',
+            'time_range_hours': hours
+        }
+    except Exception as e:
+        return {
+            'total_logs': 0,
+            'logs_by_host': {},
+            'logs_by_dataset': {},
+            'logs_by_level': {},
+            'source': 'filebeat',
             'error': str(e)
         }
 
@@ -233,18 +382,30 @@ def get_elk_alerts(
         alerts = []
         for a in alerts_db:
             raw = a.raw or {}
-            mitre = raw.get('mitre', [])
+            mitre_data = raw.get('mitre', [])
+            
+            # Build mitre object for frontend compatibility
+            mitre_obj = {'technique': 'N/A', 'technique_name': '', 'tactic': ''}
+            if isinstance(mitre_data, list) and mitre_data:
+                mitre_obj['technique'] = mitre_data[0] if mitre_data else 'N/A'
+            elif isinstance(mitre_data, dict):
+                mitre_obj = mitre_data
+            
+            endpoint = a.agent_name or (a.host.name if a.host else 'Unknown')
             
             alerts.append({
                 'id': str(a.id),
                 'timestamp': a.timestamp.isoformat() if a.timestamp else None,
-                'host': a.agent_name or (a.host.name if a.host else 'Unknown'),
+                'host': endpoint,
+                'endpoint': endpoint,  # Add endpoint field for frontend
+                'agent_name': a.agent_name,
                 'rule_id': a.rule_id,
                 'rule_name': raw.get('rule_name', a.rule_id),
+                'rule_description': a.rule_description or raw.get('summary', ''),
                 'description': a.rule_description,
                 'severity': a.severity,
                 'severity_label': 'CRITICAL' if a.severity >= 15 else 'HIGH' if a.severity >= 10 else 'MEDIUM' if a.severity >= 5 else 'LOW',
-                'mitre': mitre,
+                'mitre': mitre_obj,  # Object with technique field
                 'raw': raw
             })
         
@@ -549,6 +710,79 @@ def receive_extended_result(
     }
 
 
+@router.post("/agent/sensor-alert")
+def receive_sensor_alert(
+    data: dict,
+    db: Session = Depends(get_db)
+):
+    """
+    Receive sensor alerts from agent (entropy monitor, honeyfile deception).
+    
+    Alert types:
+    - POSSIBLE_RANSOMWARE: Entropy-based detection of file encryption
+    - HONEYFILE_TOUCHED: Honeyfile was accessed/modified
+    - HONEYFILE_DELETED: Honeyfile was deleted
+    """
+    run_id = data.get('run_id')
+    agent_id = data.get('agent_id')
+    alert_type = data.get('alert_type')
+    timestamp = data.get('timestamp')
+    details = data.get('details', {})
+    severity = data.get('severity', 70)
+    mitre_technique = data.get('mitre_technique')
+    
+    if not run_id:
+        raise HTTPException(status_code=400, detail="run_id required")
+    
+    run = crud.get_run_by_id(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    
+    host_id = run.host_id
+    
+    # Map sensor alert types to event types
+    event_type_map = {
+        "POSSIBLE_RANSOMWARE": EventType.FILE_ENCRYPTED,
+        "HONEYFILE_TOUCHED": EventType.FILE_ACCESSED,
+        "HONEYFILE_DELETED": EventType.FILE_DELETED,
+    }
+    
+    event_type = event_type_map.get(alert_type, EventType.TASK_COMPLETED)
+    
+    # Create run event for the sensor alert
+    crud.create_run_event(
+        db, run_id, event_type,
+        host_id=host_id,
+        details={
+            "sensor_type": "entropy" if alert_type == "POSSIBLE_RANSOMWARE" else "honeyfile",
+            "alert_type": alert_type,
+            "file": details.get("file"),
+            "mitre_technique": mitre_technique,
+            **details
+        }
+    )
+    
+    # Create alert record
+    rule_id = f"SENSOR_{alert_type}"
+    alert_data = {
+        "run_id": run_id,
+        "host_id": host_id,
+        "rule_id": rule_id,
+        "severity": severity,
+        "message": f"Sensor Alert: {alert_type} - {details.get('file', 'Unknown file')}",
+        "details": details,
+        "mitre_technique": mitre_technique
+    }
+    
+    crud.create_alert(db, alert_data)
+    
+    return {
+        'success': True,
+        'alert_type': alert_type,
+        'message': f'Sensor alert {alert_type} recorded'
+    }
+
+
 @router.post("/detection/reset-cursor")
 def reset_detection_cursor(db: Session = Depends(get_db)):
     """Reset the detection cursor to reprocess historical events."""
@@ -590,3 +824,144 @@ def get_detection_status(db: Session = Depends(get_db)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sync-filebeat-alerts")
+def sync_filebeat_critical_alerts(
+    time_range_hours: int = 24,
+    db: Session = Depends(get_db)
+):
+    """
+    Sync critical filebeat logs to alerts table.
+    
+    Fetches logs with level=critical from ELK and creates alerts in the database.
+    This makes filebeat critical events appear in the Recent Alerts section.
+    """
+    from ..integrations.elk_client import ELKClient
+    from ..models import Alert, Host
+    
+    elk = ELKClient()
+    
+    # Query for critical logs from filebeat
+    query = {
+        'size': 100,
+        'sort': [{'@timestamp': {'order': 'desc'}}],
+        'query': {
+            'bool': {
+                'must': [
+                    {
+                        'range': {
+                            '@timestamp': {
+                                'gte': f'now-{time_range_hours}h',
+                                'lte': 'now'
+                            }
+                        }
+                    },
+                    {
+                        'bool': {
+                            'should': [
+                                {'term': {'log.level': 'critical'}},
+                                {'term': {'event.severity': 'critical'}},
+                                {'match': {'message': 'POSSIBLE_RANSOMWARE'}},
+                                {'match': {'event.type': 'POSSIBLE_RANSOMWARE'}}
+                            ],
+                            'minimum_should_match': 1
+                        }
+                    }
+                ]
+            }
+        }
+    }
+    
+    try:
+        result = elk._request('POST', f'/{elk.index_logs}/_search', body=query)
+        hits = result.get('hits', {}).get('hits', [])
+        
+        alerts_created = 0
+        alerts_skipped = 0
+        
+        for hit in hits:
+            source = hit.get('_source', {})
+            doc_id = hit.get('_id')
+            
+            # Check if alert already exists (by doc_id in raw)
+            existing = db.query(Alert).filter(
+                Alert.raw.contains({'elk_doc_id': doc_id})
+            ).first()
+            
+            if existing:
+                alerts_skipped += 1
+                continue
+            
+            # Extract fields
+            timestamp_str = source.get('@timestamp')
+            host_name = source.get('host', {}).get('name') or source.get('agent', {}).get('name')
+            message = source.get('message', '')
+            event_type = source.get('event', {}).get('type', 'CRITICAL_LOG')
+            
+            # Parse timestamp
+            try:
+                if timestamp_str:
+                    if 'T' in timestamp_str:
+                        timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    else:
+                        timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                else:
+                    timestamp = datetime.utcnow()
+            except:
+                timestamp = datetime.utcnow()
+            
+            # Find host by name
+            host = None
+            host_id = None
+            if host_name:
+                host = db.query(Host).filter(Host.name == host_name).first()
+                if host:
+                    host_id = host.id
+            
+            # Determine severity (critical = 20)
+            severity = 20
+            
+            # Create rule_id from event type
+            if 'POSSIBLE_RANSOMWARE' in message or event_type == 'POSSIBLE_RANSOMWARE':
+                rule_id = 'FILEBEAT_POSSIBLE_RANSOMWARE'
+                rule_description = 'Possible Ransomware Activity Detected'
+            else:
+                rule_id = f'FILEBEAT_CRITICAL_{event_type.upper()}'
+                rule_description = f'Critical Event: {event_type}'
+            
+            # Create alert
+            alert = Alert(
+                host_id=host_id,
+                rule_id=rule_id,
+                rule_description=rule_description,
+                agent_name=host_name,
+                severity=severity,
+                timestamp=timestamp,
+                raw={
+                    'elk_doc_id': doc_id,
+                    'source': 'filebeat',
+                    'message': message[:500] if message else None,
+                    'host': host_name,
+                    'original': source
+                }
+            )
+            db.add(alert)
+            alerts_created += 1
+        
+        db.commit()
+        
+        return {
+            'success': True,
+            'alerts_created': alerts_created,
+            'alerts_skipped': alerts_skipped,
+            'total_hits': len(hits),
+            'message': f'Synced {alerts_created} critical filebeat logs as alerts'
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'message': 'Failed to sync filebeat alerts. Check ELK connection.'
+        }

@@ -145,7 +145,7 @@ async def get_alerts_since(
                     'severity': a.severity,
                     'severity_label': _severity_label(a.severity),
                     'host_id': a.host_id,
-                    'host_name': a.host.hostname if a.host else None,
+                    'host_name': a.host.name if a.host else None,
                     'run_id': a.run_id,
                     'timestamp': a.timestamp.isoformat() if a.timestamp else None,
                     'raw_data': a.raw_data

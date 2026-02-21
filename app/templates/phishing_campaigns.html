@@ -3,163 +3,482 @@
 {% block title %}Phishing Lab - RANSOMRUN{% endblock %}
 {% block page_title %}Phishing Awareness Simulator{% endblock %}
 
+{% block extra_css %}
+<style>
+    .phishing-stat-card {
+        background: linear-gradient(135deg, #18181b 0%, #1f1f24 100%);
+        border: 1px solid #27272a;
+        border-radius: 16px;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .phishing-stat-card:hover {
+        border-color: #3f3f46;
+        transform: translateY(-2px);
+    }
+    
+    .phishing-stat-card .stat-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 16px;
+    }
+    
+    .phishing-stat-card .stat-icon.purple { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+    .phishing-stat-card .stat-icon.blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .phishing-stat-card .stat-icon.yellow { background: rgba(234, 179, 8, 0.15); color: #fbbf24; }
+    .phishing-stat-card .stat-icon.green { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    
+    .phishing-stat-card .stat-value {
+        font-size: 32px;
+        font-weight: 700;
+        color: #fafafa;
+        margin-bottom: 4px;
+    }
+    
+    .phishing-stat-card .stat-label {
+        font-size: 13px;
+        color: #71717a;
+        font-weight: 500;
+    }
+    
+    .phishing-stat-card .stat-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+    }
+    
+    .phishing-stat-card .stat-bar.purple { background: linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%); }
+    .phishing-stat-card .stat-bar.blue { background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%); }
+    .phishing-stat-card .stat-bar.yellow { background: linear-gradient(90deg, #eab308 0%, #fbbf24 100%); }
+    .phishing-stat-card .stat-bar.green { background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%); }
+    
+    .safety-banner {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 24px;
+        background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
+        border: 1px solid rgba(34, 197, 94, 0.25);
+        border-radius: 14px;
+        margin-bottom: 24px;
+    }
+    
+    .safety-banner .safety-icon {
+        width: 48px;
+        height: 48px;
+        background: rgba(34, 197, 94, 0.15);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #22c55e;
+        font-size: 22px;
+        flex-shrink: 0;
+    }
+    
+    .safety-banner .safety-text h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #86efac;
+        margin: 0 0 4px 0;
+    }
+    
+    .safety-banner .safety-text p {
+        font-size: 13px;
+        color: #a1a1aa;
+        margin: 0;
+    }
+    
+    .campaigns-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+    
+    .campaigns-header h2 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #fafafa;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .campaigns-header h2 i {
+        color: #8b5cf6;
+    }
+    
+    .header-actions {
+        display: flex;
+        gap: 12px;
+    }
+    
+    .btn-header {
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-header.outline {
+        background: transparent;
+        border: 1px solid #3f3f46;
+        color: #a1a1aa;
+    }
+    
+    .btn-header.outline:hover {
+        background: #27272a;
+        color: #fafafa;
+    }
+    
+    .btn-header.primary {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        border: none;
+        color: white;
+    }
+    
+    .btn-header.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4);
+        color: white;
+    }
+    
+    .campaigns-panel {
+        background: linear-gradient(135deg, #18181b 0%, #1f1f24 100%);
+        border: 1px solid #27272a;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    
+    .campaigns-table {
+        width: 100%;
+    }
+    
+    .campaigns-table th {
+        padding: 14px 20px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #71717a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: #0f0f14;
+        border-bottom: 1px solid #27272a;
+    }
+    
+    .campaigns-table td {
+        padding: 18px 20px;
+        font-size: 14px;
+        color: #a1a1aa;
+        border-bottom: 1px solid #1f1f24;
+        vertical-align: middle;
+    }
+    
+    .campaigns-table tr:hover td {
+        background: rgba(139, 92, 246, 0.05);
+    }
+    
+    .campaign-name {
+        font-weight: 600;
+        color: #fafafa;
+        text-decoration: none;
+        display: block;
+        margin-bottom: 4px;
+    }
+    
+    .campaign-name:hover {
+        color: #a78bfa;
+    }
+    
+    .campaign-desc {
+        font-size: 12px;
+        color: #52525b;
+    }
+    
+    .status-badge {
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .status-badge.running { background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .status-badge.draft { background: rgba(113, 113, 122, 0.2); color: #a1a1aa; border: 1px solid rgba(113, 113, 122, 0.3); }
+    .status-badge.paused { background: rgba(234, 179, 8, 0.2); color: #fde047; border: 1px solid rgba(234, 179, 8, 0.3); }
+    .status-badge.ended { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    
+    .rate-value {
+        font-weight: 600;
+        font-size: 14px;
+    }
+    
+    .rate-value.open { color: #fbbf24; }
+    .rate-value.click { color: #f87171; }
+    .rate-value.report { color: #4ade80; }
+    
+    .action-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: all 0.2s ease;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    
+    .action-btn.view { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+    .action-btn.view:hover { background: rgba(139, 92, 246, 0.25); color: #a78bfa; }
+    
+    .action-btn.edit { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .action-btn.edit:hover { background: rgba(59, 130, 246, 0.25); color: #60a5fa; }
+    
+    .action-btn.launch { background: rgba(34, 197, 94, 0.15); color: #86efac; }
+    .action-btn.launch:hover { background: rgba(34, 197, 94, 0.25); }
+    
+    .action-btn.pause { background: rgba(234, 179, 8, 0.15); color: #fde047; }
+    .action-btn.pause:hover { background: rgba(234, 179, 8, 0.25); }
+    
+    .action-btn.delete { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+    .action-btn.delete:hover { background: rgba(239, 68, 68, 0.25); }
+    
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+    }
+    
+    .empty-state i {
+        font-size: 56px;
+        color: #3f3f46;
+        margin-bottom: 20px;
+    }
+    
+    .empty-state h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #a1a1aa;
+        margin: 0 0 8px 0;
+    }
+    
+    .empty-state p {
+        font-size: 14px;
+        color: #71717a;
+        margin: 0 0 24px 0;
+    }
+    
+    .breadcrumb-custom {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 24px;
+        font-size: 13px;
+    }
+    
+    .breadcrumb-custom a {
+        color: #71717a;
+        text-decoration: none;
+    }
+    
+    .breadcrumb-custom a:hover {
+        color: #a1a1aa;
+    }
+    
+    .breadcrumb-custom span {
+        color: #52525b;
+    }
+    
+    .breadcrumb-custom .active {
+        color: #fafafa;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
-        <li class="breadcrumb-item active">Phishing Lab</li>
-    </ol>
-</nav>
+<div class="breadcrumb-custom">
+    <a href="/"><i class="bi bi-house"></i> Dashboard</a>
+    <span>/</span>
+    <span class="active">Phishing Lab</span>
+</div>
 
 <!-- Safety Banner -->
-<div class="alert" style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac; margin-bottom: 24px;">
-    <i class="bi bi-shield-check me-2"></i>
-    <strong>Lab Safe Mode:</strong> All phishing simulations are internal training only. 
-    Emails are delivered to in-app inbox or local MailHog. Allowed domains: {{ config.allowlist_domains | join(', ') }}
+<div class="safety-banner">
+    <div class="safety-icon">
+        <i class="bi bi-shield-check"></i>
+    </div>
+    <div class="safety-text">
+        <h4>Lab Safe Mode</h4>
+        <p>All phishing simulations are internal training only. Emails are delivered to in-app inbox or local MailHog. Allowed domains: {{ config.allowlist_domains | join(', ') }}</p>
+    </div>
 </div>
 
 <!-- Stats Cards -->
-<div class="stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px;">
-    <div class="stat-card">
-        <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #a78bfa;">
-            <i class="bi bi-envelope-paper"></i>
-        </div>
-        <div class="stat-content">
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="phishing-stat-card">
+            <div class="stat-icon purple">
+                <i class="bi bi-envelope-paper"></i>
+            </div>
             <div class="stat-value">{{ stats.total_campaigns }}</div>
             <div class="stat-label">Total Campaigns</div>
+            <div class="stat-bar purple"></div>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.1); color: #60a5fa;">
-            <i class="bi bi-send"></i>
-        </div>
-        <div class="stat-content">
+    <div class="col-md-3">
+        <div class="phishing-stat-card">
+            <div class="stat-icon blue">
+                <i class="bi bi-send"></i>
+            </div>
             <div class="stat-value">{{ stats.total_messages }}</div>
             <div class="stat-label">Messages Sent</div>
+            <div class="stat-bar blue"></div>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background: rgba(234, 179, 8, 0.1); color: #fbbf24;">
-            <i class="bi bi-cursor"></i>
-        </div>
-        <div class="stat-content">
+    <div class="col-md-3">
+        <div class="phishing-stat-card">
+            <div class="stat-icon yellow">
+                <i class="bi bi-cursor"></i>
+            </div>
             <div class="stat-value">{{ "%.1f"|format(stats.avg_click_rate) }}%</div>
             <div class="stat-label">Avg Click Rate</div>
+            <div class="stat-bar yellow"></div>
         </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon" style="background: rgba(34, 197, 94, 0.1); color: #4ade80;">
-            <i class="bi bi-flag"></i>
-        </div>
-        <div class="stat-content">
+    <div class="col-md-3">
+        <div class="phishing-stat-card">
+            <div class="stat-icon green">
+                <i class="bi bi-flag"></i>
+            </div>
             <div class="stat-value">{{ "%.1f"|format(stats.avg_report_rate) }}%</div>
             <div class="stat-label">Avg Report Rate</div>
+            <div class="stat-bar green"></div>
         </div>
     </div>
 </div>
 
-<!-- Action Buttons -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-    <h2 style="margin: 0; font-size: 18px; font-weight: 600;">Campaigns</h2>
-    <div style="display: flex; gap: 12px;">
-        <a href="/phishing/inbox" class="btn btn-outline-secondary" style="border-color: #3f3f46; color: #a1a1aa;">
-            <i class="bi bi-inbox me-2"></i>View Inbox
+<!-- Campaigns Header -->
+<div class="campaigns-header">
+    <h2><i class="bi bi-megaphone"></i> Campaigns</h2>
+    <div class="header-actions">
+        <a href="/phishing/inbox" class="btn-header outline">
+            <i class="bi bi-inbox"></i> View Inbox
         </a>
-        <a href="/phishing/dashboard" class="btn btn-outline-secondary" style="border-color: #3f3f46; color: #a1a1aa;">
-            <i class="bi bi-graph-up me-2"></i>Dashboard
+        <a href="/phishing/dashboard" class="btn-header outline">
+            <i class="bi bi-graph-up"></i> Dashboard
         </a>
-        <a href="/phishing/new" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none;">
-            <i class="bi bi-plus-lg me-2"></i>New Campaign
+        <a href="/phishing/new" class="btn-header primary">
+            <i class="bi bi-plus-lg"></i> New Campaign
         </a>
     </div>
 </div>
 
 <!-- Campaigns Table -->
-<div class="card">
-    <div class="card-body p-0">
-        {% if campaigns %}
-        <table class="table table-dark mb-0" style="background: transparent;">
-            <thead>
-                <tr style="border-bottom: 1px solid #27272a;">
-                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Campaign</th>
-                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Status</th>
-                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Recipients</th>
-                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Open Rate</th>
-                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Click Rate</th>
-                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Report Rate</th>
-                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Created</th>
-                    <th style="padding: 16px; font-weight: 500; color: #a1a1aa;">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in campaigns %}
-                <tr style="border-bottom: 1px solid #27272a;">
-                    <td style="padding: 16px;">
-                        <a href="/phishing/campaign/{{ item.campaign.id }}" style="color: #fafafa; font-weight: 500;">
-                            {{ item.campaign.name }}
+<div class="campaigns-panel">
+    {% if campaigns %}
+    <table class="campaigns-table">
+        <thead>
+            <tr>
+                <th>Campaign</th>
+                <th>Status</th>
+                <th>Recipients</th>
+                <th>Open Rate</th>
+                <th>Click Rate</th>
+                <th>Report Rate</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in campaigns %}
+            <tr>
+                <td>
+                    <a href="/phishing/campaign/{{ item.campaign.id }}" class="campaign-name">
+                        {{ item.campaign.name }}
+                    </a>
+                    {% if item.campaign.description %}
+                    <div class="campaign-desc">
+                        {{ item.campaign.description[:50] }}{% if item.campaign.description|length > 50 %}...{% endif %}
+                    </div>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.campaign.status.value == 'DRAFT' %}
+                    <span class="status-badge draft">Draft</span>
+                    {% elif item.campaign.status.value == 'RUNNING' %}
+                    <span class="status-badge running">Running</span>
+                    {% elif item.campaign.status.value == 'PAUSED' %}
+                    <span class="status-badge paused">Paused</span>
+                    {% else %}
+                    <span class="status-badge ended">Ended</span>
+                    {% endif %}
+                </td>
+                <td style="font-weight: 500; color: #fafafa;">{{ item.recipient_count }}</td>
+                <td><span class="rate-value open">{{ "%.1f"|format(item.stats.open_rate) }}%</span></td>
+                <td><span class="rate-value click">{{ "%.1f"|format(item.stats.click_rate) }}%</span></td>
+                <td><span class="rate-value report">{{ "%.1f"|format(item.stats.report_rate) }}%</span></td>
+                <td style="color: #71717a; font-size: 13px;">{{ item.campaign.created_at.strftime('%Y-%m-%d') }}</td>
+                <td>
+                    <div style="display: flex; gap: 6px;">
+                        <a href="/phishing/campaign/{{ item.campaign.id }}" class="action-btn view" title="View">
+                            <i class="bi bi-eye"></i>
                         </a>
-                        {% if item.campaign.description %}
-                        <div style="font-size: 12px; color: #71717a; margin-top: 4px;">
-                            {{ item.campaign.description[:50] }}{% if item.campaign.description|length > 50 %}...{% endif %}
-                        </div>
-                        {% endif %}
-                    </td>
-                    <td style="padding: 16px;">
+                        <a href="/phishing/campaign/{{ item.campaign.id }}/edit" class="action-btn edit" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
                         {% if item.campaign.status.value == 'DRAFT' %}
-                        <span class="badge" style="background: rgba(113, 113, 122, 0.2); color: #a1a1aa;">Draft</span>
+                        <button class="action-btn launch launch-btn" data-id="{{ item.campaign.id }}" title="Launch">
+                            <i class="bi bi-play-fill"></i>
+                        </button>
                         {% elif item.campaign.status.value == 'RUNNING' %}
-                        <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #4ade80;">Running</span>
-                        {% elif item.campaign.status.value == 'PAUSED' %}
-                        <span class="badge" style="background: rgba(234, 179, 8, 0.2); color: #fbbf24;">Paused</span>
-                        {% else %}
-                        <span class="badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">Ended</span>
+                        <button class="action-btn pause pause-btn" data-id="{{ item.campaign.id }}" title="Pause">
+                            <i class="bi bi-pause-fill"></i>
+                        </button>
                         {% endif %}
-                    </td>
-                    <td style="padding: 16px; color: #d4d4d8;">{{ item.recipient_count }}</td>
-                    <td style="padding: 16px;">
-                        <span style="color: #fbbf24;">{{ "%.1f"|format(item.stats.open_rate) }}%</span>
-                    </td>
-                    <td style="padding: 16px;">
-                        <span style="color: #f87171;">{{ "%.1f"|format(item.stats.click_rate) }}%</span>
-                    </td>
-                    <td style="padding: 16px;">
-                        <span style="color: #4ade80;">{{ "%.1f"|format(item.stats.report_rate) }}%</span>
-                    </td>
-                    <td style="padding: 16px; color: #71717a; font-size: 13px;">
-                        {{ item.campaign.created_at.strftime('%Y-%m-%d') }}
-                    </td>
-                    <td style="padding: 16px;">
-                        <div style="display: flex; gap: 8px;">
-                            <a href="/phishing/campaign/{{ item.campaign.id }}" class="btn btn-sm" style="background: #27272a; color: #d4d4d8; border: none;">
-                                <i class="bi bi-pencil"></i>
-                            </a>
-                            {% if item.campaign.status.value == 'DRAFT' %}
-                            <button class="btn btn-sm launch-btn" data-id="{{ item.campaign.id }}" style="background: rgba(34, 197, 94, 0.2); color: #4ade80; border: none;">
-                                <i class="bi bi-play-fill"></i>
-                            </button>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div style="padding: 60px; text-align: center;">
-            <i class="bi bi-envelope-paper" style="font-size: 48px; color: #3f3f46; margin-bottom: 16px;"></i>
-            <h3 style="color: #71717a; font-size: 16px; margin-bottom: 8px;">No Campaigns Yet</h3>
-            <p style="color: #52525b; font-size: 14px; margin-bottom: 24px;">Create your first phishing awareness campaign to start training.</p>
-            <a href="/phishing/new" class="btn btn-primary" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none;">
-                <i class="bi bi-plus-lg me-2"></i>Create Campaign
-            </a>
-        </div>
-        {% endif %}
+                        <button class="action-btn delete delete-btn" data-id="{{ item.campaign.id }}" title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <i class="bi bi-envelope-paper d-block"></i>
+        <h3>No Campaigns Yet</h3>
+        <p>Create your first phishing awareness campaign to start training.</p>
+        <a href="/phishing/new" class="btn-header primary">
+            <i class="bi bi-plus-lg"></i> Create Campaign
+        </a>
     </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Launch campaign
 document.querySelectorAll('.launch-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
         const id = this.dataset.id;
@@ -176,6 +495,48 @@ document.querySelectorAll('.launch-btn').forEach(btn => {
             }
         } catch (e) {
             alert('Error launching campaign');
+        }
+    });
+});
+
+// Pause campaign
+document.querySelectorAll('.pause-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const id = this.dataset.id;
+        if (!confirm('Pause this campaign?')) return;
+        
+        try {
+            const resp = await fetch(`/api/phishing/campaigns/${id}/pause`, { method: 'POST' });
+            const data = await resp.json();
+            if (data.success) {
+                alert('Campaign paused.');
+                location.reload();
+            } else {
+                alert('Error: ' + (data.detail || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Error pausing campaign');
+        }
+    });
+});
+
+// Delete campaign
+document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const id = this.dataset.id;
+        if (!confirm('Delete this campaign? This action cannot be undone.')) return;
+        
+        try {
+            const resp = await fetch(`/api/phishing/campaigns/${id}`, { method: 'DELETE' });
+            const data = await resp.json();
+            if (data.success) {
+                alert('Campaign deleted.');
+                location.reload();
+            } else {
+                alert('Error: ' + (data.detail || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Error deleting campaign');
         }
     });
 });

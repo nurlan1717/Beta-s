@@ -918,7 +918,8 @@ class RR_3002_RegistryPersistence(DetectionRule):
             return None
         context.mark_seen(fingerprint)
         
-        summary = f"PERSISTENCE: Registry Run key modified on {host}: {target_object.split('\\')[-1]}"
+        _key_name = target_object.split('\\')[-1]
+        summary = f"PERSISTENCE: Registry Run key modified on {host}: {_key_name}"
         
         return self._create_alert(
             source=source,

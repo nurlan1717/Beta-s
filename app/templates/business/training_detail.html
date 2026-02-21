@@ -1,0 +1,95 @@
+{% extends "business/base.html" %}
+
+{% block title %}Campaign: {{ campaign.name }}{% endblock %}
+{% block page_title %}{{ campaign.name }}{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Participants</div>
+        <div class="stat-value">{{ total_participants }}</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-label">Completed</div>
+        <div class="stat-value">{{ completed }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Pass Rate</div>
+        <div class="stat-value">{{ (passed / total_participants * 100) | round(1) if total_participants > 0 else 0 }}%</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Avg Score</div>
+        <div class="stat-value">{{ avg_score }}%</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-list-check me-2"></i>Participant Results</h3>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Host</th>
+                        <th>Score</th>
+                        <th>TTD</th>
+                        <th>TTC</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td>Host #{{ result.host_id or 'N/A' }}</td>
+                        <td><span class="badge {% if result.score >= 80 %}badge-success{% elif result.score >= 60 %}badge-warning{% else %}badge-danger{% endif %}">{{ result.score | int }}%</span></td>
+                        <td>{{ (result.time_to_detect_seconds / 60) | round(1) if result.time_to_detect_seconds else 'N/A' }} min</td>
+                        <td>{{ (result.time_to_contain_seconds / 60) | round(1) if result.time_to_contain_seconds else 'N/A' }} min</td>
+                        <td>
+                            {% if result.passed %}<span class="badge badge-success">Passed</span>
+                            {% elif result.completed %}<span class="badge badge-warning">Completed</span>
+                            {% else %}<span class="badge badge-info">In Progress</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted">No results yet</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header"><h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Campaign Details</h3></div>
+            <div class="detail-list">
+                <div class="detail-item"><span class="label">Status</span><span class="badge badge-{% if campaign.status.value == 'ACTIVE' %}success{% elif campaign.status.value == 'COMPLETED' %}info{% else %}warning{% endif %}">{{ campaign.status.value }}</span></div>
+                <div class="detail-item"><span class="label">Start Date</span><span>{{ campaign.start_date.strftime('%Y-%m-%d') if campaign.start_date else 'Not set' }}</span></div>
+                <div class="detail-item"><span class="label">End Date</span><span>{{ campaign.end_date.strftime('%Y-%m-%d') if campaign.end_date else 'Not set' }}</span></div>
+                <div class="detail-item"><span class="label">Target Rate</span><span>{{ campaign.target_completion_rate }}%</span></div>
+                <div class="detail-item"><span class="label">Actual Rate</span><span>{{ completion_rate }}%</span></div>
+            </div>
+            {% if campaign.description %}
+            <div class="description mt-3">
+                <h5>Description</h5>
+                <p>{{ campaign.description }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="/business/training" class="btn btn-secondary"><i class="bi bi-arrow-left me-1"></i> Back to Training</a>
+</div>
+
+<style>
+    .detail-list { display: flex; flex-direction: column; gap: 12px; }
+    .detail-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border-color); }
+    .detail-item:last-child { border-bottom: none; }
+    .detail-item .label { color: var(--text-muted); font-size: 13px; }
+    .description h5 { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+    .description p { font-size: 14px; line-height: 1.6; }
+</style>
+{% endblock %}

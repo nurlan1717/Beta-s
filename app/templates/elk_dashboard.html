@@ -371,6 +371,81 @@
         overflow-x: auto;
         white-space: nowrap;
     }
+    
+    /* Logs Panel Styles */
+    .logs-filters {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 12px 16px;
+        background: #18181b;
+        border-bottom: 1px solid #27272a;
+    }
+    
+    .logs-filters select, .logs-filters input {
+        background: #27272a;
+        border: 1px solid #3f3f46;
+        color: #fafafa;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 13px;
+    }
+    
+    .logs-filters select:focus, .logs-filters input:focus {
+        outline: none;
+        border-color: #3b82f6;
+    }
+    
+    .logs-table {
+        font-size: 12px;
+    }
+    
+    .logs-table td {
+        vertical-align: top;
+        padding: 8px 12px;
+    }
+    
+    .logs-table .log-message {
+        max-width: 400px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+    
+    .logs-table .log-message:hover {
+        white-space: normal;
+        word-break: break-word;
+    }
+    
+    .source-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: 500;
+    }
+    
+    .source-badge.winlogbeat { background: #3b82f6; color: #fff; }
+    .source-badge.filebeat { background: #8b5cf6; color: #fff; }
+    
+    .level-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    
+    .level-badge.info { background: #22c55e20; color: #22c55e; }
+    .level-badge.warning { background: #eab30820; color: #eab308; }
+    .level-badge.error { background: #ef444420; color: #ef4444; }
+    .level-badge.debug { background: #71717a20; color: #a1a1aa; }
+    
+    .logs-count {
+        font-size: 12px;
+        color: #71717a;
+        padding: 8px 16px;
+        border-top: 1px solid #27272a;
+    }
 </style>
 {% endblock %}
 
@@ -443,9 +518,14 @@
                 <h3 class="panel-title">
                     <i class="bi bi-exclamation-triangle"></i> Recent Alerts
                 </h3>
-                <div class="search-box" style="width: 250px;">
-                    <i class="bi bi-search"></i>
-                    <input type="text" class="form-control" id="alert-search" placeholder="Search alerts..." onkeyup="searchAlerts(event)">
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-warning btn-sm" onclick="syncFilebeatAlerts()" id="btn-sync-alerts" title="Sync critical filebeat logs as alerts">
+                        <i class="bi bi-arrow-repeat"></i> Sync Filebeat
+                    </button>
+                    <div class="search-box" style="width: 250px;">
+                        <i class="bi bi-search"></i>
+                        <input type="text" class="form-control" id="alert-search" placeholder="Search alerts..." onkeyup="searchAlerts(event)">
+                    </div>
                 </div>
             </div>
             <div class="table-responsive">
@@ -484,6 +564,59 @@
                     <div class="text-center text-muted py-4">Loading MITRE data...</div>
                 </div>
             </div>
+        </div>
+        
+        <!-- Recent Logs (Winlogbeat + Filebeat) -->
+        <div class="panel mt-4">
+            <div class="panel-header">
+                <h3 class="panel-title">
+                    <i class="bi bi-journal-text"></i> Recent Logs (Winlogbeat + Filebeat)
+                </h3>
+                <span id="logs-indices-badge" class="badge badge-secondary" style="font-size: 10px;"></span>
+            </div>
+            <div class="logs-filters">
+                <select id="logs-source" onchange="loadLogs()">
+                    <option value="all">All Sources</option>
+                    <option value="winlogbeat">Winlogbeat</option>
+                    <option value="filebeat">Filebeat</option>
+                </select>
+                <select id="logs-time" onchange="loadLogs()">
+                    <option value="15">Last 15 min</option>
+                    <option value="60" selected>Last 1 hour</option>
+                    <option value="360">Last 6 hours</option>
+                    <option value="1440">Last 24 hours</option>
+                </select>
+                <select id="logs-host" onchange="loadLogs()">
+                    <option value="">All Hosts</option>
+                </select>
+                <div class="search-box" style="flex: 1; min-width: 200px;">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control" id="logs-search" placeholder="Search logs..." onkeyup="searchLogs(event)">
+                </div>
+            </div>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="data-table logs-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Source</th>
+                            <th>Host</th>
+                            <th>Dataset</th>
+                            <th>Level</th>
+                            <th>Message</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-table">
+                        <tr>
+                            <td colspan="6" class="text-center py-4">
+                                <div class="loading-spinner"></div>
+                                <div class="mt-2 text-muted">Loading logs...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="logs-count" id="logs-count">0 logs</div>
         </div>
     </div>
     
@@ -632,7 +765,8 @@
                 loadStats(),
                 loadAlerts(),
                 loadAgents(),
-                loadMitreHeatmap()
+                loadMitreHeatmap(),
+                loadLogs()
             ]);
             
             updateLastUpdated();
@@ -785,8 +919,23 @@
             tbody.innerHTML = data.alerts.map(alert => {
                 const timestamp = alert.timestamp ? new Date(alert.timestamp).toLocaleString() : 'N/A';
                 const severityLabel = alert.severity_label || 'LOW';
-                const mitre = alert.mitre || [];
-                const mitreTechnique = Array.isArray(mitre) && mitre.length > 0 ? mitre[0] : 'N/A';
+                
+                // Handle MITRE field - could be object or array
+                let mitreTechnique = 'N/A';
+                if (alert.mitre) {
+                    if (typeof alert.mitre === 'object' && alert.mitre.technique) {
+                        mitreTechnique = alert.mitre.technique;
+                    } else if (Array.isArray(alert.mitre) && alert.mitre.length > 0) {
+                        mitreTechnique = alert.mitre[0];
+                    }
+                }
+                
+                // Get endpoint from multiple possible fields
+                const endpoint = alert.endpoint || alert.agent_name || alert.host || 'N/A';
+                
+                // Get rule info
+                const ruleName = alert.rule_name || alert.rule_id || 'N/A';
+                const description = alert.rule_description || alert.description || alert.rule_name || 'N/A';
                 
                 let levelClass = 'badge-gray';
                 if (severityLabel === 'CRITICAL') levelClass = 'badge-danger';
@@ -797,9 +946,9 @@
                 return `
                     <tr>
                         <td><code>${timestamp}</code></td>
-                        <td>${alert.host || 'N/A'}</td>
-                        <td><code>${alert.rule_id || 'N/A'}</code></td>
-                        <td>${(alert.description || alert.rule_name || 'N/A').substring(0, 60)}${(alert.description || '').length > 60 ? '...' : ''}</td>
+                        <td>${endpoint}</td>
+                        <td><code>${ruleName}</code></td>
+                        <td title="${description}">${description.substring(0, 60)}${description.length > 60 ? '...' : ''}</td>
                         <td><span class="badge badge-purple">${mitreTechnique}</span></td>
                         <td><span class="badge ${levelClass}">${severityLabel}</span></td>
                     </tr>
@@ -891,6 +1040,44 @@
         }
     }
     
+    async function syncFilebeatAlerts() {
+        const btn = document.getElementById('btn-sync-alerts');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Syncing...';
+        btn.disabled = true;
+        
+        try {
+            const response = await fetch(`${API_BASE}/sync-filebeat-alerts?time_range_hours=24`, {
+                method: 'POST'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                const msg = `Synced ${data.alerts_created} alerts (${data.alerts_skipped} skipped)`;
+                showToast(msg, 'success');
+                // Reload alerts to show new ones
+                loadAlerts();
+            } else {
+                showToast(data.message || 'Sync failed', 'error');
+            }
+        } catch (error) {
+            console.error('Error syncing filebeat alerts:', error);
+            showToast('Failed to sync filebeat alerts', 'error');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+    
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        toast.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>${message}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+    
     async function loadMitreHeatmap() {
         try {
             const response = await fetch(`${API_BASE}/elk/mitre/heatmap`);
@@ -948,6 +1135,169 @@
                 })
                 .catch(() => {});
         }
+    }
+    
+    // ============ Logs Panel Functions ============
+    
+    let logsHostsLoaded = false;
+    
+    async function loadLogs() {
+        const source = document.getElementById('logs-source').value;
+        const minutes = document.getElementById('logs-time').value;
+        const hostName = document.getElementById('logs-host').value;
+        const searchQuery = document.getElementById('logs-search').value;
+        
+        try {
+            let url = `${API_BASE}/elk/logs?source=${source}&minutes=${minutes}&limit=100`;
+            if (hostName) url += `&host_name=${encodeURIComponent(hostName)}`;
+            if (searchQuery) url += `&q=${encodeURIComponent(searchQuery)}`;
+            
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            
+            renderLogs(data.logs || []);
+            document.getElementById('logs-count').textContent = `${data.count || 0} logs`;
+            
+            // Load hosts for filter dropdown (once)
+            if (!logsHostsLoaded) {
+                loadLogsHosts();
+                logsHostsLoaded = true;
+            }
+            
+            // Update indices badge
+            updateIndicesBadge();
+            
+        } catch (error) {
+            console.error('Error loading logs:', error);
+            document.getElementById('logs-table').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-danger">
+                        Error loading logs: ${error.message}
+                    </td>
+                </tr>
+            `;
+        }
+    }
+    
+    function renderLogs(logs) {
+        const tbody = document.getElementById('logs-table');
+        
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        <i class="bi bi-journal-x" style="font-size: 24px;"></i>
+                        <div class="mt-2">No logs found</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = logs.map(log => {
+            const timestamp = log.ts ? new Date(log.ts).toLocaleString() : 'N/A';
+            const sourceClass = log.source || 'unknown';
+            const levelClass = getLevelClass(log.level);
+            const message = escapeHtml(log.message || 'No message');
+            const truncatedMsg = message.length > 100 ? message.substring(0, 100) + '...' : message;
+            
+            return `
+                <tr onclick="showLogDetail('${escapeHtml(log.id)}')" style="cursor: pointer;">
+                    <td><code style="font-size: 11px;">${timestamp}</code></td>
+                    <td><span class="source-badge ${sourceClass}">${log.source || 'N/A'}</span></td>
+                    <td>${escapeHtml(log.host || 'N/A')}</td>
+                    <td><code style="font-size: 11px;">${escapeHtml(log.dataset || 'N/A')}</code></td>
+                    <td><span class="level-badge ${levelClass}">${escapeHtml(log.level || 'N/A')}</span></td>
+                    <td class="log-message" title="${message}">${truncatedMsg}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+    
+    function getLevelClass(level) {
+        if (!level) return '';
+        const l = level.toLowerCase();
+        if (l.includes('error') || l.includes('crit') || l.includes('alert') || l.includes('emerg')) return 'error';
+        if (l.includes('warn')) return 'warning';
+        if (l.includes('debug') || l.includes('trace')) return 'debug';
+        return 'info';
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    async function loadLogsHosts() {
+        try {
+            // Load hosts from both sources
+            const [agentsRes, filebeatRes] = await Promise.all([
+                fetch(`${API_BASE}/elk/agents`).then(r => r.json()).catch(() => ({agents: []})),
+                fetch(`${API_BASE}/elk/filebeat/hosts?minutes=1440`).then(r => r.json()).catch(() => ({hosts: []}))
+            ]);
+            
+            const hostsSet = new Set();
+            (agentsRes.agents || []).forEach(a => hostsSet.add(a.name));
+            (filebeatRes.hosts || []).forEach(h => hostsSet.add(h.name));
+            
+            const hostSelect = document.getElementById('logs-host');
+            const currentValue = hostSelect.value;
+            
+            // Keep "All Hosts" option
+            hostSelect.innerHTML = '<option value="">All Hosts</option>';
+            
+            Array.from(hostsSet).sort().forEach(host => {
+                if (host) {
+                    const option = document.createElement('option');
+                    option.value = host;
+                    option.textContent = host;
+                    hostSelect.appendChild(option);
+                }
+            });
+            
+            // Restore selection if it exists
+            if (currentValue) hostSelect.value = currentValue;
+            
+        } catch (error) {
+            console.error('Error loading hosts for logs filter:', error);
+        }
+    }
+    
+    async function updateIndicesBadge() {
+        try {
+            const response = await fetch(`${API_BASE}/elk/indices`);
+            const data = await response.json();
+            
+            const badge = document.getElementById('logs-indices-badge');
+            const parts = [];
+            if (data.winlogbeat) parts.push('Winlogbeat ✓');
+            if (data.filebeat) parts.push('Filebeat ✓');
+            
+            if (parts.length > 0) {
+                badge.textContent = parts.join(' | ');
+                badge.className = 'badge badge-success';
+            } else {
+                badge.textContent = 'No indices detected';
+                badge.className = 'badge badge-warning';
+            }
+        } catch (error) {
+            console.log('Could not detect indices:', error);
+        }
+    }
+    
+    function searchLogs(event) {
+        if (event.key === 'Enter') {
+            loadLogs();
+        }
+    }
+    
+    function showLogDetail(logId) {
+        // For now, just log the ID - could expand to show modal with full log details
+        console.log('Log clicked:', logId);
+        // Could implement modal similar to alert detail modal
     }
     
     // Try to load alert feed script

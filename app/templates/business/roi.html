@@ -1,0 +1,302 @@
+{% extends "business/base.html" %}
+
+{% block title %}ROI Calculator{% endblock %}
+{% block page_title %}ROI & Cost Calculator{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <!-- Calculator Form -->
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-calculator me-2"></i>Calculate ROI</h3>
+            </div>
+            <form id="roi-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                
+                <div class="form-group">
+                    <label class="form-label">Number of Endpoints</label>
+                    <input type="number" name="endpoints_count" class="form-control" value="100" min="1">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Average Hourly Revenue ($)</label>
+                    <input type="number" name="avg_hourly_revenue" class="form-control" value="{{ settings.hourly_revenue }}" step="100">
+                    <small class="text-muted">Revenue lost per hour of downtime</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Average IT Cost Per Hour ($)</label>
+                    <input type="number" name="avg_it_cost_per_hour" class="form-control" value="{{ settings.hourly_it_cost }}" step="50">
+                    <small class="text-muted">Cost of IT staff during incident</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Typical Downtime (Hours)</label>
+                    <input type="number" name="typical_downtime_hours" class="form-control" value="{{ settings.baseline_downtime_hours }}" step="0.5">
+                    <small class="text-muted">Average downtime without RansomRun</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Expected Improvement (%)</label>
+                    <input type="range" name="improvement_percent" class="form-range" value="50" min="10" max="90" oninput="document.getElementById('improvement-value').textContent = this.value + '%'">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">10%</small>
+                        <strong id="improvement-value">50%</strong>
+                        <small class="text-muted">90%</small>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-primary w-100">
+                    <i class="bi bi-lightning-charge me-2"></i>Calculate ROI
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Results -->
+    <div class="col-lg-7">
+        <div class="card" id="results-card" style="display: none;">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-graph-up-arrow me-2"></i>ROI Analysis Results</h3>
+            </div>
+            
+            <div class="roi-results">
+                <div class="roi-highlight">
+                    <div class="roi-big-number" id="result-savings">$0</div>
+                    <div class="roi-label">Potential Savings Per Incident</div>
+                </div>
+                
+                <div class="roi-grid">
+                    <div class="roi-stat">
+                        <div class="roi-stat-icon danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
+                        <div class="roi-stat-content">
+                            <span class="roi-stat-value" id="result-loss">$0</span>
+                            <span class="roi-stat-label">Potential Loss Per Incident</span>
+                        </div>
+                    </div>
+                    
+                    <div class="roi-stat">
+                        <div class="roi-stat-icon success">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                        <div class="roi-stat-content">
+                            <span class="roi-stat-value" id="result-improved-loss">$0</span>
+                            <span class="roi-stat-label">With RansomRun</span>
+                        </div>
+                    </div>
+                    
+                    <div class="roi-stat">
+                        <div class="roi-stat-icon info">
+                            <i class="bi bi-clock"></i>
+                        </div>
+                        <div class="roi-stat-content">
+                            <span class="roi-stat-value" id="result-time-saved">0h</span>
+                            <span class="roi-stat-label">Time Saved Per Incident</span>
+                        </div>
+                    </div>
+                    
+                    <div class="roi-stat">
+                        <div class="roi-stat-icon purple">
+                            <i class="bi bi-percent"></i>
+                        </div>
+                        <div class="roi-stat-content">
+                            <span class="roi-stat-value" id="result-roi">0%</span>
+                            <span class="roi-stat-label">ROI Percentage</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="roi-note">
+                    <i class="bi bi-info-circle"></i>
+                    <span>ROI calculated assuming 10% of potential loss as investment in security tools.</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Calculation History -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-clock-history me-2"></i>Calculation History</h3>
+            </div>
+            {% if history %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Endpoints</th>
+                        <th>Downtime</th>
+                        <th>Savings</th>
+                        <th>ROI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for calc in history %}
+                    <tr>
+                        <td>{{ calc.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ calc.endpoints_count }}</td>
+                        <td>{{ calc.typical_downtime_hours }}h</td>
+                        <td>${{ "{:,.0f}".format(calc.potential_savings or 0) }}</td>
+                        <td><span class="badge badge-success">{{ "{:.1f}".format(calc.roi_percentage or 0) }}%</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <i class="bi bi-calculator"></i>
+                <p>No calculations yet. Run your first ROI analysis above.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-range {
+        width: 100%;
+        height: 8px;
+        background: var(--bg-primary);
+        border-radius: 4px;
+        outline: none;
+        -webkit-appearance: none;
+    }
+    
+    .form-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 20px;
+        height: 20px;
+        background: var(--accent-purple);
+        border-radius: 50%;
+        cursor: pointer;
+    }
+    
+    .roi-results {
+        padding: 10px 0;
+    }
+    
+    .roi-highlight {
+        text-align: center;
+        padding: 30px;
+        background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
+        border-radius: 12px;
+        margin-bottom: 24px;
+    }
+    
+    .roi-big-number {
+        font-size: 48px;
+        font-weight: 700;
+        color: var(--accent-green);
+        line-height: 1;
+    }
+    
+    .roi-label {
+        font-size: 14px;
+        color: var(--text-muted);
+        margin-top: 8px;
+    }
+    
+    .roi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+    
+    .roi-stat {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: var(--bg-primary);
+        border-radius: 10px;
+    }
+    
+    .roi-stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+    
+    .roi-stat-icon.danger { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .roi-stat-icon.success { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+    .roi-stat-icon.info { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .roi-stat-icon.purple { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+    
+    .roi-stat-content {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .roi-stat-value {
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .roi-stat-label {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+    
+    .roi-note {
+        margin-top: 20px;
+        padding: 12px 16px;
+        background: rgba(59, 130, 246, 0.1);
+        border-radius: 8px;
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+    
+    .roi-note i {
+        margin-right: 8px;
+        color: var(--accent-blue);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-muted);
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+</style>
+
+<script>
+document.getElementById('roi-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/business/roi/calculate', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('results-card').style.display = 'block';
+            document.getElementById('result-savings').textContent = '$' + data.potential_savings.toLocaleString();
+            document.getElementById('result-loss').textContent = '$' + data.potential_loss_per_incident.toLocaleString();
+            document.getElementById('result-improved-loss').textContent = '$' + data.improved_loss.toLocaleString();
+            document.getElementById('result-time-saved').textContent = data.time_saved_hours + 'h';
+            document.getElementById('result-roi').textContent = data.roi_percentage + '%';
+            
+            document.getElementById('results-card').scrollIntoView({ behavior: 'smooth' });
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+});
+</script>
+{% endblock %}

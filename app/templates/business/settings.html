@@ -1,0 +1,109 @@
+{% extends "business/base.html" %}
+
+{% block title %}Business Settings{% endblock %}
+{% block page_title %}Business Settings{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-gear me-2"></i>Cost & Recovery Configuration</h3>
+            </div>
+            <form action="/business/settings" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                
+                <div class="settings-section">
+                    <h4>Cost Configuration</h4>
+                    <p class="text-muted">These values are used to calculate ROI and cost impact metrics.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Hourly Revenue ($)</label>
+                                <input type="number" name="hourly_revenue" class="form-control" value="{{ settings.hourly_revenue }}" step="100">
+                                <small class="text-muted">Revenue lost per hour of downtime</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Hourly IT Cost ($)</label>
+                                <input type="number" name="hourly_it_cost" class="form-control" value="{{ settings.hourly_it_cost }}" step="50">
+                                <small class="text-muted">IT staff cost during incident response</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Baseline Downtime (Hours)</label>
+                                <input type="number" name="baseline_downtime_hours" class="form-control" value="{{ settings.baseline_downtime_hours }}" step="0.5">
+                                <small class="text-muted">Expected downtime without RansomRun</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h4>RTO/RPO Targets</h4>
+                    <p class="text-muted">Business continuity objectives for recovery tracking.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Target RTO (Minutes)</label>
+                                <input type="number" name="target_rto_minutes" class="form-control" value="{{ settings.target_rto_minutes }}" min="1">
+                                <small class="text-muted">Maximum acceptable recovery time</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">Target RPO (Minutes)</label>
+                                <input type="number" name="target_rpo_minutes" class="form-control" value="{{ settings.target_rpo_minutes }}" min="1">
+                                <small class="text-muted">Maximum acceptable data loss window</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> Save Settings
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Help</h3>
+            </div>
+            <div class="help-content">
+                <div class="help-item">
+                    <h5>Hourly Revenue</h5>
+                    <p>Estimate your organization's revenue generation per hour. This helps calculate potential losses during downtime.</p>
+                </div>
+                <div class="help-item">
+                    <h5>IT Cost</h5>
+                    <p>Average cost of your IT/security team per hour during incident response activities.</p>
+                </div>
+                <div class="help-item">
+                    <h5>RTO Target</h5>
+                    <p>Your business requirement for maximum time to restore operations. Typically 1-4 hours for critical systems.</p>
+                </div>
+                <div class="help-item">
+                    <h5>RPO Target</h5>
+                    <p>Maximum acceptable data loss. Lower values require more frequent backups.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .settings-section { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border-color); }
+    .settings-section:last-of-type { border-bottom: none; margin-bottom: 24px; }
+    .settings-section h4 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .settings-section > p { margin-bottom: 16px; font-size: 13px; }
+    .help-content { display: flex; flex-direction: column; gap: 16px; }
+    .help-item { padding: 12px; background: var(--bg-primary); border-radius: 8px; }
+    .help-item h5 { font-size: 13px; font-weight: 600; margin: 0 0 4px 0; }
+    .help-item p { font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+</style>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Download Agent - RansomRun{% endblock %}
+{% block page_title %}Download RansomRun Agent{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-download me-2"></i>Agent Download</h3>
+            </div>
+            <div class="panel-body">
+                <div style="background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); border-radius: 12px; padding: 32px; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <div style="width: 80px; height: 80px; background: rgba(59, 130, 246, 0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-robot" style="font-size: 40px; color: #3b82f6;"></i>
+                        </div>
+                        <div style="flex: 1;">
+                            <h2 style="color: #fafafa; margin: 0 0 8px 0; font-size: 24px;">RansomRun Agent</h2>
+                            <p style="color: #a1a1aa; margin: 0;">Python-based endpoint agent for ransomware simulation and containment</p>
+                        </div>
+                        <a href="/api/download/agent" class="btn btn-primary" style="padding: 16px 32px; font-size: 16px;">
+                            <i class="bi bi-download me-2"></i>Download Agent
+                        </a>
+                    </div>
+                </div>
+
+                <h4 style="color: #fafafa; margin-bottom: 16px;"><i class="bi bi-info-circle me-2"></i>Requirements</h4>
+                <ul style="color: #a1a1aa; margin-bottom: 24px;">
+                    <li>Python 3.8 or higher</li>
+                    <li>Windows 10/11 or Windows Server 2016+</li>
+                    <li>Administrator privileges (for containment features)</li>
+                    <li>Network access to the RansomRun backend server</li>
+                </ul>
+
+                <h4 style="color: #fafafa; margin-bottom: 16px;"><i class="bi bi-terminal me-2"></i>Quick Start</h4>
+                <div style="background: #18181b; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                    <code style="color: #22c55e;">
+                        # 1. Download the agent<br>
+                        # 2. Open PowerShell as Administrator<br>
+                        # 3. Navigate to the download folder<br>
+                        cd Downloads<br><br>
+                        # 4. Set environment variables<br>
+                        $env:BACKEND_URL = "http://YOUR_SERVER_IP:8000"<br><br>
+                        # 5. Run the agent<br>
+                        python ransomrun_agent.py
+                    </code>
+                </div>
+
+                <h4 style="color: #fafafa; margin-bottom: 16px;"><i class="bi bi-shield-check me-2"></i>Features</h4>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; padding: 16px;">
+                            <div style="color: #22c55e; font-weight: 600; margin-bottom: 8px;">
+                                <i class="bi bi-lightning-charge me-2"></i>Ransomware Simulation
+                            </div>
+                            <div style="color: #a1a1aa; font-size: 13px;">Execute controlled ransomware scenarios for testing</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 16px;">
+                            <div style="color: #ef4444; font-weight: 600; margin-bottom: 8px;">
+                                <i class="bi bi-shield-lock me-2"></i>Host Isolation
+                            </div>
+                            <div style="color: #a1a1aa; font-size: 13px;">Fast network isolation for incident containment</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 16px;">
+                            <div style="color: #3b82f6; font-weight: 600; margin-bottom: 8px;">
+                                <i class="bi bi-arrow-counterclockwise me-2"></i>Network Restore
+                            </div>
+                            <div style="color: #a1a1aa; font-size: 13px;">Restore network connectivity after isolation</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 8px; padding: 16px;">
+                            <div style="color: #a855f7; font-weight: 600; margin-bottom: 8px;">
+                                <i class="bi bi-folder-x me-2"></i>File Quarantine
+                            </div>
+                            <div style="color: #a1a1aa; font-size: 13px;">Isolate suspicious files and block paths</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="panel mb-4">
+            <div class="panel-header">
+                <h3 class="panel-title">Agent Info</h3>
+            </div>
+            <div class="panel-body">
+                <div style="margin-bottom: 16px;">
+                    <div style="color: #71717a; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">Version</div>
+                    <div style="color: #fafafa; font-weight: 500;">3.2.0</div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <div style="color: #71717a; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">File Type</div>
+                    <div style="color: #fafafa; font-weight: 500;">Python Script (.py)</div>
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <div style="color: #71717a; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">Platform</div>
+                    <div style="color: #fafafa; font-weight: 500;">Windows</div>
+                </div>
+                <div>
+                    <div style="color: #71717a; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">License</div>
+                    <div style="color: #fafafa; font-weight: 500;">Internal Use Only</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <h3 class="panel-title">Need Help?</h3>
+            </div>
+            <div class="panel-body">
+                <p style="color: #a1a1aa; font-size: 14px; margin-bottom: 16px;">
+                    Check out the documentation or contact your administrator for assistance.
+                </p>
+                <a href="/hosts" class="btn btn-secondary w-100 mb-2">
+                    <i class="bi bi-hdd-network me-2"></i>View Connected Agents
+                </a>
+                <a href="/dashboard" class="btn btn-ghost w-100">
+                    <i class="bi bi-arrow-left me-2"></i>Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

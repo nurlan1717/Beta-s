@@ -582,24 +582,46 @@ def user_detail(request: Request, user_id: int, db: Session = Depends(get_db)):
     """User profile / SOC CV page."""
     from ..models import User, IRSession, RunFeedback, UserSkillProfile
     
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return templates.TemplateResponse("error.html", {
+                "request": request,
+                "error": "User not found"
+            }, status_code=404)
+        
+        # Safely query related data
+        sessions = []
+        feedbacks = []
+        skill_profile = None
+        
+        try:
+            sessions = db.query(IRSession).filter(IRSession.user_id == user_id).all()
+        except Exception:
+            pass
+        
+        try:
+            feedbacks = db.query(RunFeedback).filter(RunFeedback.user_id == user_id).order_by(RunFeedback.created_at.desc()).limit(5).all()
+        except Exception:
+            pass
+        
+        try:
+            skill_profile = db.query(UserSkillProfile).filter(UserSkillProfile.user_id == user_id).first()
+        except Exception:
+            pass
+        
+        return templates.TemplateResponse("user_detail.html", {
+            "request": request,
+            "user": user,
+            "sessions": sessions,
+            "feedbacks": feedbacks,
+            "skill_profile": skill_profile
+        })
+    except Exception as e:
         return templates.TemplateResponse("error.html", {
             "request": request,
-            "error": "User not found"
-        }, status_code=404)
-    
-    sessions = db.query(IRSession).filter(IRSession.user_id == user_id).all()
-    feedbacks = db.query(RunFeedback).filter(RunFeedback.user_id == user_id).order_by(RunFeedback.created_at.desc()).limit(5).all()
-    skill_profile = db.query(UserSkillProfile).filter(UserSkillProfile.user_id == user_id).first()
-    
-    return templates.TemplateResponse("user_detail.html", {
-        "request": request,
-        "user": user,
-        "sessions": sessions,
-        "feedbacks": feedbacks,
-        "skill_profile": skill_profile
-    })
+            "error": f"Error loading user profile: {str(e)}"
+        }, status_code=500)
 
 
 @router.get("/runs/{run_id}/compliance", response_class=HTMLResponse)
@@ -620,4 +642,69 @@ def compliance_report_page(request: Request, run_id: int, db: Session = Depends(
         "request": request,
         "run": run,
         "report": report
+    })
+
+
+@router.get("/rollback", response_class=HTMLResponse)
+def rollback_page(request: Request, user: AuthUser = Depends(require_user), db: Session = Depends(get_db)):
+    """AutoRollback management page (protected)."""
+    if isinstance(user, RedirectResponse):
+        return user
+    
+    return templates.TemplateResponse("rollback.html", {
+        "request": request,
+        "user": user
+    })
+
+
+# =============================================================================
+# BACKUP & RECOVERY PAGES
+# =============================================================================
+
+@router.get("/backup/plans", response_class=HTMLResponse)
+def backup_plans_page(request: Request, user: AuthUser = Depends(require_user), db: Session = Depends(get_db)):
+    """Backup Plans management page (protected)."""
+    if isinstance(user, RedirectResponse):
+        return user
+    
+    return templates.TemplateResponse("backup_plans.html", {
+        "request": request,
+        "user": user
+    })
+
+
+@router.get("/backup/recovery", response_class=HTMLResponse)
+def backup_recovery_page(
+    request: Request, 
+    host_id: int = None,
+    user: AuthUser = Depends(require_user), 
+    db: Session = Depends(get_db)
+):
+    """Backup & Recovery page for hosts (protected)."""
+    if isinstance(user, RedirectResponse):
+        return user
+    
+    hosts = crud.get_all_hosts(db)
+    
+    return templates.TemplateResponse("backup_recovery.html", {
+        "request": request,
+        "user": user,
+        "hosts": hosts,
+        "selected_host_id": host_id
+    })
+
+
+@router.get("/environment", response_class=HTMLResponse)
+def environment_page(
+    request: Request,
+    user: AuthUser = Depends(require_user), 
+    db: Session = Depends(get_db)
+):
+    """Directory Lab / Environment Management page (protected)."""
+    if isinstance(user, RedirectResponse):
+        return user
+    
+    return templates.TemplateResponse("environment.html", {
+        "request": request,
+        "user": user
     })

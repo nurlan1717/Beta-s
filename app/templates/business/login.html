@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Portal Login - RansomRun</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #16161f;
+            --border-color: #2a2a3a;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent-purple: #8b5cf6;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+        }
+        
+        .login-container {
+            display: flex;
+            width: 100%;
+            min-height: 100vh;
+        }
+        
+        /* Left side - Branding */
+        .login-branding {
+            flex: 1;
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1a 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .login-branding::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at center, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.3; }
+        }
+        
+        .branding-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        .branding-logo {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 32px;
+        }
+        
+        .branding-title {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .branding-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+            line-height: 1.6;
+        }
+        
+        .branding-features {
+            text-align: left;
+        }
+        
+        .branding-feature {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .branding-feature-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .branding-feature-icon i {
+            font-size: 18px;
+            color: white;
+        }
+        
+        .branding-feature h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--text-primary);
+        }
+        
+        .branding-feature p {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        
+        /* Right side - Login form */
+        .login-form-container {
+            width: 500px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px;
+            background: var(--bg-secondary);
+        }
+        
+        .login-header {
+            margin-bottom: 40px;
+        }
+        
+        .login-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(139, 92, 246, 0.15);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-purple);
+            margin-bottom: 16px;
+        }
+        
+        .login-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .login-description {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+        }
+        
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+        
+        .btn-login {
+            width: 100%;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+        }
+        
+        .login-footer {
+            margin-top: 32px;
+            text-align: center;
+        }
+        
+        .login-footer-text {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        
+        .login-footer-text a {
+            color: var(--accent-purple);
+            text-decoration: none;
+        }
+        
+        .login-footer-text a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .login-branding {
+                display: none;
+            }
+            .login-form-container {
+                width: 100%;
+                max-width: 500px;
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Left side - Branding -->
+        <div class="login-branding">
+            <div class="branding-content">
+                <svg class="branding-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="45" fill="url(#logo_grad)" stroke="#ef4444" stroke-width="4"/>
+                    <circle cx="35" cy="40" r="10" fill="#18181b"/>
+                    <circle cx="65" cy="40" r="10" fill="#18181b"/>
+                    <path d="M30 62 Q50 75 70 62" stroke="#18181b" stroke-width="5" fill="none" stroke-linecap="round"/>
+                    <line x1="40" y1="65" x2="40" y2="78" stroke="#18181b" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="50" y1="68" x2="50" y2="82" stroke="#18181b" stroke-width="4" stroke-linecap="round"/>
+                    <line x1="60" y1="65" x2="60" y2="78" stroke="#18181b" stroke-width="4" stroke-linecap="round"/>
+                    <defs>
+                        <linearGradient id="logo_grad" x1="5" y1="5" x2="95" y2="95" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#f5f5f5"/>
+                            <stop offset="1" stop-color="#d4d4d4"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                
+                <h1 class="branding-title">Business Portal</h1>
+                <p class="branding-subtitle">Executive insights and strategic metrics for C-level stakeholders and business decision makers.</p>
+                
+                <div class="branding-features">
+                    <div class="branding-feature">
+                        <div class="branding-feature-icon">
+                            <i class="bi bi-speedometer2"></i>
+                        </div>
+                        <div>
+                            <h4>Executive Dashboard</h4>
+                            <p>Real-time risk scores, cost impact analysis, and readiness metrics at a glance.</p>
+                        </div>
+                    </div>
+                    <div class="branding-feature">
+                        <div class="branding-feature-icon">
+                            <i class="bi bi-shield-check"></i>
+                        </div>
+                        <div>
+                            <h4>Compliance Reporting</h4>
+                            <p>MITRE ATT&CK, NIST, and ISO 27001 mapping with audit-ready exports.</p>
+                        </div>
+                    </div>
+                    <div class="branding-feature">
+                        <div class="branding-feature-icon">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <div>
+                            <h4>ROI Analysis</h4>
+                            <p>Calculate potential savings and demonstrate security investment value.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right side - Login form -->
+        <div class="login-form-container">
+            <div class="login-header">
+                <div class="login-badge">
+                    <i class="bi bi-building"></i>
+                    Business Access
+                </div>
+                <h2 class="login-title">Welcome Back</h2>
+                <p class="login-description">Sign in to access the Business Portal. This area is restricted to C-level and business stakeholders.</p>
+            </div>
+            
+            {% if error %}
+            <div class="error-message">
+                <i class="bi bi-exclamation-circle me-2"></i>{{ error }}
+            </div>
+            {% endif %}
+            
+            <form method="POST" action="/business/login">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                
+                <div class="form-group">
+                    <label class="form-label" for="email">Email Address</label>
+                    <input type="email" id="email" name="email" class="form-input" placeholder="business@company.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="Enter your password" required>
+                </div>
+                
+                <button type="submit" class="btn-login">
+                    Sign In to Business Portal
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                <p class="login-footer-text">
+                    Not a business user? <a href="/login">Sign in as Analyst</a>
+                </p>
+                <p class="login-footer-text" style="margin-top: 12px;">
+                    <a href="/">← Back to Home</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

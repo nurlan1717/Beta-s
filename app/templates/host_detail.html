@@ -2,6 +2,197 @@
 
 {% block title %}{{ host.name }} - RANSOMRUN{% endblock %}
 
+{% block extra_css %}
+<style>
+    .host-hero {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    .host-name {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    .host-meta {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+    .host-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #a1a1aa;
+    }
+    .host-meta-item i {
+        color: #3b82f6;
+    }
+    .metric-card {
+        background: linear-gradient(135deg, #18181b, #27272a);
+        border: 1px solid #3f3f46;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+        border-color: #3b82f6;
+        transform: translateY(-2px);
+    }
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .metric-label {
+        color: #a1a1aa;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    .metric-card.danger .metric-value {
+        background: linear-gradient(135deg, #ef4444, #f97316);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .metric-card.success .metric-value {
+        background: linear-gradient(135deg, #22c55e, #10b981);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .metric-card.warning .metric-value {
+        background: linear-gradient(135deg, #f59e0b, #eab308);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .quick-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+    .quick-actions .btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        border-radius: 10px;
+        font-weight: 500;
+    }
+    .section-card {
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    .section-header {
+        background: linear-gradient(135deg, #27272a, #3f3f46);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #3f3f46;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .section-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .section-body {
+        padding: 1.5rem;
+    }
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .info-item {
+        background: #27272a;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    .info-label {
+        color: #71717a;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.25rem;
+    }
+    .info-value {
+        color: #fafafa;
+        font-size: 0.95rem;
+        font-weight: 500;
+    }
+    .info-value code {
+        background: #3f3f46;
+        padding: 0.125rem 0.375rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+    }
+    .isolation-panel {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(249, 115, 22, 0.1));
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    .isolation-panel.normal {
+        background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
+        border-color: rgba(34, 197, 94, 0.3);
+    }
+    .run-row {
+        transition: all 0.2s ease;
+    }
+    .run-row:hover {
+        background: rgba(59, 130, 246, 0.1);
+    }
+    .severity-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .severity-critical {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .severity-high {
+        background: rgba(249, 115, 22, 0.2);
+        color: #f97316;
+        border: 1px solid rgba(249, 115, 22, 0.3);
+    }
+    .severity-medium {
+        background: rgba(234, 179, 8, 0.2);
+        color: #eab308;
+        border: 1px solid rgba(234, 179, 8, 0.3);
+    }
+    .severity-low {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #71717a;
+    }
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
@@ -10,199 +201,293 @@
     </ol>
 </nav>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>
-        <i class="bi bi-pc-display"></i> {{ host.name }}
-        {% if host.status.value == 'ONLINE' %}
-        <span class="badge badge-online">ONLINE</span>
-        {% elif host.status.value == 'OFFLINE' %}
-        <span class="badge badge-offline">OFFLINE</span>
-        {% else %}
-        <span class="badge badge-unknown">UNKNOWN</span>
-        {% endif %}
-        {% if host.is_isolated %}
-        <span class="badge bg-danger ms-2"><i class="bi bi-shield-lock"></i> ISOLATED</span>
-        {% endif %}
-    </h1>
-    <div>
-        <a href="/simulate?host_id={{ host.id }}" class="btn btn-danger">
-            <i class="bi bi-lightning-charge"></i> Start Simulation
-        </a>
-    </div>
-</div>
-
-<!-- Host Info -->
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-info-circle"></i> Host Information
+<!-- Hero Section -->
+<div class="host-hero">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div>
+            <div class="host-name">
+                <i class="bi bi-pc-display-horizontal me-2"></i>{{ host.name }}
+                {% if host.status.value == 'ONLINE' %}
+                <span class="badge bg-success ms-2">● ONLINE</span>
+                {% elif host.status.value == 'OFFLINE' %}
+                <span class="badge bg-secondary ms-2">○ OFFLINE</span>
+                {% else %}
+                <span class="badge bg-warning ms-2">? UNKNOWN</span>
+                {% endif %}
+                {% if host.is_isolated %}
+                <span class="badge bg-danger ms-2"><i class="bi bi-shield-lock-fill"></i> ISOLATED</span>
+                {% endif %}
             </div>
-            <div class="card-body">
-                <table class="table table-dark table-sm">
-                    <tr>
-                        <th>ID</th>
-                        <td>{{ host.id }}</td>
-                    </tr>
-                    <tr>
-                        <th>Hostname</th>
-                        <td>{{ host.name }}</td>
-                    </tr>
-                    <tr>
-                        <th>Agent ID</th>
-                        <td><code>{{ host.agent_id }}</code></td>
-                    </tr>
-                    <tr>
-                        <th>IP Address</th>
-                        <td>{{ host.ip_address or 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Status</th>
-                        <td>{{ host.status.value }}</td>
-                    </tr>
-                    <tr>
-                        <th>Registered</th>
-                        <td>{{ host.created_at.strftime('%Y-%m-%d %H:%M:%S') if host.created_at else 'N/A' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Last Seen</th>
-                        <td>{{ host.updated_at.strftime('%Y-%m-%d %H:%M:%S') if host.updated_at else 'N/A' }}</td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-graph-up"></i> Statistics
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-6">
-                        <div class="stat-number">{{ runs|length }}</div>
-                        <div class="stat-label">Total Runs</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="stat-number">{{ alerts|length }}</div>
-                        <div class="stat-label">Total Alerts</div>
-                    </div>
+            <div class="host-meta">
+                <div class="host-meta-item">
+                    <i class="bi bi-ethernet"></i>
+                    <span>{{ host.ip_address or 'No IP' }}</span>
+                </div>
+                <div class="host-meta-item">
+                    <i class="bi bi-fingerprint"></i>
+                    <span>Agent: {{ host.agent_id[:12] if host.agent_id else 'N/A' }}...</span>
+                </div>
+                <div class="host-meta-item">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Last seen: {{ host.updated_at.strftime('%Y-%m-%d %H:%M') if host.updated_at else 'Never' }}</span>
                 </div>
             </div>
         </div>
+        <div class="quick-actions">
+            <a href="/simulate?host_id={{ host.id }}" class="btn btn-danger">
+                <i class="bi bi-lightning-charge-fill"></i> Start Simulation
+            </a>
+            <a href="/backup/recovery?host_id={{ host.id }}" class="btn btn-outline-success">
+                <i class="bi bi-cloud-download"></i> Backup & Restore
+            </a>
+            <a href="/siem/elk" class="btn btn-outline-info">
+                <i class="bi bi-shield-exclamation"></i> View in SIEM
+            </a>
+        </div>
     </div>
 </div>
 
-<!-- Isolation Controls -->
-<div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-shield-lock"></i> Isolation & Containment</span>
-        {% if host.is_isolated %}
-        <span class="badge bg-danger">ISOLATED</span>
-        {% else %}
-        <span class="badge bg-success">ONLINE</span>
-        {% endif %}
+<!-- Metrics Row -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="metric-card">
+            <div class="metric-value">{{ runs|length }}</div>
+            <div class="metric-label"><i class="bi bi-play-circle me-1"></i>Total Runs</div>
+        </div>
     </div>
-    <div class="card-body">
+    <div class="col-6 col-md-3">
+        <div class="metric-card danger">
+            <div class="metric-value">{{ alerts|length }}</div>
+            <div class="metric-label"><i class="bi bi-bell me-1"></i>Total Alerts</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="metric-card success">
+            <div class="metric-value">{{ runs|selectattr('status.value', 'equalto', 'COMPLETED')|list|length }}</div>
+            <div class="metric-label"><i class="bi bi-check-circle me-1"></i>Completed</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="metric-card warning">
+            <div class="metric-value" id="criticalAlerts">{{ alerts|selectattr('severity', 'ge', 15)|list|length }}</div>
+            <div class="metric-label"><i class="bi bi-exclamation-triangle me-1"></i>Critical</div>
+        </div>
+    </div>
+</div>
+
+<!-- Host Details Grid -->
+<div class="section-card">
+    <div class="section-header">
+        <h3><i class="bi bi-info-circle"></i> Host Details</h3>
+        <span class="badge bg-primary">ID: {{ host.id }}</span>
+    </div>
+    <div class="section-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="info-label">Hostname</div>
+                <div class="info-value">{{ host.name }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">IP Address</div>
+                <div class="info-value">{{ host.ip_address or 'Not assigned' }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Agent ID</div>
+                <div class="info-value"><code>{{ host.agent_id or 'N/A' }}</code></div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Status</div>
+                <div class="info-value">
+                    {% if host.status.value == 'ONLINE' %}
+                    <span class="text-success"><i class="bi bi-circle-fill"></i> Online</span>
+                    {% else %}
+                    <span class="text-secondary"><i class="bi bi-circle"></i> {{ host.status.value }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Registered</div>
+                <div class="info-value">{{ host.created_at.strftime('%Y-%m-%d %H:%M') if host.created_at else 'Unknown' }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Last Activity</div>
+                <div class="info-value">{{ host.updated_at.strftime('%Y-%m-%d %H:%M') if host.updated_at else 'Never' }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Network Isolation Controls (SOAR) -->
+<div class="section-card">
+    <div class="section-header">
+        <h3><i class="bi bi-shield-lock"></i> Network Isolation & Containment</h3>
+        <div class="d-flex align-items-center gap-2">
+            <span id="isolationStatusBadge" class="badge {% if host.is_isolated %}bg-danger{% else %}bg-success{% endif %}">
+                {% if host.is_isolated %}🔒 ISOLATED{% else %}✓ ONLINE{% endif %}
+            </span>
+            <button onclick="refreshIsolationState()" class="btn btn-sm btn-outline-secondary" title="Refresh Status">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+        </div>
+    </div>
+    <div class="section-body">
         <div class="row">
             <div class="col-md-6">
-                <table class="table table-dark table-sm">
-                    <tr>
-                        <th>Isolation Status</th>
-                        <td>
-                            {% if host.is_isolated %}
-                            <span class="text-danger"><i class="bi bi-shield-lock-fill"></i> Isolated</span>
-                            {% else %}
-                            <span class="text-success"><i class="bi bi-shield-check"></i> Normal</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Isolation Policy</th>
-                        <td>
-                            <select id="isolationPolicy" class="form-select form-select-sm" style="background: #18181b; border-color: #27272a; color: #fafafa; width: auto; display: inline-block;">
-                                <option value="FIREWALL_BLOCK" {% if host.isolation_policy == 'FIREWALL_BLOCK' %}selected{% endif %}>Firewall Block</option>
-                                <option value="DISABLE_NIC" {% if host.isolation_policy == 'DISABLE_NIC' %}selected{% endif %}>Disable NIC</option>
-                                <option value="HYBRID" {% if host.isolation_policy == 'HYBRID' %}selected{% endif %}>Hybrid</option>
-                            </select>
-                            <button onclick="setPolicy()" class="btn btn-sm btn-secondary ms-2">Set</button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Last Isolated</th>
-                        <td>{{ host.last_isolated_at.strftime('%Y-%m-%d %H:%M:%S') if host.last_isolated_at else 'Never' }}</td>
-                    </tr>
-                    <tr>
-                        <th>Last De-Isolated</th>
-                        <td>{{ host.last_deisolated_at.strftime('%Y-%m-%d %H:%M:%S') if host.last_deisolated_at else 'Never' }}</td>
-                    </tr>
-                </table>
+                <div class="isolation-panel {% if not host.is_isolated %}normal{% endif %}">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="rounded-circle p-3 {% if host.is_isolated %}bg-danger{% else %}bg-success{% endif %} bg-opacity-25">
+                            <i class="bi bi-{% if host.is_isolated %}shield-lock-fill{% else %}shield-check{% endif %} fs-3 {% if host.is_isolated %}text-danger{% else %}text-success{% endif %}"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold fs-5" id="isolationStatusText">
+                                {% if host.is_isolated %}Network Isolated{% else %}Network Normal{% endif %}
+                            </div>
+                            <div class="text-muted small">Quarantine: {{ host.quarantine_status or 'None' }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="info-label">Last Isolated</div>
+                            <div class="info-value small">{{ host.last_isolated_at.strftime('%Y-%m-%d %H:%M') if host.last_isolated_at else 'Never' }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="info-label">Last Restored</div>
+                            <div class="info-value small">{{ host.last_deisolated_at.strftime('%Y-%m-%d %H:%M') if host.last_deisolated_at else 'Never' }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="info-label">Isolation Mode</label>
+                        <select id="isolationMode" class="form-select form-select-sm" style="background: #27272a; border-color: #3f3f46; color: #fafafa;">
+                            <option value="firewall" selected>🛡️ Firewall (Recommended)</option>
+                            <option value="adapter">🔌 Adapter Disable</option>
+                            <option value="hybrid">⚡ Hybrid (Both)</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="col-md-6">
                 <div class="d-grid gap-2">
                     {% if not host.is_isolated %}
-                    <button onclick="isolateHost()" class="btn btn-danger">
+                    <button onclick="soarIsolateHost()" class="btn btn-danger" id="btnIsolate">
                         <i class="bi bi-shield-lock"></i> Isolate Host
                     </button>
-                    {% else %}
-                    <button onclick="reisolateHost()" class="btn btn-warning">
-                        <i class="bi bi-arrow-repeat"></i> Re-Isolate Host
+                    <button onclick="soarIsolateHost(true)" class="btn btn-outline-warning" id="btnIsolateDry">
+                        <i class="bi bi-eye"></i> Preview Isolation (Dry Run)
                     </button>
-                    <button onclick="deisolateHost()" class="btn btn-success">
-                        <i class="bi bi-shield-check"></i> De-Isolate Host
+                    {% else %}
+                    <button onclick="soarRestoreNetwork()" class="btn btn-success" id="btnRestore">
+                        <i class="bi bi-shield-check"></i> Restore Network
+                    </button>
+                    <button onclick="soarRestoreNetwork(true)" class="btn btn-outline-info" id="btnRestoreDry">
+                        <i class="bi bi-eye"></i> Preview Restore (Dry Run)
+                    </button>
+                    <button onclick="soarIsolateHost()" class="btn btn-outline-danger" id="btnReisolate">
+                        <i class="bi bi-arrow-repeat"></i> Re-Isolate
                     </button>
                     {% endif %}
                 </div>
                 <div class="mt-3">
                     <small class="text-muted">
-                        <strong>Policies:</strong><br>
-                        <em>Firewall Block</em>: Block all traffic via Windows Firewall<br>
-                        <em>Disable NIC</em>: Disable network adapter(s)<br>
-                        <em>Hybrid</em>: Both firewall and NIC disable
+                        <strong>Isolation Modes:</strong><br>
+                        <em>Firewall</em>: Block all traffic except backend (reliable, stealthy)<br>
+                        <em>Adapter</em>: Disable network adapters (obvious, works offline)<br>
+                        <em>Hybrid</em>: Both methods combined (maximum isolation)
                     </small>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Action Result Panel -->
+        <div id="actionResultPanel" class="mt-3" style="display: none;">
+            <div class="card bg-dark">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span><i class="bi bi-terminal"></i> Last Action Result</span>
+                    <button onclick="document.getElementById('actionResultPanel').style.display='none'" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                <div class="card-body py-2">
+                    <div id="actionResultContent">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Logs -->
+        <div class="mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <strong><i class="bi bi-list-task"></i> Recent Actions</strong>
+                <button onclick="loadActionLogs()" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+            <div id="actionLogsContainer" style="max-height: 200px; overflow-y: auto;">
+                <div class="text-muted small">Click "Refresh" to load action logs</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Recent Runs -->
-<div class="card mb-4">
-    <div class="card-header">
-        <i class="bi bi-play-circle"></i> Simulation Runs
+<!-- Simulation Runs -->
+<div class="section-card">
+    <div class="section-header">
+        <h3><i class="bi bi-play-circle"></i> Simulation Runs</h3>
+        <a href="/simulate?host_id={{ host.id }}" class="btn btn-sm btn-danger">
+            <i class="bi bi-plus-lg"></i> New Run
+        </a>
     </div>
-    <div class="card-body">
+    <div class="section-body p-0">
         {% if runs %}
         <div class="table-responsive">
-            <table class="table table-dark table-hover">
+            <table class="table table-dark table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>Run ID</th>
+                        <th style="width: 80px;">Run ID</th>
                         <th>Scenario</th>
-                        <th>Status</th>
+                        <th style="width: 120px;">Status</th>
                         <th>Started</th>
-                        <th>Ended</th>
-                        <th>Actions</th>
+                        <th>Duration</th>
+                        <th style="width: 100px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for run in runs %}
-                    <tr>
-                        <td>{{ run.id }}</td>
-                        <td>{{ run.scenario.name if run.scenario else 'N/A' }}</td>
+                    {% for run in runs[:10] %}
+                    <tr class="run-row">
+                        <td><span class="badge bg-secondary">#{{ run.id }}</span></td>
                         <td>
-                            <span class="badge badge-{{ run.status.value|lower }}">
-                                {{ run.status.value }}
-                            </span>
+                            <div class="fw-medium">{{ run.scenario.name if run.scenario else 'Unknown' }}</div>
+                            <small class="text-muted">{{ run.scenario.key if run.scenario else '' }}</small>
                         </td>
                         <td>
-                            <small>{{ run.started_at.strftime('%Y-%m-%d %H:%M') if run.started_at else 'Not started' }}</small>
+                            {% if run.status.value == 'COMPLETED' %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Completed</span>
+                            {% elif run.status.value == 'RUNNING' %}
+                            <span class="badge bg-info"><i class="bi bi-arrow-repeat spin"></i> Running</span>
+                            {% elif run.status.value == 'FAILED' %}
+                            <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Failed</span>
+                            {% elif run.status.value == 'CANCELLED' %}
+                            <span class="badge bg-warning"><i class="bi bi-slash-circle"></i> Cancelled</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ run.status.value }}</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <small>{{ run.ended_at.strftime('%Y-%m-%d %H:%M') if run.ended_at else '-' }}</small>
+                            <small>{{ run.started_at.strftime('%b %d, %H:%M') if run.started_at else 'Pending' }}</small>
                         </td>
                         <td>
-                            <a href="/runs/{{ run.id }}" class="btn btn-sm btn-primary">
+                            {% if run.started_at and run.ended_at %}
+                            <small>{{ ((run.ended_at - run.started_at).total_seconds() / 60)|round(1) }}m</small>
+                            {% elif run.started_at %}
+                            <small class="text-info">In progress...</small>
+                            {% else %}
+                            <small>-</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/runs/{{ run.id }}" class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-eye"></i> View
                             </a>
                         </td>
@@ -211,11 +496,18 @@
                 </tbody>
             </table>
         </div>
+        {% if runs|length > 10 %}
+        <div class="text-center py-2 border-top border-secondary">
+            <a href="/runs?host_id={{ host.id }}" class="text-muted small">View all {{ runs|length }} runs →</a>
+        </div>
+        {% endif %}
         {% else %}
-        <div class="text-center text-muted py-4">
-            <p>No simulation runs for this host yet.</p>
+        <div class="empty-state">
+            <i class="bi bi-play-circle"></i>
+            <h5>No Simulation Runs Yet</h5>
+            <p class="text-muted">Start your first ransomware simulation on this host</p>
             <a href="/simulate?host_id={{ host.id }}" class="btn btn-danger">
-                <i class="bi bi-play"></i> Start First Simulation
+                <i class="bi bi-lightning-charge"></i> Start Simulation
             </a>
         </div>
         {% endif %}
@@ -223,37 +515,42 @@
 </div>
 
 <!-- Recent Alerts -->
-<div class="card">
-    <div class="card-header">
-        <i class="bi bi-bell"></i> Recent Alerts
+<div class="section-card">
+    <div class="section-header">
+        <h3><i class="bi bi-bell"></i> Recent Alerts</h3>
+        <a href="/siem/elk?host={{ host.name }}" class="btn btn-sm btn-outline-warning">
+            <i class="bi bi-box-arrow-up-right"></i> View in SIEM
+        </a>
     </div>
-    <div class="card-body">
+    <div class="section-body p-0">
         {% if alerts %}
         <div class="table-responsive">
-            <table class="table table-dark table-hover">
+            <table class="table table-dark table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>Time</th>
-                        <th>Rule ID</th>
+                        <th style="width: 150px;">Time</th>
+                        <th>Rule</th>
                         <th>Description</th>
-                        <th>Severity</th>
+                        <th style="width: 100px;">Severity</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for alert in alerts %}
+                    {% for alert in alerts[:10] %}
                     <tr>
                         <td>
-                            <small>{{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') if alert.timestamp else 'N/A' }}</small>
+                            <small>{{ alert.timestamp.strftime('%b %d, %H:%M') if alert.timestamp else 'N/A' }}</small>
                         </td>
-                        <td><code>{{ alert.rule_id }}</code></td>
-                        <td>{{ alert.rule_description or 'N/A' }}</td>
+                        <td><code class="small">{{ alert.rule_id }}</code></td>
+                        <td>{{ alert.rule_description or 'No description' }}</td>
                         <td>
-                            {% if alert.severity >= 10 %}
-                            <span class="severity-high">{{ alert.severity }}</span>
+                            {% if alert.severity >= 15 %}
+                            <span class="severity-badge severity-critical">CRITICAL</span>
+                            {% elif alert.severity >= 10 %}
+                            <span class="severity-badge severity-high">HIGH</span>
                             {% elif alert.severity >= 5 %}
-                            <span class="severity-medium">{{ alert.severity }}</span>
+                            <span class="severity-badge severity-medium">MEDIUM</span>
                             {% else %}
-                            <span class="severity-low">{{ alert.severity }}</span>
+                            <span class="severity-badge severity-low">LOW</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -261,9 +558,16 @@
                 </tbody>
             </table>
         </div>
+        {% if alerts|length > 10 %}
+        <div class="text-center py-2 border-top border-secondary">
+            <a href="/siem/elk?host={{ host.name }}" class="text-muted small">View all {{ alerts|length }} alerts →</a>
+        </div>
+        {% endif %}
         {% else %}
-        <div class="text-center text-muted py-4">
-            <p>No alerts for this host yet.</p>
+        <div class="empty-state">
+            <i class="bi bi-bell-slash"></i>
+            <h5>No Alerts</h5>
+            <p class="text-muted">No security alerts have been generated for this host</p>
         </div>
         {% endif %}
     </div>
@@ -274,91 +578,194 @@
 <script>
 const hostId = {{ host.id }};
 
-async function setPolicy() {
-    const policy = document.getElementById('isolationPolicy').value;
+// SOAR Isolation Functions
+async function soarIsolateHost(dryRun = false) {
+    const mode = document.getElementById('isolationMode').value;
+    const action = dryRun ? 'preview isolation' : 'isolate this host';
+    
+    if (!dryRun && !confirm(`Are you sure you want to ${action}?\n\nMode: ${mode}\nThis will block all network traffic except backend communication.`)) {
+        return;
+    }
+    
+    showActionResult('Sending isolation request...', 'info');
+    
     try {
-        const resp = await fetch(`/api/hosts/${hostId}/isolation-policy`, {
+        const resp = await fetch(`/api/soar/isolate/${hostId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ policy: policy })
+            body: JSON.stringify({
+                mode: mode,
+                allow_backend: true,
+                dry_run: dryRun
+            })
         });
-        if (resp.ok) {
-            alert('Isolation policy updated');
+        const data = await resp.json();
+        
+        if (resp.ok && data.success) {
+            if (dryRun) {
+                showActionResult(`<strong>Dry Run Result:</strong><br>` +
+                    `Mode: ${data.mode}<br>` +
+                    `Backend: ${data.backend_ip}:${data.backend_ports}<br>` +
+                    `<strong>Planned Actions:</strong><br>` +
+                    (data.planned_actions || []).map(a => `• ${a}`).join('<br>'), 'warning');
+            } else {
+                showActionResult(`<strong>Success!</strong> ${data.message}<br>Task ID: ${data.task_id}`, 'success');
+                setTimeout(() => location.reload(), 2000);
+            }
         } else {
-            const data = await resp.json();
-            alert('Failed: ' + (data.detail || 'Unknown error'));
+            showActionResult(`<strong>Error:</strong> ${data.message || data.detail || 'Unknown error'}`, 'danger');
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        showActionResult(`<strong>Error:</strong> ${e.message}`, 'danger');
     }
 }
 
-async function isolateHost() {
-    if (!confirm('Are you sure you want to isolate this host? This will block network traffic.')) {
+async function soarRestoreNetwork(dryRun = false) {
+    const action = dryRun ? 'preview restoration' : 'restore network';
+    
+    if (!dryRun && !confirm(`Are you sure you want to ${action}?\n\nThis will restore normal network connectivity.`)) {
         return;
     }
-    const policy = document.getElementById('isolationPolicy').value;
+    
+    showActionResult('Sending restore request...', 'info');
+    
     try {
-        const resp = await fetch(`/api/hosts/${hostId}/isolate`, {
+        const resp = await fetch(`/api/soar/restore-network/${hostId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ policy: policy })
+            body: JSON.stringify({
+                dry_run: dryRun,
+                force: false
+            })
         });
         const data = await resp.json();
-        if (resp.ok) {
-            alert(data.message);
-            location.reload();
+        
+        if (resp.ok && data.success) {
+            if (dryRun) {
+                showActionResult(`<strong>Dry Run Result:</strong><br>` +
+                    `Mode: ${data.mode}<br>` +
+                    `<strong>Planned Actions:</strong><br>` +
+                    (data.planned_actions || []).map(a => `• ${a}`).join('<br>'), 'warning');
+            } else {
+                showActionResult(`<strong>Success!</strong> ${data.message}<br>Task ID: ${data.task_id}`, 'success');
+                setTimeout(() => location.reload(), 2000);
+            }
         } else {
-            alert('Failed: ' + (data.detail || data.message));
+            showActionResult(`<strong>Error:</strong> ${data.message || data.detail || 'Unknown error'}`, 'danger');
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        showActionResult(`<strong>Error:</strong> ${e.message}`, 'danger');
     }
 }
 
-async function reisolateHost() {
-    if (!confirm('Re-isolate this host? This will clean up and re-apply isolation rules.')) {
-        return;
-    }
-    const policy = document.getElementById('isolationPolicy').value;
+async function refreshIsolationState() {
     try {
-        const resp = await fetch(`/api/hosts/${hostId}/reisolate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ policy: policy })
-        });
+        const resp = await fetch(`/api/soar/isolation-state/${hostId}`);
         const data = await resp.json();
-        if (resp.ok) {
-            alert(data.message);
-            location.reload();
+        
+        // Update status badge
+        const badge = document.getElementById('isolationStatusBadge');
+        const statusText = document.getElementById('isolationStatusText');
+        
+        if (data.is_isolated) {
+            badge.className = 'badge bg-danger';
+            badge.textContent = 'ISOLATED';
+            statusText.innerHTML = '<span class="text-danger"><i class="bi bi-shield-lock-fill"></i> Isolated</span>';
         } else {
-            alert('Failed: ' + (data.detail || data.message));
+            badge.className = 'badge bg-success';
+            badge.textContent = 'ONLINE';
+            statusText.innerHTML = '<span class="text-success"><i class="bi bi-shield-check"></i> Normal</span>';
+        }
+        
+        // Show last action info
+        if (data.last_action) {
+            const la = data.last_action;
+            showActionResult(`<strong>Last Action:</strong> ${la.action}<br>` +
+                `Status: ${la.status} | Success: ${la.success}<br>` +
+                `${la.message || ''}`, la.success ? 'success' : 'warning');
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        console.error('Failed to refresh isolation state:', e);
     }
 }
 
-async function deisolateHost() {
-    if (!confirm('De-isolate this host? This will restore normal network connectivity.')) {
-        return;
-    }
+async function loadActionLogs() {
+    const container = document.getElementById('actionLogsContainer');
+    container.innerHTML = '<div class="text-muted small">Loading...</div>';
+    
     try {
-        const resp = await fetch(`/api/hosts/${hostId}/deisolate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
+        const resp = await fetch(`/api/soar/action-logs/${hostId}?limit=10`);
         const data = await resp.json();
-        if (resp.ok) {
-            alert(data.message);
-            location.reload();
+        
+        if (data.logs && data.logs.length > 0) {
+            let html = '<table class="table table-dark table-sm mb-0"><tbody>';
+            for (const log of data.logs) {
+                const statusClass = log.success ? 'text-success' : (log.status === 'pending' ? 'text-warning' : 'text-danger');
+                const icon = log.success ? 'check-circle' : (log.status === 'pending' ? 'clock' : 'x-circle');
+                html += `<tr>
+                    <td><small>${log.created_at ? new Date(log.created_at).toLocaleString() : 'N/A'}</small></td>
+                    <td><code>${log.action}</code></td>
+                    <td><span class="${statusClass}"><i class="bi bi-${icon}"></i> ${log.status}</span></td>
+                    <td><small>${log.message ? log.message.substring(0, 50) : ''}</small></td>
+                    <td>
+                        <button onclick="showLogDetails(${log.id})" class="btn btn-sm btn-outline-info py-0">
+                            <i class="bi bi-info-circle"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
         } else {
-            alert('Failed: ' + (data.detail || data.message));
+            container.innerHTML = '<div class="text-muted small">No action logs found</div>';
         }
     } catch (e) {
-        alert('Error: ' + e.message);
+        container.innerHTML = `<div class="text-danger small">Error: ${e.message}</div>`;
     }
 }
+
+function showLogDetails(logId) {
+    // For now, show in alert. Could be a modal in the future.
+    fetch(`/api/soar/action-logs/${hostId}?limit=50`)
+        .then(r => r.json())
+        .then(data => {
+            const log = data.logs.find(l => l.id === logId);
+            if (log) {
+                let details = `Action: ${log.action}\n`;
+                details += `Status: ${log.status}\n`;
+                details += `Success: ${log.success}\n`;
+                details += `Message: ${log.message || 'N/A'}\n`;
+                details += `Duration: ${log.duration_seconds || 'N/A'}s\n`;
+                details += `Verification: ${log.verification_passed}\n`;
+                if (log.errors && log.errors.length > 0) {
+                    details += `\nErrors:\n${log.errors.join('\n')}`;
+                }
+                if (log.stdout) {
+                    details += `\n\nStdout:\n${log.stdout.substring(0, 500)}`;
+                }
+                alert(details);
+            }
+        });
+}
+
+function showActionResult(message, type) {
+    const panel = document.getElementById('actionResultPanel');
+    const content = document.getElementById('actionResultContent');
+    
+    const bgClass = {
+        'success': 'bg-success bg-opacity-25 border-success',
+        'danger': 'bg-danger bg-opacity-25 border-danger',
+        'warning': 'bg-warning bg-opacity-25 border-warning',
+        'info': 'bg-info bg-opacity-25 border-info'
+    }[type] || 'bg-secondary';
+    
+    content.innerHTML = `<div class="p-2 rounded border ${bgClass}">${message}</div>`;
+    panel.style.display = 'block';
+}
+
+// Load action logs on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadActionLogs();
+});
 </script>
 {% endblock %}

@@ -777,4 +777,15 @@ def run_seed(db: Session):
     print("[SEED] Starting database seeding...")
     seed_scenarios(db)
     # Note: Advanced playbooks are seeded separately in main.py startup
+    
+    # Seed business portal data
+    try:
+        from .seed_business import seed_business_user, seed_business_settings, seed_demo_organization, seed_pilot_config
+        user = seed_business_user(db)
+        seed_business_settings(db, user.id)
+        seed_demo_organization(db)
+        seed_pilot_config(db)
+    except Exception as e:
+        print(f"[SEED] Business portal seed warning: {e}")
+    
     print("[SEED] Database seeding complete.")

@@ -4,84 +4,155 @@
 {% block page_title %}Account Settings{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 offset-md-2">
-        <div class="panel">
-            <div class="panel-header">
-                <h3 class="panel-title">Account Information</h3>
+<div class="row g-4">
+    <!-- Profile Section -->
+    <div class="col-lg-4">
+        <div class="account-profile-card">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <span>{{ user.email[0]|upper }}</span>
+                </div>
+                <div class="profile-status online"></div>
             </div>
-            <div class="panel-body">
-                <div class="mb-4">
-                    <label class="form-label text-muted">Email</label>
-                    <p class="h5">{{ user.email }}</p>
+            <div class="profile-body">
+                <h2 class="profile-name">{{ user.email.split('@')[0] }}</h2>
+                <p class="profile-email">{{ user.email }}</p>
+                <div class="profile-role">
+                    <span class="role-badge {% if user.role.value == 'admin' %}admin{% else %}user{% endif %}">
+                        <i class="bi bi-shield-check"></i> {{ user.role.value|upper }}
+                    </span>
                 </div>
-                
-                <div class="mb-4">
-                    <label class="form-label text-muted">Role</label>
-                    <p>
-                        <span class="badge {% if user.role.value == 'admin' %}badge-danger{% else %}badge-primary{% endif %}">
-                            {{ user.role.value|upper }}
-                        </span>
-                    </p>
+            </div>
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <i class="bi bi-calendar-check"></i>
+                    <div>
+                        <span class="stat-label">Member Since</span>
+                        <span class="stat-value">{{ user.created_at.strftime('%b %d, %Y') }}</span>
+                    </div>
                 </div>
-                
-                <div class="mb-4">
-                    <label class="form-label text-muted">Account Created</label>
-                    <p>{{ user.created_at.strftime('%B %d, %Y at %H:%M UTC') }}</p>
-                </div>
-                
                 {% if user.last_login_at %}
-                <div class="mb-4">
-                    <label class="form-label text-muted">Last Login</label>
-                    <p>{{ user.last_login_at.strftime('%B %d, %Y at %H:%M UTC') }}</p>
+                <div class="stat-item">
+                    <i class="bi bi-clock-history"></i>
+                    <div>
+                        <span class="stat-label">Last Active</span>
+                        <span class="stat-value">{{ user.last_login_at.strftime('%b %d, %Y') }}</span>
+                    </div>
                 </div>
                 {% endif %}
             </div>
         </div>
-        
-        <div class="panel mt-4">
-            <div class="panel-header">
-                <h3 class="panel-title">Change Password</h3>
+    </div>
+    
+    <!-- Settings Section -->
+    <div class="col-lg-8">
+        <!-- Account Info Card -->
+        <div class="settings-card mb-4">
+            <div class="settings-header">
+                <div class="settings-icon">
+                    <i class="bi bi-person-gear"></i>
+                </div>
+                <div>
+                    <h3>Account Information</h3>
+                    <p>Manage your account details and preferences</p>
+                </div>
             </div>
-            <div class="panel-body">
+            <div class="settings-body">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-icon"><i class="bi bi-envelope"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">Email Address</span>
+                            <span class="info-value">{{ user.email }}</span>
+                        </div>
+                        <div class="info-status verified">
+                            <i class="bi bi-check-circle-fill"></i> Verified
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="bi bi-shield-lock"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">Account Role</span>
+                            <span class="info-value">{{ user.role.value|title }} Access</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="bi bi-fingerprint"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">Account ID</span>
+                            <span class="info-value" style="font-family: monospace; font-size: 12px;">{{ user.id }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Security Card -->
+        <div class="settings-card">
+            <div class="settings-header">
+                <div class="settings-icon security">
+                    <i class="bi bi-key"></i>
+                </div>
+                <div>
+                    <h3>Security Settings</h3>
+                    <p>Update your password and security preferences</p>
+                </div>
+            </div>
+            <div class="settings-body">
                 {% if success %}
-                <div class="alert alert-success">
-                    <i class="bi bi-check-circle"></i> {{ success }}
+                <div class="alert-box success">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span>{{ success }}</span>
                 </div>
                 {% endif %}
                 
                 {% if error %}
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle"></i> {{ error }}
+                <div class="alert-box error">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span>{{ error }}</span>
                 </div>
                 {% endif %}
                 
                 <form method="POST" action="/account/change-password" id="changePasswordForm">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     
-                    <div class="mb-3">
-                        <label for="current_password" class="form-label">Current Password</label>
-                        <input type="password" class="form-control" id="current_password" 
-                               name="current_password" required>
+                    <div class="form-group">
+                        <label for="current_password">
+                            <i class="bi bi-lock"></i> Current Password
+                        </label>
+                        <div class="input-wrapper">
+                            <input type="password" class="form-input" id="current_password" 
+                                   name="current_password" placeholder="Enter your current password" required>
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="new_password" class="form-label">New Password</label>
-                        <input type="password" class="form-control" id="new_password" 
-                               name="new_password" required>
-                        <small class="text-muted">
-                            Must be at least 10 characters with 1 digit and 1 special symbol
-                        </small>
+                    <div class="form-group">
+                        <label for="new_password">
+                            <i class="bi bi-lock-fill"></i> New Password
+                        </label>
+                        <div class="input-wrapper">
+                            <input type="password" class="form-input" id="new_password" 
+                                   name="new_password" placeholder="Enter your new password" required>
+                        </div>
+                        <div class="password-requirements">
+                            <span class="req-item"><i class="bi bi-check2"></i> 10+ characters</span>
+                            <span class="req-item"><i class="bi bi-check2"></i> 1 digit</span>
+                            <span class="req-item"><i class="bi bi-check2"></i> 1 special symbol</span>
+                        </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label">Confirm New Password</label>
-                        <input type="password" class="form-control" id="confirm_password" 
-                               name="confirm_password" required>
+                    <div class="form-group">
+                        <label for="confirm_password">
+                            <i class="bi bi-shield-check"></i> Confirm New Password
+                        </label>
+                        <div class="input-wrapper">
+                            <input type="password" class="form-input" id="confirm_password" 
+                                   name="confirm_password" placeholder="Confirm your new password" required>
+                        </div>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-key"></i> Change Password
+                    <button type="submit" class="btn-update">
+                        <i class="bi bi-arrow-repeat"></i> Update Password
                     </button>
                 </form>
             </div>
@@ -90,22 +161,370 @@
 </div>
 
 <style>
-    .alert-success {
+    /* Profile Card */
+    .account-profile-card {
+        background: linear-gradient(180deg, #1a1a2e 0%, #18181b 100%);
+        border: 1px solid #27272a;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    
+    .profile-header {
+        background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
+        padding: 40px 24px;
+        position: relative;
+        display: flex;
+        justify-content: center;
+    }
+    
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+        background: #18181b;
+        border: 4px solid #27272a;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 40px;
+        font-weight: 700;
+        color: #fafafa;
+        position: relative;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    
+    .profile-status {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        border: 3px solid #18181b;
+    }
+    
+    .profile-status.online {
+        background: #22c55e;
+        box-shadow: 0 0 12px rgba(34, 197, 94, 0.6);
+    }
+    
+    .profile-body {
+        padding: 24px;
+        text-align: center;
+        border-bottom: 1px solid #27272a;
+    }
+    
+    .profile-name {
+        font-size: 24px;
+        font-weight: 700;
+        color: #fafafa;
+        margin: 0 0 4px 0;
+    }
+    
+    .profile-email {
+        font-size: 14px;
+        color: #71717a;
+        margin: 0 0 16px 0;
+    }
+    
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .role-badge.admin {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.1) 100%);
+        color: #fca5a5;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    
+    .role-badge.user {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.1) 100%);
+        color: #93c5fd;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    
+    .profile-stats {
+        padding: 20px 24px;
+    }
+    
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 0;
+        border-bottom: 1px solid #27272a;
+    }
+    
+    .stat-item:last-child {
+        border-bottom: none;
+    }
+    
+    .stat-item > i {
+        font-size: 20px;
+        color: #8b5cf6;
+        width: 24px;
+    }
+    
+    .stat-item > div {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+        color: #71717a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stat-value {
+        font-size: 14px;
+        color: #fafafa;
+        font-weight: 500;
+    }
+    
+    /* Settings Cards */
+    .settings-card {
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    
+    .settings-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 24px;
+        border-bottom: 1px solid #27272a;
+        background: linear-gradient(180deg, #1f1f24 0%, #18181b 100%);
+    }
+    
+    .settings-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        color: white;
+    }
+    
+    .settings-icon.security {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    }
+    
+    .settings-header h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: #fafafa;
+        margin: 0 0 4px 0;
+    }
+    
+    .settings-header p {
+        font-size: 13px;
+        color: #71717a;
+        margin: 0;
+    }
+    
+    .settings-body {
+        padding: 24px;
+    }
+    
+    /* Info Grid */
+    .info-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: #0f0f14;
+        border: 1px solid #27272a;
+        border-radius: 12px;
+        transition: all 0.2s ease;
+    }
+    
+    .info-item:hover {
+        border-color: #3f3f46;
+        background: #141419;
+    }
+    
+    .info-icon {
+        width: 40px;
+        height: 40px;
+        background: #27272a;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: #8b5cf6;
+    }
+    
+    .info-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .info-label {
+        font-size: 11px;
+        color: #71717a;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .info-value {
+        font-size: 15px;
+        color: #fafafa;
+        font-weight: 500;
+    }
+    
+    .info-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .info-status.verified {
+        color: #22c55e;
+    }
+    
+    /* Form Styles */
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #a1a1aa;
+        margin-bottom: 8px;
+    }
+    
+    .form-group label i {
+        color: #8b5cf6;
+    }
+    
+    .input-wrapper {
+        position: relative;
+    }
+    
+    .form-input {
+        width: 100%;
+        padding: 14px 16px;
+        background: #0f0f14;
+        border: 1px solid #27272a;
+        border-radius: 10px;
+        color: #fafafa;
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+    
+    .form-input:focus {
+        outline: none;
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+    }
+    
+    .form-input::placeholder {
+        color: #52525b;
+    }
+    
+    .password-requirements {
+        display: flex;
+        gap: 16px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .req-item {
+        font-size: 11px;
+        color: #71717a;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .req-item i {
+        color: #22c55e;
+    }
+    
+    .btn-update {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 14px 24px;
+        background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+        border: none;
+        border-radius: 10px;
+        color: white;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-top: 8px;
+    }
+    
+    .btn-update:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+    }
+    
+    /* Alert Boxes */
+    .alert-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+    
+    .alert-box.success {
         background: rgba(34, 197, 94, 0.1);
         border: 1px solid rgba(34, 197, 94, 0.3);
         color: #86efac;
-        border-radius: 6px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
     }
     
-    .alert-danger {
+    .alert-box.error {
         background: rgba(239, 68, 68, 0.1);
         border: 1px solid rgba(239, 68, 68, 0.3);
         color: #fca5a5;
-        border-radius: 6px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
+    }
+    
+    .alert-box i {
+        font-size: 18px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 992px) {
+        .col-lg-4, .col-lg-8 {
+            width: 100%;
+        }
     }
 </style>
 

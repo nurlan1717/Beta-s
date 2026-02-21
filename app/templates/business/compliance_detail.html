@@ -1,0 +1,823 @@
+{% extends "business/base.html" %}
+
+{% block title %}Compliance Report - Run #{{ run.id }}{% endblock %}
+{% block page_title %}Compliance Evidence Pack - Run #{{ run.id }}{% endblock %}
+
+{% block content %}
+<!-- Executive Summary Banner -->
+<div class="executive-banner">
+    <div class="banner-content">
+        <div class="banner-left">
+            <div class="compliance-score {% if compliance_score >= 80 %}excellent{% elif compliance_score >= 60 %}good{% elif compliance_score >= 40 %}fair{% else %}needs-work{% endif %}">
+                <span class="score-value">{{ compliance_score }}%</span>
+                <span class="score-label">Compliance Score</span>
+            </div>
+        </div>
+        <div class="banner-center">
+            <h2>{{ run.scenario.name if run.scenario else 'Ransomware Simulation' }}</h2>
+            <p>Exercise conducted on {{ run.started_at.strftime('%B %d, %Y at %H:%M UTC') if run.started_at else 'N/A' }}</p>
+            <div class="banner-tags">
+                <span class="tag"><i class="bi bi-building"></i> {{ run.host.name if run.host else 'Unknown Host' }}</span>
+                <span class="tag"><i class="bi bi-clock"></i> {{ duration_minutes }} minutes</span>
+                <span class="tag"><i class="bi bi-shield-check"></i> {{ risk_level }}</span>
+            </div>
+        </div>
+        <div class="banner-right">
+            <form action="/business/compliance/run/{{ run.id }}/export" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="export_format" value="PDF">
+                <button type="submit" class="btn-export">
+                    <i class="bi bi-download"></i> Export Evidence Pack
+                </button>
+            </form>
+            <div class="export-formats">
+                <small>Includes: Timeline, Alerts, Framework Mapping, Audit Trail</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Key Metrics Row -->
+<div class="metrics-row">
+    <div class="metric-card">
+        <div class="metric-icon ttd"><i class="bi bi-eye"></i></div>
+        <div class="metric-info">
+            <span class="metric-value">{{ ttd_seconds }}s</span>
+            <span class="metric-label">Time to Detect</span>
+        </div>
+        <div class="metric-status {% if ttd_seconds <= 30 %}good{% elif ttd_seconds <= 60 %}fair{% else %}slow{% endif %}">
+            {% if ttd_seconds <= 30 %}Excellent{% elif ttd_seconds <= 60 %}Good{% else %}Needs Improvement{% endif %}
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-icon ttc"><i class="bi bi-shield-exclamation"></i></div>
+        <div class="metric-info">
+            <span class="metric-value">{{ ttc_seconds }}s</span>
+            <span class="metric-label">Time to Contain</span>
+        </div>
+        <div class="metric-status {% if ttc_seconds <= 120 %}good{% elif ttc_seconds <= 300 %}fair{% else %}slow{% endif %}">
+            {% if ttc_seconds <= 120 %}Excellent{% elif ttc_seconds <= 300 %}Good{% else %}Needs Improvement{% endif %}
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-icon ttr"><i class="bi bi-arrow-repeat"></i></div>
+        <div class="metric-info">
+            <span class="metric-value">{{ ttr_seconds }}s</span>
+            <span class="metric-label">Time to Recover</span>
+        </div>
+        <div class="metric-status {% if ttr_seconds <= 300 %}good{% elif ttr_seconds <= 600 %}fair{% else %}slow{% endif %}">
+            {% if ttr_seconds <= 300 %}Excellent{% elif ttr_seconds <= 600 %}Good{% else %}Needs Improvement{% endif %}
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-icon alerts"><i class="bi bi-bell"></i></div>
+        <div class="metric-info">
+            <span class="metric-value">{{ total_alerts }}</span>
+            <span class="metric-label">Alerts Generated</span>
+        </div>
+        <div class="metric-status">{{ high_severity_alerts }} Critical/High</div>
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <!-- Left Column -->
+    <div class="col-lg-8">
+        <!-- Incident Response Timeline -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-clock-history me-2"></i>Incident Response Timeline</h3>
+                <span class="badge badge-info">{{ ir_phases|length }} Phases Completed</span>
+            </div>
+            <div class="ir-timeline">
+                {% for phase in ir_phases %}
+                <div class="ir-phase {% if phase.status == 'completed' %}completed{% elif phase.status == 'in_progress' %}active{% else %}pending{% endif %}">
+                    <div class="phase-indicator">
+                        <div class="phase-icon">
+                            {% if phase.name == 'Detection' %}<i class="bi bi-search"></i>
+                            {% elif phase.name == 'Analysis' %}<i class="bi bi-graph-up"></i>
+                            {% elif phase.name == 'Containment' %}<i class="bi bi-shield-lock"></i>
+                            {% elif phase.name == 'Eradication' %}<i class="bi bi-trash"></i>
+                            {% elif phase.name == 'Recovery' %}<i class="bi bi-arrow-clockwise"></i>
+                            {% else %}<i class="bi bi-check-circle"></i>{% endif %}
+                        </div>
+                        <div class="phase-line"></div>
+                    </div>
+                    <div class="phase-content">
+                        <div class="phase-header">
+                            <h4>{{ phase.name }}</h4>
+                            <span class="phase-time">{{ phase.timestamp }}</span>
+                        </div>
+                        <p class="phase-description">{{ phase.description }}</p>
+                        {% if phase.actions %}
+                        <div class="phase-actions">
+                            {% for action in phase.actions %}
+                            <span class="action-tag"><i class="bi bi-check-lg"></i> {{ action }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Alerts & Detections -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-bell me-2"></i>Security Alerts & Detections</h3>
+                <div class="alert-summary">
+                    <span class="alert-count critical">{{ critical_alerts }} Critical</span>
+                    <span class="alert-count high">{{ high_alerts }} High</span>
+                    <span class="alert-count medium">{{ medium_alerts }} Medium</span>
+                    <span class="alert-count low">{{ low_alerts }} Low</span>
+                </div>
+            </div>
+            <table class="data-table alerts-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Detection Rule</th>
+                        <th>Severity</th>
+                        <th>MITRE ATT&CK</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in detailed_alerts %}
+                    <tr>
+                        <td><code>{{ alert.timestamp }}</code></td>
+                        <td>
+                            <strong>{{ alert.rule_name }}</strong>
+                            <br><small class="text-muted">{{ alert.rule_id }}</small>
+                        </td>
+                        <td>
+                            <span class="severity-badge {{ alert.severity_class }}">
+                                {{ alert.severity_label }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if alert.mitre_id %}
+                            <span class="mitre-badge">{{ alert.mitre_id }}</span>
+                            <br><small>{{ alert.mitre_name }}</small>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge {{ alert.status_class }}">{{ alert.status }}</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">No alerts recorded for this exercise</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Evidence Chain -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-link-45deg me-2"></i>Evidence Chain & Artifacts</h3>
+            </div>
+            <div class="evidence-grid">
+                {% for evidence in evidence_items %}
+                <div class="evidence-item">
+                    <div class="evidence-icon {{ evidence.type }}">
+                        {% if evidence.type == 'file' %}<i class="bi bi-file-earmark-binary"></i>
+                        {% elif evidence.type == 'log' %}<i class="bi bi-journal-text"></i>
+                        {% elif evidence.type == 'network' %}<i class="bi bi-diagram-3"></i>
+                        {% elif evidence.type == 'process' %}<i class="bi bi-cpu"></i>
+                        {% elif evidence.type == 'registry' %}<i class="bi bi-database"></i>
+                        {% else %}<i class="bi bi-folder"></i>{% endif %}
+                    </div>
+                    <div class="evidence-info">
+                        <span class="evidence-name">{{ evidence.name }}</span>
+                        <span class="evidence-desc">{{ evidence.description }}</span>
+                        <span class="evidence-hash">SHA256: {{ evidence.hash[:16] }}...</span>
+                    </div>
+                    <div class="evidence-time">{{ evidence.timestamp }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Recommendations -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-lightbulb me-2"></i>Recommendations & Action Items</h3>
+            </div>
+            <div class="recommendations-list">
+                {% for rec in recommendations %}
+                <div class="recommendation-item {{ rec.priority }}">
+                    <div class="rec-priority">
+                        <span class="priority-badge {{ rec.priority }}">{{ rec.priority|upper }}</span>
+                    </div>
+                    <div class="rec-content">
+                        <h4>{{ rec.title }}</h4>
+                        <p>{{ rec.description }}</p>
+                        <div class="rec-meta">
+                            <span><i class="bi bi-tag"></i> {{ rec.category }}</span>
+                            <span><i class="bi bi-calendar"></i> {{ rec.due_date }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column -->
+    <div class="col-lg-4">
+        <!-- Framework Compliance -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-shield-check me-2"></i>Framework Compliance</h3>
+            </div>
+            
+            <!-- MITRE ATT&CK Coverage -->
+            <div class="framework-section">
+                <div class="framework-header">
+                    <img src="https://attack.mitre.org/theme/images/MITRE_ATTACK_logo_Lockup-white-transparent.png" alt="MITRE" style="height: 20px; filter: brightness(0.8);" onerror="this.style.display='none'">
+                    <h5>MITRE ATT&CK</h5>
+                    <span class="coverage-percent">{{ mitre_coverage }}% Coverage</span>
+                </div>
+                <div class="techniques-grid">
+                    {% for tech in mitre_techniques %}
+                    <div class="technique-item" title="{{ tech.name }}">
+                        <span class="tech-id">{{ tech.id }}</span>
+                        <span class="tech-name">{{ tech.name }}</span>
+                        <span class="tech-tactic">{{ tech.tactic }}</span>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No techniques detected</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- NIST CSF -->
+            <div class="framework-section mt-4">
+                <div class="framework-header">
+                    <h5><i class="bi bi-building me-2"></i>NIST CSF 2.0</h5>
+                    <span class="coverage-percent">{{ nist_coverage }}% Coverage</span>
+                </div>
+                <div class="nist-functions">
+                    {% for func in nist_functions %}
+                    <div class="nist-function {{ func.status }}">
+                        <div class="func-header">
+                            <span class="func-id">{{ func.id }}</span>
+                            <span class="func-name">{{ func.name }}</span>
+                        </div>
+                        <div class="func-progress">
+                            <div class="progress-bar" style="width: {{ func.score }}%"></div>
+                        </div>
+                        <span class="func-score">{{ func.score }}%</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- ISO 27001 -->
+            <div class="framework-section mt-4">
+                <div class="framework-header">
+                    <h5><i class="bi bi-globe me-2"></i>ISO 27001:2022</h5>
+                    <span class="coverage-percent">{{ iso_coverage }}% Coverage</span>
+                </div>
+                <div class="iso-controls">
+                    {% for ctrl in iso_controls %}
+                    <div class="iso-control">
+                        <span class="ctrl-id">{{ ctrl.id }}</span>
+                        <span class="ctrl-name">{{ ctrl.name }}</span>
+                        <span class="ctrl-status {{ ctrl.status }}">
+                            {% if ctrl.status == 'passed' %}<i class="bi bi-check-circle-fill"></i>
+                            {% elif ctrl.status == 'partial' %}<i class="bi bi-exclamation-circle-fill"></i>
+                            {% else %}<i class="bi bi-x-circle-fill"></i>{% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Risk Assessment -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-exclamation-triangle me-2"></i>Risk Assessment</h3>
+            </div>
+            <div class="risk-matrix">
+                <div class="risk-item-detail">
+                    <span class="risk-category">Data Exposure Risk</span>
+                    <div class="risk-bar-container">
+                        <div class="risk-bar" style="width: {{ data_exposure_risk }}%"></div>
+                    </div>
+                    <span class="risk-value {{ 'high' if data_exposure_risk > 70 else 'medium' if data_exposure_risk > 40 else 'low' }}">{{ data_exposure_risk }}%</span>
+                </div>
+                <div class="risk-item-detail">
+                    <span class="risk-category">Business Impact</span>
+                    <div class="risk-bar-container">
+                        <div class="risk-bar" style="width: {{ business_impact_risk }}%"></div>
+                    </div>
+                    <span class="risk-value {{ 'high' if business_impact_risk > 70 else 'medium' if business_impact_risk > 40 else 'low' }}">{{ business_impact_risk }}%</span>
+                </div>
+                <div class="risk-item-detail">
+                    <span class="risk-category">Recovery Capability</span>
+                    <div class="risk-bar-container">
+                        <div class="risk-bar success" style="width: {{ recovery_capability }}%"></div>
+                    </div>
+                    <span class="risk-value {{ 'high' if recovery_capability > 70 else 'medium' if recovery_capability > 40 else 'low' }}">{{ recovery_capability }}%</span>
+                </div>
+                <div class="risk-item-detail">
+                    <span class="risk-category">Detection Maturity</span>
+                    <div class="risk-bar-container">
+                        <div class="risk-bar success" style="width: {{ detection_maturity }}%"></div>
+                    </div>
+                    <span class="risk-value {{ 'high' if detection_maturity > 70 else 'medium' if detection_maturity > 40 else 'low' }}">{{ detection_maturity }}%</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Audit Statement -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-file-earmark-text me-2"></i>Audit Certification</h3>
+            </div>
+            <div class="audit-certificate">
+                <div class="cert-seal">
+                    <i class="bi bi-patch-check-fill"></i>
+                </div>
+                <div class="cert-content">
+                    <h4>Exercise Certification</h4>
+                    <p class="cert-id">Certificate ID: RR-{{ run.id }}-{{ run.started_at.strftime('%Y%m%d') if run.started_at else '00000000' }}</p>
+                    <p>This document certifies that a controlled ransomware simulation exercise was conducted in accordance with organizational security policies.</p>
+                    <div class="cert-details">
+                        <div class="cert-row">
+                            <span>Exercise Date:</span>
+                            <strong>{{ run.started_at.strftime('%Y-%m-%d') if run.started_at else 'N/A' }}</strong>
+                        </div>
+                        <div class="cert-row">
+                            <span>Environment:</span>
+                            <strong>Isolated Lab</strong>
+                        </div>
+                        <div class="cert-row">
+                            <span>Scope:</span>
+                            <strong>{{ scope_description }}</strong>
+                        </div>
+                        <div class="cert-row">
+                            <span>Result:</span>
+                            <strong class="text-success">{{ 'Passed' if compliance_score >= 60 else 'Needs Improvement' }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-lightning me-2"></i>Quick Actions</h3>
+            </div>
+            <div class="quick-actions">
+                <a href="#" class="action-btn" onclick="window.print(); return false;">
+                    <i class="bi bi-printer"></i> Print Report
+                </a>
+                <form action="/business/compliance/run/{{ run.id }}/export" method="POST" style="display: contents;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="export_format" value="PDF">
+                    <button type="submit" class="action-btn">
+                        <i class="bi bi-file-pdf"></i> Export PDF
+                    </button>
+                </form>
+                <a href="/business/compliance" class="action-btn">
+                    <i class="bi bi-list"></i> All Reports
+                </a>
+                <a href="/business/training" class="action-btn">
+                    <i class="bi bi-mortarboard"></i> Schedule Training
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4 mb-4">
+    <a href="/business/compliance" class="btn btn-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Back to Compliance Reports
+    </a>
+</div>
+
+<style>
+    /* Executive Banner */
+    .executive-banner {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16162a 100%);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 28px;
+        margin-bottom: 24px;
+    }
+    
+    .banner-content {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+    }
+    
+    .compliance-score {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-primary);
+        border: 4px solid;
+    }
+    
+    .compliance-score.excellent { border-color: var(--accent-green); }
+    .compliance-score.good { border-color: var(--accent-blue); }
+    .compliance-score.fair { border-color: var(--accent-yellow); }
+    .compliance-score.needs-work { border-color: var(--accent-red); }
+    
+    .score-value { font-size: 32px; font-weight: 700; }
+    .score-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+    
+    .banner-center { flex: 1; }
+    .banner-center h2 { font-size: 22px; margin-bottom: 8px; }
+    .banner-center > p { color: var(--text-muted); margin-bottom: 12px; }
+    
+    .banner-tags { display: flex; gap: 12px; flex-wrap: wrap; }
+    .banner-tags .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: var(--bg-primary);
+        border-radius: 6px;
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+    
+    .banner-right { text-align: right; }
+    .btn-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-export:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3); }
+    .export-formats { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+    
+    /* Metrics Row */
+    .metrics-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .metric-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    
+    .metric-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+    
+    .metric-icon.ttd { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .metric-icon.ttc { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .metric-icon.ttr { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+    .metric-icon.alerts { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    
+    .metric-info { flex: 1; }
+    .metric-value { display: block; font-size: 24px; font-weight: 700; }
+    .metric-label { font-size: 12px; color: var(--text-muted); }
+    .metric-status { font-size: 11px; padding: 4px 8px; border-radius: 4px; background: var(--bg-primary); }
+    .metric-status.good { color: var(--accent-green); }
+    .metric-status.fair { color: var(--accent-yellow); }
+    .metric-status.slow { color: var(--accent-red); }
+    
+    /* IR Timeline */
+    .ir-timeline { padding: 0; }
+    .ir-phase {
+        display: flex;
+        gap: 20px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .ir-phase:last-child { border-bottom: none; }
+    
+    .phase-indicator { display: flex; flex-direction: column; align-items: center; width: 40px; }
+    .phase-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--bg-primary);
+        border: 2px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        color: var(--text-muted);
+    }
+    .ir-phase.completed .phase-icon { background: var(--accent-green); border-color: var(--accent-green); color: white; }
+    .ir-phase.active .phase-icon { background: var(--accent-blue); border-color: var(--accent-blue); color: white; }
+    .phase-line { flex: 1; width: 2px; background: var(--border-color); margin-top: 8px; }
+    
+    .phase-content { flex: 1; }
+    .phase-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .phase-header h4 { font-size: 15px; margin: 0; }
+    .phase-time { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+    .phase-description { font-size: 13px; color: var(--text-secondary); margin: 0 0 12px 0; }
+    .phase-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .action-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        background: rgba(34, 197, 94, 0.1);
+        border-radius: 4px;
+        font-size: 12px;
+        color: var(--accent-green);
+    }
+    
+    /* Alerts Table */
+    .alert-summary { display: flex; gap: 8px; }
+    .alert-count {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .alert-count.critical { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .alert-count.high { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); }
+    .alert-count.medium { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .alert-count.low { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    
+    .severity-badge {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .severity-badge.critical { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .severity-badge.high { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); }
+    .severity-badge.medium { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .severity-badge.low { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    
+    .mitre-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        background: rgba(239, 68, 68, 0.15);
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--accent-red);
+    }
+    
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+    }
+    .status-badge.resolved { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+    .status-badge.investigating { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .status-badge.new { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    
+    /* Evidence Grid */
+    .evidence-grid { display: flex; flex-direction: column; gap: 12px; }
+    .evidence-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background: var(--bg-primary);
+        border-radius: 8px;
+    }
+    .evidence-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+    .evidence-icon.file { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .evidence-icon.log { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+    .evidence-icon.network { background: rgba(249, 115, 22, 0.15); color: var(--accent-orange); }
+    .evidence-icon.process { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .evidence-icon.registry { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+    
+    .evidence-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .evidence-name { font-weight: 600; font-size: 14px; }
+    .evidence-desc { font-size: 12px; color: var(--text-muted); }
+    .evidence-hash { font-size: 11px; font-family: monospace; color: var(--text-muted); }
+    .evidence-time { font-size: 12px; color: var(--text-muted); }
+    
+    /* Recommendations */
+    .recommendations-list { display: flex; flex-direction: column; gap: 12px; }
+    .recommendation-item {
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+        background: var(--bg-primary);
+        border-radius: 8px;
+        border-left: 3px solid;
+    }
+    .recommendation-item.high { border-color: var(--accent-red); }
+    .recommendation-item.medium { border-color: var(--accent-yellow); }
+    .recommendation-item.low { border-color: var(--accent-blue); }
+    
+    .priority-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+    }
+    .priority-badge.high { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .priority-badge.medium { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .priority-badge.low { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    
+    .rec-content h4 { font-size: 14px; margin: 0 0 6px 0; }
+    .rec-content p { font-size: 13px; color: var(--text-muted); margin: 0 0 8px 0; }
+    .rec-meta { display: flex; gap: 16px; font-size: 11px; color: var(--text-muted); }
+    
+    /* Framework Sections */
+    .framework-section { padding: 16px 0; border-bottom: 1px solid var(--border-color); }
+    .framework-section:last-child { border-bottom: none; }
+    .framework-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .framework-header h5 { flex: 1; font-size: 14px; margin: 0; }
+    .coverage-percent {
+        font-size: 12px;
+        padding: 4px 10px;
+        background: var(--bg-primary);
+        border-radius: 4px;
+        color: var(--accent-green);
+    }
+    
+    .techniques-grid { display: flex; flex-direction: column; gap: 8px; }
+    .technique-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: var(--bg-primary);
+        border-radius: 6px;
+    }
+    .tech-id { font-size: 12px; font-weight: 600; color: var(--accent-red); min-width: 60px; }
+    .tech-name { flex: 1; font-size: 13px; }
+    .tech-tactic { font-size: 11px; color: var(--text-muted); }
+    
+    .nist-functions { display: flex; flex-direction: column; gap: 10px; }
+    .nist-function {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .func-header { min-width: 120px; }
+    .func-id { font-size: 11px; font-weight: 600; color: var(--accent-blue); }
+    .func-name { font-size: 12px; color: var(--text-muted); }
+    .func-progress {
+        flex: 1;
+        height: 6px;
+        background: var(--bg-primary);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .func-progress .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+        border-radius: 3px;
+    }
+    .func-score { font-size: 12px; font-weight: 600; min-width: 40px; text-align: right; }
+    
+    .iso-controls { display: flex; flex-direction: column; gap: 8px; }
+    .iso-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: var(--bg-primary);
+        border-radius: 6px;
+    }
+    .ctrl-id { font-size: 12px; font-weight: 600; color: var(--accent-purple); min-width: 50px; }
+    .ctrl-name { flex: 1; font-size: 13px; }
+    .ctrl-status { font-size: 14px; }
+    .ctrl-status.passed { color: var(--accent-green); }
+    .ctrl-status.partial { color: var(--accent-yellow); }
+    .ctrl-status.failed { color: var(--accent-red); }
+    
+    /* Risk Matrix */
+    .risk-matrix { display: flex; flex-direction: column; gap: 16px; }
+    .risk-item-detail { display: flex; align-items: center; gap: 12px; }
+    .risk-category { font-size: 13px; min-width: 140px; }
+    .risk-bar-container {
+        flex: 1;
+        height: 8px;
+        background: var(--bg-primary);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .risk-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-red), var(--accent-orange));
+        border-radius: 4px;
+    }
+    .risk-bar.success {
+        background: linear-gradient(90deg, var(--accent-green), #10b981);
+    }
+    .risk-value {
+        font-size: 13px;
+        font-weight: 600;
+        min-width: 45px;
+        text-align: right;
+    }
+    .risk-value.high { color: var(--accent-red); }
+    .risk-value.medium { color: var(--accent-yellow); }
+    .risk-value.low { color: var(--accent-green); }
+    
+    /* Audit Certificate */
+    .audit-certificate { text-align: center; }
+    .cert-seal {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 16px;
+        background: linear-gradient(135deg, var(--accent-green), #10b981);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        color: white;
+    }
+    .cert-content h4 { font-size: 16px; margin: 0 0 8px 0; }
+    .cert-id { font-size: 11px; font-family: monospace; color: var(--text-muted); margin-bottom: 12px; }
+    .cert-content > p { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+    .cert-details { text-align: left; }
+    .cert-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 13px;
+    }
+    .cert-row:last-child { border-bottom: none; }
+    
+    /* Quick Actions */
+    .quick-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .action-btn:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+        border-color: var(--accent-purple);
+    }
+    
+    @media (max-width: 1200px) {
+        .metrics-row { grid-template-columns: repeat(2, 1fr); }
+        .banner-content { flex-direction: column; text-align: center; }
+        .banner-right { text-align: center; }
+    }
+    
+    @media print {
+        .executive-banner { background: white; border: 2px solid #000; }
+        .card { break-inside: avoid; }
+        .btn-export, .quick-actions, .action-btn { display: none !important; }
+    }
+</style>
+{% endblock %}

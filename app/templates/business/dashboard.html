@@ -1,0 +1,435 @@
+{% extends "business/base.html" %}
+
+{% block title %}Executive Dashboard{% endblock %}
+{% block page_title %}Executive Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stats Overview -->
+<div class="stats-grid">
+    <div class="stat-card risk">
+        <div class="stat-label">Risk Score (7-day)</div>
+        <div class="stat-value">{{ risk_score }}</div>
+        <div class="stat-change {% if risk_score > 50 %}negative{% else %}positive{% endif %}">
+            {% if risk_score > 50 %}
+            <i class="bi bi-arrow-up"></i> High Risk - Action Required
+            {% elif risk_score > 20 %}
+            <i class="bi bi-dash"></i> Moderate Risk
+            {% else %}
+            <i class="bi bi-arrow-down"></i> Low Risk - Good Status
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="stat-card success">
+        <div class="stat-label">Downtime Avoided</div>
+        <div class="stat-value">{{ downtime_data.total_avoided_hours }}h</div>
+        <div class="stat-change positive">
+            <i class="bi bi-clock"></i> From {{ downtime_data.incidents_count }} incidents (30 days)
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-label">Cost Savings</div>
+        <div class="stat-value">${{ "{:,.0f}".format(cost_data.total_savings) }}</div>
+        <div class="stat-change positive">
+            <i class="bi bi-currency-dollar"></i> Revenue + IT costs protected
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-label">Active Endpoints</div>
+        <div class="stat-value">{{ active_hosts }}</div>
+        <div class="stat-change">
+            <i class="bi bi-hdd-network"></i> {{ total_runs }} simulations (30 days)
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Readiness Trend -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-graph-up me-2"></i>Readiness Trend (4 Weeks)</h3>
+            </div>
+            <div class="readiness-chart">
+                <div class="trend-bars">
+                    {% for week in readiness_trend %}
+                    <div class="trend-bar-container">
+                        <div class="trend-bar" style="height: {{ week.readiness_score }}%;">
+                            <span class="trend-value">{{ week.readiness_score }}%</span>
+                        </div>
+                        <span class="trend-label">{{ week.week_label }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="trend-legend mt-3">
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> 
+                    Readiness score combines success rate and risk metrics. Higher is better.
+                </small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Gaps -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-exclamation-triangle me-2"></i>Top Security Gaps</h3>
+            </div>
+            {% if gaps %}
+            <div class="gaps-list">
+                {% for gap in gaps %}
+                <div class="gap-item">
+                    <div class="gap-severity badge-{{ 'danger' if gap.severity == 'CRITICAL' else 'warning' if gap.severity == 'HIGH' else 'info' }}">
+                        {{ gap.severity }}
+                    </div>
+                    <h4>{{ gap.title }}</h4>
+                    <p>{{ gap.description }}</p>
+                    <a href="{{ gap.link }}" class="gap-link">
+                        {{ gap.recommendation }} <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <i class="bi bi-check-circle text-success"></i>
+                <p>No critical gaps identified</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <!-- Top Risky Endpoints -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-hdd-rack me-2"></i>Top Risky Endpoints</h3>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Endpoint</th>
+                        <th>Risk Score</th>
+                        <th>Critical</th>
+                        <th>High</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in top_risky_hosts[:5] %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.host.name }}</strong>
+                            <br><small class="text-muted">{{ item.host.ip_address or 'N/A' }}</small>
+                        </td>
+                        <td>
+                            <span class="badge {% if item.risk_score > 50 %}badge-danger{% elif item.risk_score > 20 %}badge-warning{% else %}badge-success{% endif %}">
+                                {{ item.risk_score }}
+                            </span>
+                        </td>
+                        <td>{{ item.critical_alerts }}</td>
+                        <td>{{ item.high_alerts }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No endpoint data available</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Risk Breakdown -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-pie-chart me-2"></i>Risk Breakdown (7 Days)</h3>
+            </div>
+            <div class="risk-breakdown">
+                <div class="risk-item">
+                    <div class="risk-bar critical" style="width: {{ [risk_data.critical_alerts * 10, 100] | min }}%;"></div>
+                    <div class="risk-details">
+                        <span class="risk-label">Critical Alerts</span>
+                        <span class="risk-count">{{ risk_data.critical_alerts }}</span>
+                    </div>
+                </div>
+                <div class="risk-item">
+                    <div class="risk-bar high" style="width: {{ [risk_data.high_alerts * 10, 100] | min }}%;"></div>
+                    <div class="risk-details">
+                        <span class="risk-label">High Alerts</span>
+                        <span class="risk-count">{{ risk_data.high_alerts }}</span>
+                    </div>
+                </div>
+                <div class="risk-item">
+                    <div class="risk-bar medium" style="width: {{ [risk_data.medium_alerts * 10, 100] | min }}%;"></div>
+                    <div class="risk-details">
+                        <span class="risk-label">Medium Alerts</span>
+                        <span class="risk-count">{{ risk_data.medium_alerts }}</span>
+                    </div>
+                </div>
+                <div class="risk-item">
+                    <div class="risk-bar low" style="width: {{ [risk_data.low_alerts * 10, 100] | min }}%;"></div>
+                    <div class="risk-details">
+                        <span class="risk-label">Low Alerts</span>
+                        <span class="risk-count">{{ risk_data.low_alerts }}</span>
+                    </div>
+                </div>
+                <div class="risk-item">
+                    <div class="risk-bar failed" style="width: {{ [risk_data.failed_runs * 20, 100] | min }}%;"></div>
+                    <div class="risk-details">
+                        <span class="risk-label">Failed Runs</span>
+                        <span class="risk-count">{{ risk_data.failed_runs }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cost Impact Summary -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title"><i class="bi bi-cash-stack me-2"></i>Cost Impact Summary (30 Days)</h3>
+        <a href="/business/roi" class="btn btn-secondary btn-sm">
+            <i class="bi bi-calculator"></i> ROI Calculator
+        </a>
+    </div>
+    <div class="cost-summary">
+        <div class="cost-item">
+            <div class="cost-icon revenue">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <div class="cost-details">
+                <span class="cost-label">Avoided Revenue Loss</span>
+                <span class="cost-value">${{ "{:,.0f}".format(cost_data.avoided_revenue_loss) }}</span>
+            </div>
+        </div>
+        <div class="cost-item">
+            <div class="cost-icon it">
+                <i class="bi bi-person-gear"></i>
+            </div>
+            <div class="cost-details">
+                <span class="cost-label">IT Cost Saved</span>
+                <span class="cost-value">${{ "{:,.0f}".format(cost_data.it_cost_saved) }}</span>
+            </div>
+        </div>
+        <div class="cost-item">
+            <div class="cost-icon incidents">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <div class="cost-details">
+                <span class="cost-label">Incidents Handled</span>
+                <span class="cost-value">{{ cost_data.incidents_count }}</span>
+            </div>
+        </div>
+        <div class="cost-item total">
+            <div class="cost-icon total">
+                <i class="bi bi-piggy-bank"></i>
+            </div>
+            <div class="cost-details">
+                <span class="cost-label">Total Savings</span>
+                <span class="cost-value">${{ "{:,.0f}".format(cost_data.total_savings) }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .readiness-chart {
+        padding: 20px 0;
+    }
+    
+    .trend-bars {
+        display: flex;
+        justify-content: space-around;
+        align-items: flex-end;
+        height: 200px;
+        padding: 0 20px;
+    }
+    
+    .trend-bar-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        max-width: 100px;
+    }
+    
+    .trend-bar {
+        width: 60px;
+        background: linear-gradient(180deg, var(--accent-purple), var(--accent-blue));
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 8px;
+        min-height: 20px;
+        transition: height 0.5s ease;
+    }
+    
+    .trend-value {
+        font-size: 12px;
+        font-weight: 600;
+        color: white;
+    }
+    
+    .trend-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 8px;
+    }
+    
+    .gaps-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .gap-item {
+        padding: 16px;
+        background: var(--bg-primary);
+        border-radius: 8px;
+        border-left: 3px solid var(--accent-yellow);
+    }
+    
+    .gap-item h4 {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 8px 0;
+    }
+    
+    .gap-item p {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin: 0;
+    }
+    
+    .gap-severity {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 600;
+    }
+    
+    .gap-link {
+        display: inline-block;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--accent-purple);
+        text-decoration: none;
+    }
+    
+    .gap-link:hover {
+        text-decoration: underline;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-muted);
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+    
+    .risk-breakdown {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .risk-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    
+    .risk-bar {
+        height: 24px;
+        border-radius: 4px;
+        min-width: 20px;
+        transition: width 0.5s ease;
+    }
+    
+    .risk-bar.critical { background: var(--accent-red); }
+    .risk-bar.high { background: var(--accent-orange); }
+    .risk-bar.medium { background: var(--accent-yellow); }
+    .risk-bar.low { background: var(--accent-blue); }
+    .risk-bar.failed { background: #6b7280; }
+    
+    .risk-details {
+        display: flex;
+        justify-content: space-between;
+        flex: 1;
+    }
+    
+    .risk-label {
+        font-size: 13px;
+        color: var(--text-secondary);
+    }
+    
+    .risk-count {
+        font-size: 14px;
+        font-weight: 600;
+    }
+    
+    .cost-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+    
+    .cost-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px;
+        background: var(--bg-primary);
+        border-radius: 10px;
+    }
+    
+    .cost-item.total {
+        background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
+        border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    
+    .cost-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+    
+    .cost-icon.revenue { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .cost-icon.it { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+    .cost-icon.incidents { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .cost-icon.total { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+    
+    .cost-details {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .cost-label {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+    
+    .cost-value {
+        font-size: 22px;
+        font-weight: 700;
+    }
+</style>
+{% endblock %}

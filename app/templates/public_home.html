@@ -4,177 +4,436 @@
 
 {% block extra_css %}
 <style>
+    * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
     /* Hero Section */
     .hero-section {
-        padding: 5rem 0;
-        background: linear-gradient(135deg, #18181b 0%, #0a0a0a 100%);
-        border-bottom: 1px solid var(--border-color);
+        padding: 100px 0 80px;
+        background: #09090b;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(ellipse at 30% 20%, rgba(239, 68, 68, 0.08) 0%, transparent 50%),
+                    radial-gradient(ellipse at 70% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    
+    .hero-content {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        color: #fca5a5;
+        margin-bottom: 24px;
     }
     
     .hero-title {
-        font-size: 3.5rem;
+        font-size: 52px;
         font-weight: 700;
-        line-height: 1.2;
-        margin-bottom: 1.5rem;
+        line-height: 1.1;
+        color: #fafafa;
+        margin-bottom: 24px;
+    }
+    
+    .hero-title .highlight {
+        color: #ef4444;
     }
     
     .hero-subtitle {
-        font-size: 1.25rem;
-        color: var(--text-secondary);
-        margin-bottom: 2rem;
+        font-size: 17px;
+        color: #71717a;
+        line-height: 1.7;
+        margin-bottom: 32px;
+        max-width: 500px;
     }
     
     .hero-cta {
         display: flex;
-        gap: 1rem;
-        margin-bottom: 3rem;
+        gap: 16px;
+        margin-bottom: 32px;
     }
     
-    .hero-image {
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 2rem;
-        height: 400px;
+    .btn-hero-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-hero-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+        color: white;
+    }
+    
+    .btn-hero-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        background: transparent;
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        color: #a1a1aa;
+        font-size: 15px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    
+    .btn-hero-secondary:hover {
+        border-color: #3f3f46;
+        color: #fafafa;
+        background: #18181b;
+    }
+    
+    .hero-features {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+    
+    .hero-feature {
         display: flex;
         align-items: center;
-        justify-content: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #71717a;
+    }
+    
+    .hero-feature i {
+        color: #22c55e;
     }
     
     /* Social Proof */
     .social-proof {
-        background: var(--bg-secondary);
-        padding: 2rem 0;
-        border-bottom: 1px solid var(--border-color);
+        padding: 40px 0;
+        background: #09090b;
+        border-top: 1px solid #18181b;
+        border-bottom: 1px solid #18181b;
     }
     
-    .logo-strip {
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 2rem;
-        opacity: 0.5;
+    .social-proof-text {
+        text-align: center;
+        font-size: 13px;
+        color: #52525b;
+        margin-bottom: 24px;
     }
     
-    .logo-placeholder {
-        width: 120px;
-        height: 60px;
-        background: var(--bg-tertiary);
-        border-radius: 8px;
+    .tag-strip {
         display: flex;
-        align-items: center;
         justify-content: center;
-        font-size: 0.75rem;
-        color: var(--text-secondary);
+        gap: 12px;
+        flex-wrap: wrap;
     }
     
-    /* Features Grid */
+    .tag-item {
+        padding: 10px 20px;
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #71717a;
+        transition: all 0.2s ease;
+    }
+    
+    .tag-item:hover {
+        border-color: #3f3f46;
+        color: #a1a1aa;
+    }
+    
+    /* Features Section */
     .features-section {
-        padding: 5rem 0;
+        padding: 100px 0;
+        background: #0f0f12;
+    }
+    
+    .section-header {
+        text-align: center;
+        margin-bottom: 60px;
+    }
+    
+    .section-title {
+        font-size: 36px;
+        font-weight: 700;
+        color: #fafafa;
+        margin-bottom: 12px;
+    }
+    
+    .section-subtitle {
+        font-size: 15px;
+        color: #71717a;
+    }
+    
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
     }
     
     .feature-card {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
+        background: #18181b;
+        border: 1px solid #27272a;
         border-radius: 12px;
-        padding: 2rem;
-        height: 100%;
-        transition: transform 0.2s, border-color 0.2s;
+        padding: 28px;
+        transition: all 0.2s ease;
     }
     
     .feature-card:hover {
+        border-color: #3f3f46;
         transform: translateY(-4px);
-        border-color: var(--accent-primary);
     }
     
     .feature-icon {
-        font-size: 2.5rem;
-        color: var(--accent-primary);
-        margin-bottom: 1rem;
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 18px;
+    }
+    
+    .feature-icon i {
+        font-size: 22px;
+        color: #ef4444;
+    }
+    
+    .feature-icon.purple {
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 100%);
+    }
+    
+    .feature-icon.purple i {
+        color: #8b5cf6;
+    }
+    
+    .feature-icon.green {
+        background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%);
+    }
+    
+    .feature-icon.green i {
+        color: #22c55e;
+    }
+    
+    .feature-icon.blue {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%);
+    }
+    
+    .feature-icon.blue i {
+        color: #3b82f6;
+    }
+    
+    .feature-icon.yellow {
+        background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(234, 179, 8, 0.05) 100%);
+    }
+    
+    .feature-icon.yellow i {
+        color: #eab308;
     }
     
     .feature-title {
-        font-size: 1.25rem;
+        font-size: 16px;
         font-weight: 600;
-        margin-bottom: 0.75rem;
+        color: #fafafa;
+        margin-bottom: 10px;
+    }
+    
+    .feature-desc {
+        font-size: 13px;
+        color: #71717a;
+        line-height: 1.6;
     }
     
     /* How It Works */
-    .how-it-works {
-        background: var(--bg-secondary);
-        padding: 5rem 0;
-        border-top: 1px solid var(--border-color);
-        border-bottom: 1px solid var(--border-color);
+    .how-section {
+        padding: 100px 0;
+        background: #09090b;
+        border-top: 1px solid #18181b;
+    }
+    
+    .steps-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 40px;
+        margin-top: 60px;
     }
     
     .step-card {
         text-align: center;
-        padding: 2rem;
+        padding: 32px 24px;
+        background: #0f0f12;
+        border: 1px solid #18181b;
+        border-radius: 16px;
+        position: relative;
     }
     
     .step-number {
-        width: 60px;
-        height: 60px;
-        background: var(--accent-primary);
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.5rem;
+        font-size: 22px;
         font-weight: 700;
-        margin: 0 auto 1.5rem;
+        color: white;
+        margin: 0 auto 20px;
     }
     
-    /* Screenshots */
-    .screenshots-section {
-        padding: 5rem 0;
+    .step-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #fafafa;
+        margin-bottom: 12px;
     }
     
-    .screenshot-card {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        overflow: hidden;
-        margin-bottom: 2rem;
+    .step-desc {
+        font-size: 14px;
+        color: #71717a;
+        line-height: 1.6;
     }
     
-    .screenshot-placeholder {
-        background: var(--bg-tertiary);
-        height: 300px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-secondary);
-    }
-    
-    .screenshot-caption {
-        padding: 1.5rem;
+    .step-connector {
+        position: absolute;
+        top: 50%;
+        right: -20px;
+        width: 40px;
+        height: 2px;
+        background: linear-gradient(90deg, #27272a 0%, transparent 100%);
     }
     
     /* CTA Section */
     .cta-section {
-        background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-primary) 100%);
-        padding: 5rem 0;
+        padding: 100px 0;
+        background: linear-gradient(180deg, #0f0f12 0%, #09090b 100%);
         text-align: center;
+        border-top: 1px solid #18181b;
+    }
+    
+    .cta-box {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 60px 40px;
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(139, 92, 246, 0.03) 100%);
+        border: 1px solid #27272a;
+        border-radius: 20px;
+    }
+    
+    .cta-title {
+        font-size: 32px;
+        font-weight: 700;
+        color: #fafafa;
+        margin-bottom: 16px;
+    }
+    
+    .cta-subtitle {
+        font-size: 15px;
+        color: #71717a;
+        margin-bottom: 32px;
+    }
+    
+    .cta-form {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
     }
     
     .cta-input {
-        background: white;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 6px;
-        width: 300px;
-        margin-right: 1rem;
+        padding: 14px 20px;
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        color: #fafafa;
+        font-size: 14px;
+        width: 280px;
     }
     
-    .btn-light {
-        background: white;
-        color: var(--accent-primary);
+    .cta-input:focus {
+        outline: none;
+        border-color: #ef4444;
+    }
+    
+    .cta-input::placeholder {
+        color: #52525b;
+    }
+    
+    .cta-btn {
+        padding: 14px 28px;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 6px;
+        border-radius: 8px;
+        color: white;
+        font-size: 15px;
         font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .cta-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+    }
+    
+    .cta-note {
+        margin-top: 20px;
+        font-size: 13px;
+        color: #52525b;
+    }
+    
+    .cta-note a {
+        color: #ef4444;
+        text-decoration: none;
+    }
+    
+    .cta-note a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Responsive */
+    @media (max-width: 992px) {
+        .hero-title { font-size: 40px; }
+        .features-grid { grid-template-columns: repeat(2, 1fr); }
+        .steps-container { grid-template-columns: 1fr; }
+        .step-connector { display: none; }
+    }
+    
+    @media (max-width: 768px) {
+        .hero-section { padding: 60px 0; }
+        .hero-title { font-size: 32px; }
+        .hero-cta { flex-direction: column; }
+        .hero-features { flex-direction: column; gap: 12px; }
+        .features-grid { grid-template-columns: 1fr; }
+        .features-section, .how-section, .cta-section { padding: 60px 0; }
     }
 </style>
 {% endblock %}
@@ -185,42 +444,45 @@
     <div class="container">
         <div class="row align-items-center">
             <div class="col-lg-6">
-                <h1 class="hero-title">
-                    RansomRun<br>
-                    <span style="color: var(--accent-primary);">Ransomware Simulation</span><br>
-                    & Blue Team Training
-                </h1>
-                <p class="hero-subtitle">
-                    Lab-safe, agent-based ransomware simulation platform for SOC training, 
-                    university research, and DFIR education. Build detection rules, test 
-                    response playbooks, and master incident response.
-                </p>
-                <div class="hero-cta">
-                    <a href="/signup" class="btn btn-primary btn-lg">
-                        <i class="bi bi-rocket-takeoff"></i> Start Lab
-                    </a>
-                    <a href="#screenshots" class="btn btn-outline-primary btn-lg">
-                        <i class="bi bi-play-circle"></i> View Demo
-                    </a>
-                </div>
-                <p class="text-muted small">
-                    <i class="bi bi-check-circle"></i> No credit card required
-                    <span class="mx-2">•</span>
-                    <i class="bi bi-check-circle"></i> 100% local deployment
-                    <span class="mx-2">•</span>
-                    <i class="bi bi-check-circle"></i> Open source
-                </p>
-            </div>
-            <div class="col-lg-6">
-                <div class="hero-image">
-                    <img src="/static/images/dashboard-screenshot.png" 
-                         alt="RansomRun Security Operations Dashboard" 
-                         class="img-fluid rounded-3 shadow-lg"
-                         style="border: 1px solid #27272a; max-width: 100%; height: auto;"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                    <div class="text-center" style="display: none;">
-                        <i class="bi bi-terminal" style="font-size: 5rem; color: var(--accent-primary);"></i>
-                        <p class="mt-3 text-muted">Add your screenshot to app/static/images/dashboard-screenshot.png</p>
+                <div class="hero-content">
+                    <div class="hero-badge">
+                        <i class="bi bi-shield-check"></i>
+                        <span>Lab-Safe Security Training Platform</span>
+                    </div>
+                    <h1 class="hero-title">
+                        RansomRun<br>
+                        <span class="highlight">Ransomware Simulation</span><br>
+                        & Blue Team Training
+                    </h1>
+                    <p class="hero-subtitle">
+                        Lab-safe, agent-based ransomware simulation platform for SOC training, 
+                        university research, and DFIR education. Build detection rules, test 
+                        response playbooks, and master incident response.
+                    </p>
+                    <div class="hero-cta">
+                        <a href="/signup" class="btn-hero-primary">
+                            <i class="bi bi-rocket-takeoff"></i> Start Lab
+                        </a>
+                        <a href="/login" class="btn-hero-secondary">
+                            <i class="bi bi-person"></i> Analyst Login
+                        </a>
+                        <a href="/business/login" class="btn-hero-secondary" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2)); border-color: rgba(139, 92, 246, 0.4);">
+                            <i class="bi bi-briefcase"></i> Business Portal
+                        </a>
+                    </div>
+                    <div class="hero-features">
+                        <div class="hero-feature">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>No credit card required</span>
+                        </div>
+                        <div class="hero-feature">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>100% local deployment</span>
+                        </div>
+                        <div class="hero-feature">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <span>Open source</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -231,13 +493,13 @@
 <!-- Social Proof -->
 <section class="social-proof">
     <div class="container">
-        <p class="text-center text-muted mb-4">Built for SOC training • University capstones • DFIR labs</p>
-        <div class="logo-strip">
-            <div class="logo-placeholder">University Lab</div>
-            <div class="logo-placeholder">SOC Training</div>
-            <div class="logo-placeholder">DFIR Research</div>
-            <div class="logo-placeholder">Cyber Range</div>
-            <div class="logo-placeholder">Blue Team</div>
+        <p class="social-proof-text">Built for SOC training • University capstones • DFIR labs</p>
+        <div class="tag-strip">
+            <div class="tag-item">University Lab</div>
+            <div class="tag-item">SOC Training</div>
+            <div class="tag-item">DFIR Research</div>
+            <div class="tag-item">Cyber Range</div>
+            <div class="tag-item">Blue Team</div>
         </div>
     </div>
 </section>
@@ -245,175 +507,117 @@
 <!-- Features Section -->
 <section class="features-section" id="features">
     <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="display-5 fw-bold">Platform Features</h2>
-            <p class="text-muted">Everything you need for comprehensive ransomware defense training</p>
+        <div class="section-header">
+            <h2 class="section-title">Platform Features</h2>
+            <p class="section-subtitle">Everything you need for comprehensive ransomware defense training</p>
         </div>
         
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="bi bi-cpu"></i></div>
-                    <h3 class="feature-title">Simulation Scenarios</h3>
-                    <p class="text-muted">
-                        Pre-built ransomware scenarios covering crypto-lockers, wipers, 
-                        exfiltration, and multi-stage APT attacks. Custom scenario builder included.
-                    </p>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="bi bi-cpu"></i>
                 </div>
+                <h3 class="feature-title">Simulation Scenarios</h3>
+                <p class="feature-desc">
+                    Pre-built ransomware scenarios covering crypto-lockers, wipers, 
+                    exfiltration, and multi-stage APT attacks. Custom scenario builder included.
+                </p>
             </div>
             
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="bi bi-hdd-network"></i></div>
-                    <h3 class="feature-title">Agent-Based Execution</h3>
-                    <p class="text-muted">
-                        Deploy Windows agents to simulate real ransomware behavior: 
-                        file encryption, VSS deletion, persistence, lateral movement.
-                    </p>
+            <div class="feature-card">
+                <div class="feature-icon purple">
+                    <i class="bi bi-hdd-network"></i>
                 </div>
+                <h3 class="feature-title">Agent-Based Execution</h3>
+                <p class="feature-desc">
+                    Deploy Windows agents to simulate real ransomware behavior: 
+                    file encryption, VSS deletion, persistence, lateral movement.
+                </p>
             </div>
             
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="bi bi-graph-up"></i></div>
-                    <h3 class="feature-title">ELK SIEM Integration</h3>
-                    <p class="text-muted">
-                        Connect to Elasticsearch for real-time alert correlation. 
-                        Auto-refresh dashboards, MITRE ATT&CK heatmaps, and alert feeds.
-                    </p>
+            <div class="feature-card">
+                <div class="feature-icon blue">
+                    <i class="bi bi-graph-up"></i>
                 </div>
+                <h3 class="feature-title">ELK SIEM Integration</h3>
+                <p class="feature-desc">
+                    Connect to Elasticsearch for real-time alert correlation. 
+                    Auto-refresh dashboards, MITRE ATT&CK heatmaps, and alert feeds.
+                </p>
             </div>
             
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="bi bi-bell"></i></div>
-                    <h3 class="feature-title">Live Alerts Feed</h3>
-                    <p class="text-muted">
-                        Real-time alert streaming from Elastic Security. 
-                        Filter by severity, host, and MITRE technique.
-                    </p>
+            <div class="feature-card">
+                <div class="feature-icon yellow">
+                    <i class="bi bi-bell"></i>
                 </div>
+                <h3 class="feature-title">Live Alerts Feed</h3>
+                <p class="feature-desc">
+                    Real-time alert streaming from Elastic Security. 
+                    Filter by severity, host, and MITRE technique.
+                </p>
             </div>
             
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="bi bi-lightning"></i></div>
-                    <h3 class="feature-title">SOAR Auto Response</h3>
-                    <p class="text-muted">
-                        Lab-safe automated response playbooks: host isolation, 
-                        process termination, user disablement, file quarantine.
-                    </p>
+            <div class="feature-card">
+                <div class="feature-icon green">
+                    <i class="bi bi-lightning"></i>
                 </div>
+                <h3 class="feature-title">SOAR Auto Response</h3>
+                <p class="feature-desc">
+                    Lab-safe automated response playbooks: host isolation, 
+                    process termination, user disablement, file quarantine.
+                </p>
             </div>
             
-            <div class="col-md-4">
-                <div class="feature-card">
-                    <div class="feature-icon"><i class="bi bi-file-earmark-text"></i></div>
-                    <h3 class="feature-title">MITRE ATT&CK Reports</h3>
-                    <p class="text-muted">
-                        Automatic technique mapping, behavior profiling, 
-                        compliance reports (GDPR, HIPAA), and forensic timelines.
-                    </p>
+            <div class="feature-card">
+                <div class="feature-icon purple">
+                    <i class="bi bi-file-earmark-text"></i>
                 </div>
+                <h3 class="feature-title">MITRE ATT&CK Reports</h3>
+                <p class="feature-desc">
+                    Automatic technique mapping, behavior profiling, 
+                    compliance reports (GDPR, HIPAA), and forensic timelines.
+                </p>
             </div>
         </div>
     </div>
 </section>
 
 <!-- How It Works -->
-<section class="how-it-works" id="how-it-works">
+<section class="how-section" id="how-it-works">
     <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="display-5 fw-bold">How It Works</h2>
-            <p class="text-muted">Three simple steps to start training</p>
+        <div class="section-header">
+            <h2 class="section-title">How It Works</h2>
+            <p class="section-subtitle">Three simple steps to start training</p>
         </div>
         
-        <div class="row">
-            <div class="col-md-4">
-                <div class="step-card">
-                    <div class="step-number">1</div>
-                    <h4>Deploy Agent</h4>
-                    <p class="text-muted">
-                        Install the RansomRun agent on Windows test machines. 
-                        Agents register automatically and poll for tasks.
-                    </p>
-                </div>
+        <div class="steps-container">
+            <div class="step-card">
+                <div class="step-number">1</div>
+                <h3 class="step-title">Deploy Agent</h3>
+                <p class="step-desc">
+                    Install the RansomRun agent on Windows test machines. 
+                    Agents register automatically and poll for tasks.
+                </p>
+                <div class="step-connector"></div>
             </div>
             
-            <div class="col-md-4">
-                <div class="step-card">
-                    <div class="step-number">2</div>
-                    <h4>Run Scenario</h4>
-                    <p class="text-muted">
-                        Select a ransomware scenario and target host. 
-                        Watch real-time execution with full forensic logging.
-                    </p>
-                </div>
+            <div class="step-card">
+                <div class="step-number">2</div>
+                <h3 class="step-title">Run Scenario</h3>
+                <p class="step-desc">
+                    Select a ransomware scenario and target host. 
+                    Watch real-time execution with full forensic logging.
+                </p>
+                <div class="step-connector"></div>
             </div>
             
-            <div class="col-md-4">
-                <div class="step-card">
-                    <div class="step-number">3</div>
-                    <h4>Detect & Respond</h4>
-                    <p class="text-muted">
-                        Analyze alerts in SIEM, trigger response playbooks, 
-                        and generate compliance reports.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Screenshots Section -->
-<section class="screenshots-section" id="screenshots">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="display-5 fw-bold">Platform Overview</h2>
-            <p class="text-muted">See RansomRun in action</p>
-        </div>
-        
-        <div class="row">
-            <div class="col-lg-4 col-md-6">
-                <div class="screenshot-card">
-                    <div class="screenshot-placeholder">
-                        <i class="bi bi-activity" style="font-size: 3rem;"></i>
-                    </div>
-                    <div class="screenshot-caption">
-                        <h5>Simulation History</h5>
-                        <p class="text-muted small">
-                            Track all simulation runs with status, duration, and quick access to reports.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-lg-4 col-md-6">
-                <div class="screenshot-card">
-                    <div class="screenshot-placeholder">
-                        <i class="bi bi-graph-up-arrow" style="font-size: 3rem;"></i>
-                    </div>
-                    <div class="screenshot-caption">
-                        <h5>ELK SIEM Dashboard</h5>
-                        <p class="text-muted small">
-                            Real-time alerts, MITRE heatmap, and endpoint status monitoring.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-lg-4 col-md-6">
-                <div class="screenshot-card">
-                    <div class="screenshot-placeholder">
-                        <i class="bi bi-file-earmark-bar-graph" style="font-size: 3rem;"></i>
-                    </div>
-                    <div class="screenshot-caption">
-                        <h5>Incident Reports</h5>
-                        <p class="text-muted small">
-                            Detailed forensic timelines, IOCs, and compliance documentation.
-                        </p>
-                    </div>
-                </div>
+            <div class="step-card">
+                <div class="step-number">3</div>
+                <h3 class="step-title">Detect & Respond</h3>
+                <p class="step-desc">
+                    Analyze alerts in SIEM, trigger response playbooks, 
+                    and generate compliance reports.
+                </p>
             </div>
         </div>
     </div>
@@ -422,19 +626,23 @@
 <!-- CTA Section -->
 <section class="cta-section">
     <div class="container">
-        <h2 class="display-5 fw-bold mb-4">Ready to Start Training?</h2>
-        <p class="lead mb-4">Join SOC teams and universities using RansomRun for hands-on defense training</p>
-        
-        <form action="/demo-request" method="POST" class="d-inline-block" id="demoForm">
-            <input type="email" name="email" class="cta-input" placeholder="Enter your email" required>
-            <button type="submit" class="btn btn-light">
-                <i class="bi bi-rocket-takeoff"></i> Get Started
-            </button>
-        </form>
-        
-        <p class="mt-3 small" style="color: rgba(255,255,255,0.8);">
-            Or <a href="/signup" style="color: white; text-decoration: underline;">create an account</a> to start immediately
-        </p>
+        <div class="cta-box">
+            <h2 class="cta-title">Ready to Start Training?</h2>
+            <p class="cta-subtitle">
+                Join SOC teams and universities using RansomRun for hands-on defense training
+            </p>
+            
+            <form action="/demo-request" method="POST" class="cta-form" id="demoForm">
+                <input type="email" name="email" class="cta-input" placeholder="Enter your email" required>
+                <button type="submit" class="cta-btn">
+                    <i class="bi bi-rocket-takeoff"></i> Get Started
+                </button>
+            </form>
+            
+            <p class="cta-note">
+                Or <a href="/signup">create an account</a> to start immediately
+            </p>
+        </div>
     </div>
 </section>
 {% endblock %}

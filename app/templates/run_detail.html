@@ -101,17 +101,141 @@
             </div>
         </div>
         
+        <!-- IR Phase Tracker - Improved Design -->
+        <div class="panel mb-4" id="irPhasePanel">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-shield-check me-2"></i>NIST IR Lifecycle</h3>
+                <button class="btn btn-ghost btn-sm" onclick="loadIRTimeline()" title="Refresh">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+            <div class="panel-body">
+                <!-- Phase Progress Bar -->
+                <div style="position: relative; margin-bottom: 24px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; position: relative;">
+                        <!-- Progress Line Background -->
+                        <div style="position: absolute; top: 20px; left: 40px; right: 40px; height: 4px; background: #27272a; border-radius: 2px; z-index: 0;"></div>
+                        <!-- Progress Line Active -->
+                        <div id="phaseProgressLine" style="position: absolute; top: 20px; left: 40px; height: 4px; background: linear-gradient(90deg, #22c55e, #3b82f6); border-radius: 2px; z-index: 1; width: 0%; transition: width 0.5s ease;"></div>
+                        
+                        <!-- Phase 1: Preparation -->
+                        <div class="ir-phase" data-phase="PREPARATION" style="flex: 1; text-align: center; z-index: 2;">
+                            <div class="phase-icon" style="width: 40px; height: 40px; border-radius: 50%; background: #27272a; border: 3px solid #3f3f46; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s ease;">
+                                <i class="bi bi-clipboard-check" style="color: #71717a; font-size: 16px;"></i>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; color: #fafafa;">Preparation</div>
+                            <div class="phase-status" style="font-size: 9px; color: #71717a; margin-top: 2px;">PENDING</div>
+                        </div>
+                        
+                        <!-- Phase 2: Identification -->
+                        <div class="ir-phase" data-phase="IDENTIFICATION" style="flex: 1; text-align: center; z-index: 2;">
+                            <div class="phase-icon" style="width: 40px; height: 40px; border-radius: 50%; background: #27272a; border: 3px solid #3f3f46; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s ease;">
+                                <i class="bi bi-search" style="color: #71717a; font-size: 16px;"></i>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; color: #fafafa;">Identification</div>
+                            <div class="phase-status" style="font-size: 9px; color: #71717a; margin-top: 2px;">PENDING</div>
+                        </div>
+                        
+                        <!-- Phase 3: Containment -->
+                        <div class="ir-phase" data-phase="CONTAINMENT" style="flex: 1; text-align: center; z-index: 2;">
+                            <div class="phase-icon" style="width: 40px; height: 40px; border-radius: 50%; background: #27272a; border: 3px solid #3f3f46; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s ease;">
+                                <i class="bi bi-shield-exclamation" style="color: #71717a; font-size: 16px;"></i>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; color: #fafafa;">Containment</div>
+                            <div class="phase-status" style="font-size: 9px; color: #71717a; margin-top: 2px;">PENDING</div>
+                        </div>
+                        
+                        <!-- Phase 4: Eradication -->
+                        <div class="ir-phase" data-phase="ERADICATION" style="flex: 1; text-align: center; z-index: 2;">
+                            <div class="phase-icon" style="width: 40px; height: 40px; border-radius: 50%; background: #27272a; border: 3px solid #3f3f46; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s ease;">
+                                <i class="bi bi-trash" style="color: #71717a; font-size: 16px;"></i>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; color: #fafafa;">Eradication</div>
+                            <div class="phase-status" style="font-size: 9px; color: #71717a; margin-top: 2px;">PENDING</div>
+                        </div>
+                        
+                        <!-- Phase 5: Recovery -->
+                        <div class="ir-phase" data-phase="RECOVERY" style="flex: 1; text-align: center; z-index: 2;">
+                            <div class="phase-icon" style="width: 40px; height: 40px; border-radius: 50%; background: #27272a; border: 3px solid #3f3f46; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s ease;">
+                                <i class="bi bi-arrow-counterclockwise" style="color: #71717a; font-size: 16px;"></i>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; color: #fafafa;">Recovery</div>
+                            <div class="phase-status" style="font-size: 9px; color: #71717a; margin-top: 2px;">PENDING</div>
+                        </div>
+                        
+                        <!-- Phase 6: Lessons Learned -->
+                        <div class="ir-phase" data-phase="LESSONS_LEARNED" style="flex: 1; text-align: center; z-index: 2;">
+                            <div class="phase-icon" style="width: 40px; height: 40px; border-radius: 50%; background: #27272a; border: 3px solid #3f3f46; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.3s ease;">
+                                <i class="bi bi-journal-text" style="color: #71717a; font-size: 16px;"></i>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; color: #fafafa;">Lessons</div>
+                            <div class="phase-status" style="font-size: 9px; color: #71717a; margin-top: 2px;">PENDING</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- IR Timeline Events -->
+                <div style="background: #18181b; border-radius: 8px; padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 13px; font-weight: 600; color: #fafafa;"><i class="bi bi-clock-history me-2"></i>Timeline Events</span>
+                        <select id="irPhaseFilter" class="form-select form-select-sm" style="width: auto; background: #27272a; border-color: #3f3f46; color: #fafafa; font-size: 11px;" onchange="filterIRTimeline()">
+                            <option value="">All Phases</option>
+                            <option value="PREPARATION">Preparation</option>
+                            <option value="IDENTIFICATION">Identification</option>
+                            <option value="CONTAINMENT">Containment</option>
+                            <option value="ERADICATION">Eradication</option>
+                            <option value="RECOVERY">Recovery</option>
+                        </select>
+                    </div>
+                    <div id="irTimelineTable" style="max-height: 250px; overflow-y: auto;">
+                        <div style="text-align: center; padding: 20px; color: #71717a;">
+                            <i class="bi bi-hourglass-split"></i> Loading IR timeline...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lessons Learned Panel -->
+        <div class="panel mb-4" id="lessonsLearnedPanel">
+            <div class="panel-header">
+                <h3 class="panel-title"><i class="bi bi-journal-text me-2"></i>Lessons Learned</h3>
+                <button class="btn btn-primary btn-sm" onclick="generateLessonsLearned()" id="generateLessonsBtn">
+                    <i class="bi bi-magic me-1"></i> Generate
+                </button>
+            </div>
+            <div class="panel-body" id="lessonsContent">
+                <div style="text-align: center; padding: 30px; color: #71717a;">
+                    <i class="bi bi-journal-text" style="font-size: 32px; display: block; margin-bottom: 12px;"></i>
+                    <p>Click "Generate" to create a lessons learned report based on this simulation's data.</p>
+                </div>
+            </div>
+        </div>
+
         <!-- Incident Timeline -->
         <div class="panel mb-4">
             <div class="panel-header">
-                <h3 class="panel-title">Incident Timeline</h3>
-                <span class="badge badge-gray">{{ timeline|length }} events</span>
+                <h3 class="panel-title"><i class="bi bi-clock-history me-2"></i>Incident Timeline</h3>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <select id="timelineFilter" class="form-select form-select-sm" style="width: auto; background: #27272a; border-color: #3f3f46; color: #fafafa; font-size: 11px;" onchange="filterTimeline()">
+                        <option value="">All Events</option>
+                        <option value="alerts">Alerts</option>
+                        <option value="tasks">Tasks</option>
+                        <option value="response">Response</option>
+                        <option value="rollback">Rollback</option>
+                        <option value="system">System</option>
+                    </select>
+                    <span class="badge badge-gray" id="eventCount">{{ timeline|length }} events</span>
+                    <a href="/api/runs/{{ run.id }}/timeline/export?format=json" class="btn btn-ghost btn-sm" title="Export JSON">
+                        <i class="bi bi-download"></i>
+                    </a>
+                </div>
             </div>
-            <div class="panel-body" style="max-height: 500px; overflow-y: auto;">
+            <div class="panel-body" id="timelineContainer" style="max-height: 500px; overflow-y: auto;">
                 {% if timeline %}
-                <div class="timeline">
+                <div class="timeline" id="timelineList">
                     {% for event in timeline %}
-                    <div class="timeline-item" style="display: flex; gap: 16px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #27272a;">
+                    <div class="timeline-item" data-category="{{ event.category|default('system') }}" style="display: flex; gap: 16px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #27272a;">
                         <div style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; 
                                     background: rgba({% if event.color == 'danger' %}239, 68, 68{% elif event.color == 'success' %}34, 197, 94{% elif event.color == 'warning' %}234, 179, 8{% elif event.color == 'info' %}59, 130, 246{% else %}113, 113, 122{% endif %}, 0.15);
                                     display: flex; align-items: center; justify-content: center;">
@@ -468,7 +592,7 @@
         </div>
     </div>
     
-    <!-- Compliance Report - Modern Design -->
+    <!-- Compliance Report - Enhanced Design -->
     <div class="col-lg-6">
         <div class="panel" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
             <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
@@ -521,18 +645,42 @@
                     </div>
                 </div>
                 
+                <!-- Regulatory Frameworks -->
+                <div style="background: #0f0f14; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+                    <div style="font-size: 10px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;">Applicable Regulations</div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;">GDPR</span>
+                        <span style="background: rgba(168, 85, 247, 0.15); color: #c4b5fd; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;">HIPAA</span>
+                        <span style="background: rgba(234, 179, 8, 0.15); color: #fde047; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;">PCI-DSS</span>
+                        <span style="background: rgba(34, 197, 94, 0.15); color: #86efac; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;">SOX</span>
+                    </div>
+                </div>
+                
                 <a href="/runs/{{ run.id }}/compliance" class="btn w-100" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border: none; color: white; padding: 12px;">
                     <i class="bi bi-file-earmark-text me-2"></i>View Full Report
                 </a>
                 {% else %}
-                <div style="text-align: center; padding: 40px 20px;">
+                <!-- No Report Yet - Enhanced Empty State -->
+                <div style="text-align: center; padding: 20px;">
                     <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
                         <i class="bi bi-clipboard-check" style="color: white; font-size: 28px;"></i>
                     </div>
                     <h4 style="color: #fafafa; margin-bottom: 8px; font-size: 16px;">Compliance Assessment</h4>
-                    <p style="color: #71717a; margin-bottom: 16px; font-size: 13px;">Generate a compliance report to assess regulatory requirements and notification obligations.</p>
-                    <button onclick="generateCompliance()" class="btn btn-primary" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border: none; padding: 10px 24px;">
-                        <i class="bi bi-file-earmark-plus me-2"></i>Generate Report
+                    <p style="color: #71717a; margin-bottom: 16px; font-size: 13px;">Generate a detailed compliance report covering GDPR, HIPAA, PCI-DSS, and other regulatory frameworks.</p>
+                    
+                    <!-- Key Features -->
+                    <div style="background: #0f0f14; border-radius: 10px; padding: 14px; margin-bottom: 16px; text-align: left;">
+                        <div style="font-size: 11px; color: #71717a; margin-bottom: 10px; text-transform: uppercase;">Report Includes:</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <div style="font-size: 12px; color: #a1a1aa;"><i class="bi bi-check2 me-2" style="color: #22c55e;"></i>Risk Assessment</div>
+                            <div style="font-size: 12px; color: #a1a1aa;"><i class="bi bi-check2 me-2" style="color: #22c55e;"></i>Data Classification</div>
+                            <div style="font-size: 12px; color: #a1a1aa;"><i class="bi bi-check2 me-2" style="color: #22c55e;"></i>Notification Timeline</div>
+                            <div style="font-size: 12px; color: #a1a1aa;"><i class="bi bi-check2 me-2" style="color: #22c55e;"></i>Remediation Steps</div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="generateCompliance()" class="btn btn-primary w-100" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border: none; padding: 12px;">
+                        <i class="bi bi-file-earmark-plus me-2"></i>Generate Compliance Report
                     </button>
                 </div>
                 {% endif %}
@@ -621,45 +769,210 @@
     </div>
 </div>
 
-<!-- What-If Analysis -->
-<div class="panel mt-4">
-    <div class="panel-header">
-        <h3 class="panel-title"><i class="bi bi-clock-history me-2"></i>What-If Analysis</h3>
-    </div>
-    <div class="panel-body">
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                <div style="font-size: 12px; color: #71717a; margin-bottom: 8px;">Create What-If Scenario</div>
-                <select id="whatifTemplate" class="form-select form-select-sm mb-2" style="background: #18181b; border-color: #27272a; color: #fafafa;">
-                    <option value="extra_powershell_rule">Extra PowerShell Detection Rule</option>
-                    <option value="edr_present">EDR Agent Present</option>
-                    <option value="no_local_admin">User Not Local Admin</option>
-                    <option value="faster_response">Faster SOC Response</option>
-                    <option value="backup_available">Recent Backups Available</option>
-                </select>
-                <button onclick="createWhatIf()" class="btn btn-primary btn-sm w-100">Analyze</button>
+<!-- Containment & Isolation Section (visible when run is finished) -->
+{% if run.status.value in ['COMPLETED', 'FAILED'] %}
+<div class="row g-4 mt-2">
+    <div class="col-12">
+        <div class="panel" style="border: 1px solid #ef4444; background: linear-gradient(135deg, #18181b 0%, rgba(239, 68, 68, 0.05) 100%);">
+            <div class="panel-header" style="border-bottom: 1px solid rgba(239, 68, 68, 0.3);">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-shield-exclamation" style="color: white; font-size: 18px;"></i>
+                    </div>
+                    <span>Containment & Isolation</span>
+                </h3>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span id="containmentStatusBadge" class="badge badge-gray">Loading...</span>
+                    <span id="lastActionResult" class="badge badge-gray" style="display: none;"></span>
+                    <div class="form-check form-switch" style="margin: 0;">
+                        <input class="form-check-input" type="checkbox" id="dryRunToggle" checked onchange="updateDryRunWarning()">
+                        <label class="form-check-label" for="dryRunToggle" style="font-size: 11px; color: #a1a1aa;">Dry Run</label>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-8">
+            <div class="panel-body" style="padding: 20px;">
+                <!-- DRY RUN WARNING BANNER -->
+                <div id="dryRunWarning" style="background: rgba(245, 158, 11, 0.15); border: 2px solid #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
+                    <i class="bi bi-exclamation-triangle-fill" style="color: #f59e0b; font-size: 20px;"></i>
+                    <div>
+                        <div style="font-weight: 600; color: #f59e0b;">DRY RUN MODE ENABLED</div>
+                        <div style="font-size: 12px; color: #a1a1aa;">No actual network isolation will occur. Turn off Dry Run to apply real changes.</div>
+                    </div>
+                </div>
+                
+                <!-- Last Action Result -->
+                <div id="actionResultBanner" style="display: none; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i id="actionResultIcon" class="bi" style="font-size: 20px;"></i>
+                        <div>
+                            <div id="actionResultTitle" style="font-weight: 600;"></div>
+                            <div id="actionResultMessage" style="font-size: 12px; color: #a1a1aa;"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <!-- Ransomware Artifacts Column -->
+                    <div class="col-lg-6">
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                            <i class="bi bi-folder-symlink me-1"></i> Ransomware Artifacts
+                        </div>
+                        <div id="artifactsContainer">
+                            <div style="text-align: center; padding: 20px; color: #71717a;">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <div style="margin-top: 8px;">Loading artifact data...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Containment Actions Column -->
+                    <div class="col-lg-6">
+                        <div style="font-size: 11px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                            <i class="bi bi-gear me-1"></i> Containment Actions
+                        </div>
+                        
+                        <!-- Block Path Section -->
+                        <div style="background: #0f0f14; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #fafafa; margin-bottom: 8px; font-weight: 500;">Block Path</div>
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" id="blockPathInput" class="form-control" placeholder="C:\path\to\malware" style="background: #18181b; border-color: #27272a; color: #fafafa;">
+                                <select id="blockModeSelect" class="form-select" style="background: #18181b; border-color: #27272a; color: #fafafa; max-width: 140px;">
+                                    <option value="acl_deny">ACL Deny</option>
+                                    <option value="quarantine_and_deny">Quarantine + Deny</option>
+                                </select>
+                            </div>
+                            <button onclick="blockPath()" class="btn btn-danger btn-sm w-100">
+                                <i class="bi bi-slash-circle me-1"></i> Block Path
+                            </button>
+                        </div>
+                        
+                        <!-- Quarantine File Section -->
+                        <div style="background: #0f0f14; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #fafafa; margin-bottom: 8px; font-weight: 500;">Quarantine File</div>
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" id="quarantinePathInput" class="form-control" placeholder="C:\path\to\file" style="background: #18181b; border-color: #27272a; color: #fafafa;">
+                            </div>
+                            <button onclick="quarantineFile()" class="btn btn-warning btn-sm w-100">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> Quarantine File
+                            </button>
+                        </div>
+                        
+                        <!-- Network Isolation Section -->
+                        <div style="background: #0f0f14; border-radius: 8px; padding: 12px;">
+                            <div style="font-size: 12px; color: #fafafa; margin-bottom: 8px; font-weight: 500;">Network Isolation</div>
+                            <select id="isolationMethodSelect" class="form-select form-select-sm mb-2" style="background: #18181b; border-color: #27272a; color: #fafafa;">
+                                <option value="firewall_lockdown">Firewall Lockdown (recommended)</option>
+                                <option value="disable_adapters">Disable Network Adapters</option>
+                            </select>
+                            <div class="d-flex gap-2">
+                                <button onclick="isolateHostContainment()" class="btn btn-danger btn-sm flex-fill">
+                                    <i class="bi bi-wifi-off me-1"></i> Isolate Host
+                                </button>
+                                <button onclick="restoreNetwork()" class="btn btn-success btn-sm flex-fill">
+                                    <i class="bi bi-wifi me-1"></i> Restore Network
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Containment History -->
+                <div style="margin-top: 20px; border-top: 1px solid #27272a; padding-top: 16px;">
+                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">
+                        <i class="bi bi-clock-history me-1"></i> Containment History
+                    </div>
+                    <div id="containmentHistory" style="max-height: 150px; overflow-y: auto;">
+                        <div style="text-align: center; padding: 10px; color: #71717a; font-size: 12px;">
+                            Loading history...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- What-If Analysis - Enhanced -->
+<div class="panel mt-4" style="background: linear-gradient(135deg, #18181b 0%, #1a1a2e 100%); border: 1px solid #27272a;">
+    <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+        <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-lightning-charge-fill" style="color: white; font-size: 18px;"></i>
+            </div>
+            <span>What-If Analysis</span>
+        </h3>
+    </div>
+    <div class="panel-body" style="padding: 20px;">
+        <div class="row g-4">
+            <!-- Scenario Selector -->
+            <div class="col-md-5">
+                <div style="background: #0f0f14; border-radius: 12px; padding: 20px; height: 100%;">
+                    <div style="font-size: 13px; font-weight: 600; color: #fafafa; margin-bottom: 16px;">
+                        <i class="bi bi-sliders me-2" style="color: #8b5cf6;"></i>Defense Simulation
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="font-size: 11px; color: #71717a; text-transform: uppercase; display: block; margin-bottom: 6px;">Scenario Type</label>
+                        <select id="whatifTemplate" class="form-select" style="background: #18181b; border-color: #3f3f46; color: #fafafa; padding: 10px 12px;">
+                            <option value="extra_powershell_rule">🛡️ Extra PowerShell Detection Rule</option>
+                            <option value="edr_present">🔒 EDR Agent Present</option>
+                            <option value="no_local_admin">👤 User Not Local Admin</option>
+                            <option value="faster_response">⚡ Faster SOC Response (5 min)</option>
+                            <option value="backup_available">💾 Recent Backups Available</option>
+                            <option value="network_segmentation">🌐 Network Segmentation Active</option>
+                            <option value="mfa_enabled">🔐 MFA Enabled on All Accounts</option>
+                        </select>
+                    </div>
+                    <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                        <div style="font-size: 11px; color: #a78bfa; margin-bottom: 4px;"><i class="bi bi-info-circle me-1"></i>About This Analysis</div>
+                        <div style="font-size: 12px; color: #a1a1aa;">Simulate how different security controls would have impacted the attack outcome based on MITRE ATT&CK data.</div>
+                    </div>
+                    <button onclick="createWhatIf()" class="btn w-100" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border: none; color: white; padding: 12px; font-weight: 600;">
+                        <i class="bi bi-play-fill me-2"></i>Run Analysis
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Results Panel -->
+            <div class="col-md-7">
                 {% if whatif_scenarios %}
-                <div style="max-height: 200px; overflow-y: auto;">
+                <div style="font-size: 13px; font-weight: 600; color: #fafafa; margin-bottom: 12px;">
+                    <i class="bi bi-graph-up me-2" style="color: #22c55e;"></i>Analysis Results
+                </div>
+                <div style="max-height: 280px; overflow-y: auto;">
                     {% for scenario in whatif_scenarios %}
-                    <div style="background: #0f0f14; border-radius: 8px; padding: 12px; margin-bottom: 8px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <strong style="color: #fafafa;">{{ scenario.name }}</strong>
+                    <div style="background: #0f0f14; border-radius: 10px; padding: 16px; margin-bottom: 10px; border-left: 3px solid {% if scenario.recalculated_metrics and scenario.recalculated_metrics.risk_reduction %}#22c55e{% else %}#3f3f46{% endif %};">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                            <div>
+                                <strong style="color: #fafafa; font-size: 14px;">{{ scenario.name }}</strong>
+                                <div style="font-size: 11px; color: #71717a; margin-top: 2px;">Applied: {{ scenario.created_at.strftime('%H:%M:%S') if scenario.created_at else 'N/A' }}</div>
+                            </div>
                             {% if scenario.recalculated_metrics and scenario.recalculated_metrics.risk_reduction %}
-                            <span class="badge badge-success">-{{ scenario.recalculated_metrics.risk_reduction }} risk</span>
+                            <span style="background: rgba(34, 197, 94, 0.15); color: #4ade80; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;">
+                                <i class="bi bi-arrow-down me-1"></i>{{ scenario.recalculated_metrics.risk_reduction }}% Risk
+                            </span>
                             {% endif %}
                         </div>
                         {% if scenario.recalculated_metrics %}
-                        <div style="font-size: 12px; color: #a1a1aa;">{{ scenario.recalculated_metrics.summary }}</div>
+                        <div style="font-size: 12px; color: #a1a1aa; line-height: 1.5;">{{ scenario.recalculated_metrics.summary }}</div>
+                        {% if scenario.recalculated_metrics.blocked_techniques %}
+                        <div style="margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap;">
+                            {% for tech in scenario.recalculated_metrics.blocked_techniques[:3] %}
+                            <span style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; padding: 2px 8px; border-radius: 4px; font-size: 10px;">{{ tech }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                         {% endif %}
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
-                <div style="text-align: center; padding: 30px; color: #71717a;">
-                    <i class="bi bi-lightbulb" style="font-size: 24px;"></i>
-                    <p style="margin-top: 8px;">Select a scenario to see how different defenses would have changed the outcome.</p>
+                <div style="background: #0f0f14; border-radius: 12px; padding: 40px; text-align: center;">
+                    <div style="width: 60px; height: 60px; background: rgba(139, 92, 246, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <i class="bi bi-lightbulb" style="font-size: 24px; color: #8b5cf6;"></i>
+                    </div>
+                    <h5 style="color: #fafafa; margin-bottom: 8px;">No Analysis Yet</h5>
+                    <p style="color: #71717a; font-size: 13px; margin: 0;">Select a defense scenario and click "Run Analysis" to see how different security controls would have changed the attack outcome.</p>
                 </div>
                 {% endif %}
             </div>
@@ -1000,10 +1313,731 @@ async function deisolateHost() {
     }
 }
 
+// ============ NEW Containment & Isolation Functions ============
+
+async function loadContainmentData() {
+    const container = document.getElementById('artifactsContainer');
+    try {
+        const resp = await fetch(`/api/runs/${runId}/containment`);
+        if (!resp.ok) {
+            const errText = await resp.text();
+            container.innerHTML = `<div style="color: #ef4444; padding: 10px;">Failed to load containment data: ${resp.status}</div>`;
+            return;
+        }
+        
+        const data = await resp.json();
+        renderArtifacts(data.artifacts);
+        renderContainmentStatusBadge(data.containment_status);
+        renderContainmentHistoryItems(data.containment_events);
+        
+        // Pre-fill block path input with entry_path if available
+        if (data.artifacts && data.artifacts.entry_path) {
+            document.getElementById('blockPathInput').value = data.artifacts.entry_path;
+            document.getElementById('quarantinePathInput').value = data.artifacts.entry_path;
+        }
+        
+    } catch (e) {
+        console.error('Failed to load containment data:', e);
+        // Network error - could mean host is isolated or backend unreachable
+        container.innerHTML = `
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <i class="bi bi-exclamation-circle" style="color: #ef4444;"></i>
+                    <span style="color: #ef4444; font-weight: 600;">Network Error</span>
+                </div>
+                <div style="font-size: 12px; color: #a1a1aa;">
+                    Could not reach backend. If the host is isolated, this is expected.<br>
+                    <strong>To restore:</strong> Run agent manually or wait for scheduled restore.
+                </div>
+                <button onclick="loadContainmentData()" class="btn btn-sm btn-outline-secondary mt-2">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Retry
+                </button>
+            </div>`;
+    }
+}
+
+function renderArtifacts(artifacts) {
+    const container = document.getElementById('artifactsContainer');
+    if (!artifacts) {
+        container.innerHTML = '<div style="color: #71717a; padding: 10px; text-align: center;">No artifact data available yet</div>';
+        return;
+    }
+    
+    const items = [
+        { label: 'Entry Path', value: artifacts.entry_path, icon: 'file-earmark-code', copyable: true },
+        { label: 'Dropped Payload', value: artifacts.dropped_payload_path, icon: 'file-earmark-binary' },
+        { label: 'Working Directory', value: artifacts.working_dir, icon: 'folder' },
+        { label: 'Target Directory', value: artifacts.target_dir, icon: 'folder-fill', copyable: true },
+        { label: 'Ransom Note', value: artifacts.ransom_note_path, icon: 'file-text' },
+        { label: 'Encryption Key (LAB)', value: artifacts.encryption_key_path, icon: 'key', warn: true }
+    ];
+    
+    let html = '';
+    for (const item of items) {
+        if (!item.value) continue;
+        
+        const warnStyle = item.warn ? 'border-left: 3px solid #f59e0b;' : '';
+        html += `
+            <div style="background: #0f0f14; border-radius: 6px; padding: 10px; margin-bottom: 8px; ${warnStyle}">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 10px; color: #71717a; text-transform: uppercase;">
+                        <i class="bi bi-${item.icon} me-1"></i>${item.label}
+                    </div>
+                    ${item.copyable ? `<button onclick="copyToClipboard('${item.value.replace(/\\/g, '\\\\')}')" class="btn btn-ghost btn-sm" style="padding: 2px 6px;"><i class="bi bi-clipboard" style="font-size: 10px;"></i></button>` : ''}
+                </div>
+                <code style="font-size: 11px; word-break: break-all; color: #fafafa;">${item.value}</code>
+            </div>
+        `;
+    }
+    
+    // Process info
+    if (artifacts.process) {
+        html += `
+            <div style="background: #0f0f14; border-radius: 6px; padding: 10px; margin-top: 8px;">
+                <div style="font-size: 10px; color: #71717a; text-transform: uppercase; margin-bottom: 6px;">
+                    <i class="bi bi-cpu me-1"></i>Process Info
+                </div>
+                <div style="font-size: 11px; color: #a1a1aa;">
+                    <strong>PID:</strong> ${artifacts.process.pid || 'N/A'}<br>
+                    <strong>Name:</strong> ${artifacts.process.name || 'N/A'}<br>
+                    <strong>Command:</strong> <code style="font-size: 10px;">${(artifacts.process.command_line || '').substring(0, 80)}...</code>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.innerHTML = html || '<div style="color: #71717a; padding: 10px; text-align: center;">No artifacts found</div>';
+}
+
+function renderContainmentStatusBadge(status) {
+    const badge = document.getElementById('containmentStatusBadge');
+    if (!badge) return;
+    
+    if (status && status.isolated) {
+        badge.className = 'badge badge-danger';
+        badge.textContent = 'ISOLATED';
+    } else {
+        badge.className = 'badge badge-success';
+        badge.textContent = 'NOT ISOLATED';
+    }
+}
+
+function renderContainmentHistoryItems(events) {
+    const container = document.getElementById('containmentHistory');
+    if (!container) return;
+    
+    if (!events || events.length === 0) {
+        container.innerHTML = '<div style="color: #71717a; font-size: 12px; text-align: center; padding: 10px;">No containment actions yet</div>';
+        return;
+    }
+    
+    const eventIcons = {
+        'HOST_ISOLATION_REQUESTED': 'wifi-off',
+        'HOST_ISOLATED': 'shield-lock-fill',
+        'HOST_RESTORE_REQUESTED': 'wifi',
+        'HOST_NETWORK_RESTORED': 'shield-check',
+        'PATH_BLOCK_REQUESTED': 'slash-circle',
+        'PATH_BLOCKED': 'x-circle-fill',
+        'QUARANTINE_REQUESTED': 'box-arrow-in-right',
+        'FILE_QUARANTINED': 'archive-fill',
+        'RANSOMWARE_ARTIFACTS_RECEIVED': 'folder-symlink'
+    };
+    
+    let html = '';
+    for (const event of events) {
+        const icon = eventIcons[event.event_type] || 'circle';
+        const ts = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '';
+        html += `
+            <div style="display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #27272a; font-size: 11px;">
+                <i class="bi bi-${icon}" style="color: #ef4444;"></i>
+                <div style="flex: 1; color: #a1a1aa;">${event.event_type.replace(/_/g, ' ')}</div>
+                <div style="color: #71717a;">${ts}</div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        // Show brief feedback
+        alert('Copied to clipboard');
+    });
+}
+
+function getDryRun() {
+    const toggle = document.getElementById('dryRunToggle');
+    return toggle ? toggle.checked : true;
+}
+
+async function blockPath() {
+    const path = document.getElementById('blockPathInput').value.trim();
+    const mode = document.getElementById('blockModeSelect').value;
+    const dryRun = getDryRun();
+    
+    if (!path) {
+        alert('Please enter a path to block');
+        return;
+    }
+    
+    if (!dryRun && !confirm(`Block path: ${path}?\nMode: ${mode}\n\nThis will apply ACL restrictions.`)) {
+        return;
+    }
+    
+    try {
+        const resp = await fetch(`/api/runs/${runId}/containment/block-path`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, mode, dry_run: dryRun })
+        });
+        const data = await resp.json();
+        
+        if (resp.ok) {
+            if (dryRun) {
+                alert(`DRY RUN - Would execute:\n${JSON.stringify(data.commands || data, null, 2)}`);
+            } else {
+                alert(data.message || 'Path blocked successfully');
+                loadContainmentData();
+            }
+        } else {
+            alert('Failed: ' + (data.detail || data.message || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function quarantineFile() {
+    const path = document.getElementById('quarantinePathInput').value.trim();
+    const dryRun = getDryRun();
+    
+    if (!path) {
+        alert('Please enter a file path to quarantine');
+        return;
+    }
+    
+    if (!dryRun && !confirm(`Quarantine file: ${path}?\n\nThis will move the file to quarantine.`)) {
+        return;
+    }
+    
+    try {
+        const resp = await fetch(`/api/runs/${runId}/containment/quarantine`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path, dry_run: dryRun })
+        });
+        const data = await resp.json();
+        
+        if (resp.ok) {
+            if (dryRun) {
+                alert(`DRY RUN - Would execute:\n${JSON.stringify(data.commands || data, null, 2)}`);
+            } else {
+                alert(data.message || 'File quarantined successfully');
+                loadContainmentData();
+            }
+        } else {
+            alert('Failed: ' + (data.detail || data.message || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// Update dry run warning visibility
+function updateDryRunWarning() {
+    const dryRun = getDryRun();
+    const warning = document.getElementById('dryRunWarning');
+    if (warning) {
+        warning.style.display = dryRun ? 'flex' : 'none';
+    }
+}
+
+// Show action result banner
+function showActionResult(success, title, message) {
+    const banner = document.getElementById('actionResultBanner');
+    const icon = document.getElementById('actionResultIcon');
+    const titleEl = document.getElementById('actionResultTitle');
+    const msgEl = document.getElementById('actionResultMessage');
+    
+    if (!banner) return;
+    
+    banner.style.display = 'block';
+    if (success) {
+        banner.style.background = 'rgba(34, 197, 94, 0.15)';
+        banner.style.border = '1px solid #22c55e';
+        icon.className = 'bi bi-check-circle-fill';
+        icon.style.color = '#22c55e';
+        titleEl.style.color = '#22c55e';
+    } else {
+        banner.style.background = 'rgba(239, 68, 68, 0.15)';
+        banner.style.border = '1px solid #ef4444';
+        icon.className = 'bi bi-x-circle-fill';
+        icon.style.color = '#ef4444';
+        titleEl.style.color = '#ef4444';
+    }
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    
+    // Auto-hide after 10 seconds
+    setTimeout(() => { banner.style.display = 'none'; }, 10000);
+}
+
+async function isolateHostContainment() {
+    const method = document.getElementById('isolationMethodSelect').value;
+    const dryRun = getDryRun();
+    
+    // Clear previous result
+    document.getElementById('actionResultBanner').style.display = 'none';
+    
+    if (dryRun) {
+        // Show warning that this is a dry run
+        if (!confirm('DRY RUN MODE is enabled.\n\nNo actual isolation will occur. The agent will only report what commands would be executed.\n\nTo perform real isolation, turn OFF the Dry Run toggle.\n\nContinue with dry run?')) {
+            return;
+        }
+    } else {
+        if (!confirm(`⚠️ REAL ISOLATION ⚠️\n\nThis will ACTUALLY block all network traffic except backend communication.\n\nMethod: ${method}\n\nThe host will lose internet connectivity.\n\nContinue?`)) {
+            return;
+        }
+    }
+    
+    try {
+        // Show loading state
+        showActionResult(true, 'Requesting isolation...', 'Sending task to agent...');
+        
+        const resp = await fetch(`/api/runs/${runId}/containment/isolate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ method: method, dry_run: dryRun })
+        });
+        const data = await resp.json();
+        
+        if (resp.ok) {
+            if (dryRun) {
+                showActionResult(true, 'DRY RUN - Task Created', `Task ID: ${data.task_id}. No actual changes will be made. Check agent logs for planned commands.`);
+            } else {
+                showActionResult(true, 'Isolation Task Created', `Task ID: ${data.task_id}. Agent will execute firewall lockdown. Backend: ${data.backend_ip}:${data.backend_port}`);
+            }
+            // Reload data after short delay to show task status
+            setTimeout(loadContainmentData, 2000);
+        } else {
+            showActionResult(false, 'Isolation Failed', data.detail || data.message || 'Unknown error');
+        }
+    } catch (e) {
+        showActionResult(false, 'Error', e.message);
+    }
+}
+
+async function restoreNetwork() {
+    const dryRun = getDryRun();
+    
+    // Clear previous result
+    document.getElementById('actionResultBanner').style.display = 'none';
+    
+    if (dryRun) {
+        if (!confirm('DRY RUN MODE is enabled.\n\nNo actual restore will occur.\n\nContinue with dry run?')) {
+            return;
+        }
+    } else {
+        if (!confirm('⚠️ RESTORE NETWORK ⚠️\n\nThis will restore network connectivity by:\n- Importing firewall backup\n- Re-enabling all firewall rules\n- Removing RansomRun allow rules\n\nContinue?')) {
+            return;
+        }
+    }
+    
+    try {
+        showActionResult(true, 'Requesting restore...', 'Sending task to agent...');
+        
+        const resp = await fetch(`/api/runs/${runId}/containment/restore-network`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dry_run: dryRun })
+        });
+        const data = await resp.json();
+        
+        if (resp.ok) {
+            if (dryRun) {
+                showActionResult(true, 'DRY RUN - Task Created', `Task ID: ${data.task_id}. No actual changes will be made.`);
+            } else {
+                showActionResult(true, 'Restore Task Created', `Task ID: ${data.task_id}. Agent will restore network connectivity.`);
+            }
+            setTimeout(loadContainmentData, 2000);
+        } else {
+            showActionResult(false, 'Restore Failed', data.detail || data.message || 'Unknown error');
+        }
+    } catch (e) {
+        showActionResult(false, 'Error', e.message);
+    }
+}
+
 // Load containment and recovery status on page load
 document.addEventListener('DOMContentLoaded', function() {
     loadContainmentStatus();
     loadRecoveryStatus();
+    // Load new containment data if section exists
+    if (document.getElementById('artifactsContainer')) {
+        loadContainmentData();
+        updateDryRunWarning(); // Initialize warning visibility
+    }
+});
+
+function formatTime(seconds) {
+    if (seconds === null || seconds === undefined) return '—';
+    if (seconds < 60) return seconds.toFixed(1) + 's';
+    if (seconds < 3600) return (seconds / 60).toFixed(1) + 'm';
+    return (seconds / 3600).toFixed(1) + 'h';
+}
+
+function filterTimeline() {
+    const filter = document.getElementById('timelineFilter').value;
+    const items = document.querySelectorAll('.timeline-item');
+    let visibleCount = 0;
+    
+    items.forEach(item => {
+        const category = item.dataset.category || 'system';
+        if (!filter || category === filter) {
+            item.style.display = 'flex';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+    
+    document.getElementById('eventCount').textContent = visibleCount + ' events';
+}
+
+// ========== IR Timeline & Lessons Learned Functions ==========
+
+let irTimelineData = null;
+let lessonsData = null;
+
+async function loadIRTimeline() {
+    try {
+        const resp = await fetch(`/api/runs/${runId}/ir/timeline`);
+        if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({}));
+            console.error('Failed to load IR timeline:', errData);
+            document.getElementById('irTimelineTable').innerHTML = `
+                <div style="text-align: center; padding: 20px; color: #ef4444;">
+                    <i class="bi bi-exclamation-triangle"></i> Failed to load: ${errData.detail || resp.statusText}
+                </div>`;
+            return;
+        }
+        
+        irTimelineData = await resp.json();
+        
+        // Update phase tracker
+        updatePhaseTracker(irTimelineData.phases || []);
+        
+        // Render timeline table
+        renderIRTimelineTable(irTimelineData.timeline || []);
+        
+    } catch (e) {
+        console.error('Error loading IR timeline:', e);
+        document.getElementById('irTimelineTable').innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #ef4444;">
+                <i class="bi bi-exclamation-triangle"></i> Error: ${e.message}
+            </div>`;
+    }
+}
+
+function updatePhaseTracker(phases) {
+    let completedCount = 0;
+    const totalPhases = 6;
+    
+    phases.forEach(phase => {
+        const phaseEl = document.querySelector(`.ir-phase[data-phase="${phase.phase}"]`);
+        if (!phaseEl) return;
+        
+        const statusEl = phaseEl.querySelector('.phase-status');
+        const iconEl = phaseEl.querySelector('.phase-icon');
+        const iconI = iconEl ? iconEl.querySelector('i') : null;
+        
+        // Update styling based on status
+        if (phase.status === 'COMPLETED') {
+            if (iconEl) {
+                iconEl.style.background = '#22c55e';
+                iconEl.style.borderColor = '#22c55e';
+            }
+            if (iconI) iconI.style.color = '#fff';
+            statusEl.textContent = '✓ DONE';
+            statusEl.style.color = '#22c55e';
+            completedCount++;
+        } else if (phase.status === 'IN_PROGRESS') {
+            if (iconEl) {
+                iconEl.style.background = 'rgba(234, 179, 8, 0.2)';
+                iconEl.style.borderColor = '#eab308';
+            }
+            if (iconI) iconI.style.color = '#eab308';
+            statusEl.textContent = '● ACTIVE';
+            statusEl.style.color = '#eab308';
+            completedCount += 0.5;
+        } else {
+            if (iconEl) {
+                iconEl.style.background = '#27272a';
+                iconEl.style.borderColor = '#3f3f46';
+            }
+            if (iconI) iconI.style.color = '#71717a';
+            statusEl.textContent = 'PENDING';
+            statusEl.style.color = '#71717a';
+        }
+        
+        // Add event count if any
+        if (phase.event_count > 0) {
+            statusEl.textContent += ` (${phase.event_count})`;
+        }
+    });
+    
+    // Update progress bar
+    const progressLine = document.getElementById('phaseProgressLine');
+    if (progressLine) {
+        const progressPercent = (completedCount / totalPhases) * 100;
+        progressLine.style.width = `calc(${progressPercent}% - 80px)`;
+    }
+}
+
+function renderIRTimelineTable(timeline) {
+    const container = document.getElementById('irTimelineTable');
+    
+    if (!timeline || timeline.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #71717a;">
+                <i class="bi bi-clock-history"></i> No timeline events yet
+            </div>`;
+        return;
+    }
+    
+    const severityColors = {
+        'critical': '#ef4444',
+        'high': '#f97316',
+        'medium': '#eab308',
+        'low': '#3b82f6',
+        'info': '#71717a'
+    };
+    
+    const phaseColors = {
+        'PREPARATION': '#3b82f6',
+        'IDENTIFICATION': '#f97316',
+        'CONTAINMENT': '#ef4444',
+        'ERADICATION': '#a855f7',
+        'RECOVERY': '#22c55e',
+        'LESSONS_LEARNED': '#06b6d4'
+    };
+    
+    let html = `<table class="data-table" style="font-size: 12px;">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Phase</th>
+                <th>Type</th>
+                <th>Title</th>
+                <th>Severity</th>
+                <th>MITRE</th>
+            </tr>
+        </thead>
+        <tbody>`;
+    
+    timeline.forEach(event => {
+        const time = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '—';
+        const sevColor = severityColors[event.severity] || '#71717a';
+        const phaseColor = phaseColors[event.phase] || '#71717a';
+        
+        html += `
+            <tr class="ir-timeline-row" data-phase="${event.phase}" onclick="showEventDetail(${JSON.stringify(event).replace(/"/g, '&quot;')})">
+                <td style="white-space: nowrap;">${time}</td>
+                <td><span style="color: ${phaseColor}; font-weight: 500;">${event.phase}</span></td>
+                <td><code style="font-size: 10px;">${event.type}</code></td>
+                <td>${event.title || '—'}</td>
+                <td><span style="color: ${sevColor}; text-transform: uppercase; font-size: 10px;">${event.severity}</span></td>
+                <td>${event.mitre ? `<span class="badge badge-purple">${event.mitre}</span>` : '—'}</td>
+            </tr>`;
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function filterIRTimeline() {
+    const filter = document.getElementById('irPhaseFilter').value;
+    const rows = document.querySelectorAll('.ir-timeline-row');
+    
+    rows.forEach(row => {
+        if (!filter || row.dataset.phase === filter) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+function showEventDetail(event) {
+    alert(`Event Details:\n\nType: ${event.type}\nPhase: ${event.phase}\nTitle: ${event.title}\nDescription: ${event.description || 'N/A'}\nSeverity: ${event.severity}\nMITRE: ${event.mitre || 'N/A'}\nSource: ${event.source}\n\nEvidence:\n${JSON.stringify(event.evidence_ref, null, 2)}`);
+}
+
+async function loadLessonsLearned() {
+    try {
+        const resp = await fetch(`/api/runs/${runId}/ir/lessons`);
+        if (!resp.ok) return;
+        
+        lessonsData = await resp.json();
+        
+        if (lessonsData.exists) {
+            renderLessonsLearned(lessonsData);
+            document.getElementById('generateLessonsBtn').innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Regenerate';
+        }
+    } catch (e) {
+        console.error('Error loading lessons learned:', e);
+    }
+}
+
+async function generateLessonsLearned() {
+    const btn = document.getElementById('generateLessonsBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Generating...';
+    
+    try {
+        const resp = await fetch(`/api/runs/${runId}/ir/lessons/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!resp.ok) {
+            throw new Error('Failed to generate lessons learned');
+        }
+        
+        const result = await resp.json();
+        lessonsData = result.data;
+        lessonsData.exists = true;
+        
+        renderLessonsLearned(lessonsData);
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Regenerate';
+        
+        // Update Lessons Learned phase to completed
+        const llPhase = document.querySelector('.ir-phase[data-phase="LESSONS_LEARNED"]');
+        if (llPhase) {
+            llPhase.style.borderColor = '#22c55e';
+            llPhase.style.background = 'rgba(34, 197, 94, 0.1)';
+            llPhase.querySelector('.phase-status').textContent = '✓ COMPLETED';
+            llPhase.querySelector('.phase-status').style.color = '#22c55e';
+        }
+        
+    } catch (e) {
+        alert('Error generating lessons learned: ' + e.message);
+        btn.innerHTML = '<i class="bi bi-magic me-1"></i> Generate';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function renderLessonsLearned(data) {
+    const container = document.getElementById('lessonsContent');
+    
+    // Format metrics
+    const metrics = data.metrics || {};
+    const ttd = metrics.time_to_detect_seconds;
+    const ttc = metrics.time_to_contain_seconds;
+    const ttr = metrics.time_to_recover_seconds;
+    
+    let html = `
+        <!-- Summary -->
+        <div style="background: #18181b; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+            <h5 style="color: #fafafa; margin-bottom: 12px;"><i class="bi bi-file-text me-2"></i>Executive Summary</h5>
+            <p style="color: #a1a1aa; font-size: 13px; line-height: 1.6;">${data.summary || 'No summary available.'}</p>
+        </div>
+        
+        <!-- Metrics Row -->
+        <div class="row g-3 mb-3">
+            <div class="col-3">
+                <div style="text-align: center; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
+                    <div style="font-size: 10px; color: #fca5a5; text-transform: uppercase;">TTD</div>
+                    <div style="font-size: 18px; font-weight: 600; color: #fafafa;">${formatTime(ttd)}</div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div style="text-align: center; padding: 12px; background: rgba(234, 179, 8, 0.1); border-radius: 8px;">
+                    <div style="font-size: 10px; color: #fde047; text-transform: uppercase;">TTC</div>
+                    <div style="font-size: 18px; font-weight: 600; color: #fafafa;">${formatTime(ttc)}</div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div style="text-align: center; padding: 12px; background: rgba(34, 197, 94, 0.1); border-radius: 8px;">
+                    <div style="font-size: 10px; color: #86efac; text-transform: uppercase;">TTR</div>
+                    <div style="font-size: 18px; font-weight: 600; color: #fafafa;">${formatTime(ttr)}</div>
+                </div>
+            </div>
+            <div class="col-3">
+                <div style="text-align: center; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 8px;">
+                    <div style="font-size: 10px; color: #93c5fd; text-transform: uppercase;">Files Affected</div>
+                    <div style="font-size: 18px; font-weight: 600; color: #fafafa;">${metrics.affected_files_count || 0}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- What Went Well / Wrong -->
+        <div class="row g-3 mb-3">
+            <div class="col-6">
+                <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 8px; padding: 12px;">
+                    <h6 style="color: #22c55e; margin-bottom: 8px;"><i class="bi bi-check-circle me-1"></i>What Went Well</h6>
+                    <ul style="color: #a1a1aa; font-size: 12px; margin: 0; padding-left: 16px;">
+                        ${(data.what_went_well || []).map(item => `<li>${item}</li>`).join('') || '<li>No data</li>'}
+                    </ul>
+                </div>
+            </div>
+            <div class="col-6">
+                <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px;">
+                    <h6 style="color: #ef4444; margin-bottom: 8px;"><i class="bi bi-x-circle me-1"></i>What Went Wrong</h6>
+                    <ul style="color: #a1a1aa; font-size: 12px; margin: 0; padding-left: 16px;">
+                        ${(data.what_went_wrong || []).map(item => `<li>${item}</li>`).join('') || '<li>No issues identified</li>'}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Items -->
+        <div style="background: #18181b; border-radius: 8px; padding: 12px;">
+            <h6 style="color: #fafafa; margin-bottom: 12px;"><i class="bi bi-list-check me-2"></i>Action Items</h6>
+            <table class="data-table" style="font-size: 12px;">
+                <thead>
+                    <tr>
+                        <th>Priority</th>
+                        <th>Action</th>
+                        <th>Category</th>
+                        <th>Owner</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${(data.action_items || []).map(item => {
+                        const priorityColors = { 'CRITICAL': '#ef4444', 'HIGH': '#f97316', 'MEDIUM': '#eab308', 'LOW': '#3b82f6' };
+                        const pColor = priorityColors[item.priority] || '#71717a';
+                        return `
+                            <tr>
+                                <td><span style="color: ${pColor}; font-weight: 600;">${item.priority}</span></td>
+                                <td>${item.item}</td>
+                                <td><code>${item.category || '—'}</code></td>
+                                <td>${item.owner || '<em style="color: #71717a;">Unassigned</em>'}</td>
+                                <td><span class="badge badge-gray">${item.status || 'OPEN'}</span></td>
+                            </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Export Button -->
+        <div style="margin-top: 16px; text-align: right;">
+            <a href="/api/runs/${runId}/ir-report" target="_blank" class="btn btn-secondary btn-sm">
+                <i class="bi bi-download me-1"></i> Export IR Report (JSON)
+            </a>
+        </div>`;
+    
+    container.innerHTML = html;
+}
+
+// Load IR data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Existing loads...
+    setTimeout(() => {
+        loadIRTimeline();
+        loadLessonsLearned();
+    }, 500);
 });
 </script>
 {% endblock %}

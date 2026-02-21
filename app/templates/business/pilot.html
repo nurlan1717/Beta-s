@@ -1,0 +1,118 @@
+{% extends "business/base.html" %}
+
+{% block title %}Pilot & Feedback{% endblock %}
+{% block page_title %}Pilot & Feedback Center{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Feedback</div>
+        <div class="stat-value">{{ feedback_count }}</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-label">Average Rating</div>
+        <div class="stat-value">{{ avg_rating }}/5</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Pilot Duration</div>
+        <div class="stat-value">{{ pilot.duration_days }} days</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Target Users</div>
+        <div class="stat-value">{{ pilot.target_users_count }}</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-chat-square-text me-2"></i>Submit Feedback</h3>
+            </div>
+            <form action="/business/feedback" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="form-group">
+                    <label class="form-label">Overall Rating</label>
+                    <div class="rating-select">
+                        {% for i in range(1, 6) %}
+                        <input type="radio" name="rating" id="rating-{{ i }}" value="{{ i }}" {% if i == 4 %}checked{% endif %}>
+                        <label for="rating-{{ i }}"><i class="bi bi-star-fill"></i></label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category" class="form-control">
+                        <option value="general">General</option>
+                        <option value="ui">User Interface</option>
+                        <option value="performance">Performance</option>
+                        <option value="features">Features</option>
+                        <option value="documentation">Documentation</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">What was unclear or confusing?</label>
+                    <textarea name="what_was_unclear" class="form-control" rows="2" placeholder="Any confusion points..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">What features would you like to see?</label>
+                    <textarea name="feature_requests" class="form-control" rows="2" placeholder="Feature ideas..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">What would you pay for?</label>
+                    <textarea name="would_pay_for" class="form-control" rows="2" placeholder="Premium features..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">How likely to recommend? (1-10)</label>
+                    <input type="range" name="would_recommend" class="form-range" min="1" max="10" value="7" oninput="document.getElementById('nps-val').textContent=this.value">
+                    <div class="d-flex justify-content-between"><small>Not likely</small><strong id="nps-val">7</strong><small>Very likely</small></div>
+                </div>
+                <button type="submit" class="btn-primary w-100">Submit Feedback</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-clock-history me-2"></i>Recent Feedback</h3>
+                <a href="/business/feedback/insights" class="btn btn-secondary btn-sm">View Insights</a>
+            </div>
+            {% if recent_feedback %}
+            <div class="feedback-list">
+                {% for fb in recent_feedback %}
+                <div class="feedback-item">
+                    <div class="feedback-rating">
+                        {% for i in range(fb.rating) %}<i class="bi bi-star-fill text-warning"></i>{% endfor %}
+                        {% for i in range(5 - fb.rating) %}<i class="bi bi-star text-muted"></i>{% endfor %}
+                    </div>
+                    <div class="feedback-meta">
+                        <span class="badge badge-info">{{ fb.category or 'general' }}</span>
+                        <small>{{ fb.created_at.strftime('%Y-%m-%d') }}</small>
+                    </div>
+                    {% if fb.general_comments %}<p class="feedback-text">{{ fb.general_comments[:100] }}...</p>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-sm"><p>No feedback submitted yet</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .rating-select { display: flex; gap: 8px; flex-direction: row-reverse; justify-content: flex-end; }
+    .rating-select input { display: none; }
+    .rating-select label { font-size: 24px; color: var(--text-muted); cursor: pointer; transition: color 0.2s; }
+    .rating-select input:checked ~ label, .rating-select label:hover, .rating-select label:hover ~ label { color: var(--accent-yellow); }
+    .form-range { width: 100%; height: 8px; background: var(--bg-primary); border-radius: 4px; -webkit-appearance: none; }
+    .form-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; background: var(--accent-purple); border-radius: 50%; cursor: pointer; }
+    .feedback-list { display: flex; flex-direction: column; gap: 16px; }
+    .feedback-item { padding: 16px; background: var(--bg-primary); border-radius: 8px; }
+    .feedback-rating { margin-bottom: 8px; }
+    .feedback-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .feedback-text { font-size: 13px; color: var(--text-muted); margin: 0; }
+    .empty-state-sm { text-align: center; padding: 30px; color: var(--text-muted); }
+</style>
+{% endblock %}

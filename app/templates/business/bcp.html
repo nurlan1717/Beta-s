@@ -1,0 +1,142 @@
+{% extends "business/base.html" %}
+
+{% block title %}RTO/RPO Tracker{% endblock %}
+{% block page_title %}RTO/RPO Business Continuity Tracker{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Target RTO</div>
+        <div class="stat-value">{{ settings.target_rto_minutes }} min</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Target RPO</div>
+        <div class="stat-value">{{ settings.target_rpo_minutes }} min</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-label">Recovery Success Rate</div>
+        <div class="stat-value">{{ recovery_success_rate }}%</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Backup Coverage</div>
+        <div class="stat-value">{{ hosts_with_backup }}/{{ total_hosts }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title"><i class="bi bi-clock-history me-2"></i>Endpoint RTO/RPO Status</h3>
+        <a href="/business/settings" class="btn btn-secondary btn-sm"><i class="bi bi-gear"></i> Configure Targets</a>
+    </div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Endpoint</th>
+                <th>Backup</th>
+                <th>Target RTO</th>
+                <th>Achieved RTO</th>
+                <th>Target RPO</th>
+                <th>Achieved RPO</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in host_metrics %}
+            <tr>
+                <td><strong>{{ item.host.name }}</strong></td>
+                <td>
+                    {% if item.backup_enabled %}
+                    <span class="badge badge-success"><i class="bi bi-check"></i> Enabled</span>
+                    {% else %}
+                    <span class="badge badge-danger"><i class="bi bi-x"></i> No Backup</span>
+                    {% endif %}
+                </td>
+                <td>{{ item.target_rto }} min</td>
+                <td>
+                    {% if item.achieved_rto %}
+                    <span class="{% if item.rto_breach %}text-danger{% else %}text-success{% endif %}">{{ item.achieved_rto }} min</span>
+                    {% else %}
+                    <span class="text-muted">N/A</span>
+                    {% endif %}
+                </td>
+                <td>{{ item.target_rpo }} min</td>
+                <td>
+                    {% if item.achieved_rpo %}
+                    <span class="{% if item.rpo_breach %}text-danger{% else %}text-success{% endif %}">{{ item.achieved_rpo | int }} min</span>
+                    {% else %}
+                    <span class="text-muted">N/A</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.rto_breach or item.rpo_breach %}
+                    <span class="badge badge-danger"><i class="bi bi-exclamation-triangle"></i> Breach</span>
+                    {% elif item.achieved_rto %}
+                    <span class="badge badge-success"><i class="bi bi-check-circle"></i> OK</span>
+                    {% else %}
+                    <span class="badge badge-warning">No Data</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted">No endpoint data available</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="row g-4 mt-2">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header"><h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Understanding RTO/RPO</h3></div>
+            <div class="info-content">
+                <div class="info-item">
+                    <h4>Recovery Time Objective (RTO)</h4>
+                    <p>Maximum acceptable time to restore operations after an incident. Measured from detection to full recovery.</p>
+                </div>
+                <div class="info-item">
+                    <h4>Recovery Point Objective (RPO)</h4>
+                    <p>Maximum acceptable data loss measured in time. Indicates how frequently backups should occur.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header"><h3 class="card-title"><i class="bi bi-lightbulb me-2"></i>Recommendations</h3></div>
+            <div class="recommendations">
+                {% if hosts_with_backup < total_hosts %}
+                <div class="rec-item warning">
+                    <i class="bi bi-shield-exclamation"></i>
+                    <span>Enable backups on {{ total_hosts - hosts_with_backup }} unprotected endpoints</span>
+                </div>
+                {% endif %}
+                {% for item in host_metrics if item.rto_breach %}
+                <div class="rec-item danger">
+                    <i class="bi bi-clock"></i>
+                    <span>{{ item.host.name }} exceeds RTO target - review response procedures</span>
+                </div>
+                {% endfor %}
+                {% if hosts_with_backup == total_hosts and not host_metrics|selectattr('rto_breach')|list %}
+                <div class="rec-item success">
+                    <i class="bi bi-check-circle"></i>
+                    <span>All endpoints meet RTO/RPO targets - great job!</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .info-content { display: flex; flex-direction: column; gap: 16px; }
+    .info-item { padding: 16px; background: var(--bg-primary); border-radius: 8px; }
+    .info-item h4 { font-size: 14px; font-weight: 600; margin: 0 0 8px 0; }
+    .info-item p { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+    .recommendations { display: flex; flex-direction: column; gap: 12px; }
+    .rec-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; font-size: 13px; }
+    .rec-item.warning { background: rgba(234, 179, 8, 0.1); color: var(--accent-yellow); }
+    .rec-item.danger { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); }
+    .rec-item.success { background: rgba(34, 197, 94, 0.1); color: var(--accent-green); }
+    .rec-item i { font-size: 18px; }
+</style>
+{% endblock %}

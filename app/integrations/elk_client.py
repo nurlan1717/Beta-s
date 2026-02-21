@@ -911,6 +911,486 @@ class ELKClient:
             return 0
 
 
+    # ========================================================================
+    # Filebeat / Generic Logs Query Methods
+    # ========================================================================
+    
+    def detect_indices(self) -> Dict[str, Any]:
+        """
+        Detect which index patterns exist in Elasticsearch.
+        
+        Uses /_resolve/index/<pattern> (ES 8.x compatible) to check for:
+        - winlogbeat-*
+        - filebeat-*
+        
+        Returns:
+            {
+                "winlogbeat": true/false,
+                "filebeat": true/false,
+                "resolved": { "winlogbeat": [...], "filebeat": [...] }
+            }
+        """
+        if self._mock_mode:
+            return {
+                "winlogbeat": True,
+                "filebeat": True,
+                "resolved": {
+                    "winlogbeat": ["winlogbeat-8.x-2024.01.01"],
+                    "filebeat": ["filebeat-8.x-2024.01.01"]
+                }
+            }
+        
+        result = {
+            "winlogbeat": False,
+            "filebeat": False,
+            "resolved": {"winlogbeat": [], "filebeat": []}
+        }
+        
+        for pattern in ["winlogbeat-*", "filebeat-*"]:
+            key = pattern.replace("-*", "")
+            try:
+                # Try /_resolve/index first (ES 7.9+)
+                response = self._request('GET', f'/_resolve/index/{pattern}')
+                indices = response.get('indices', [])
+                if indices:
+                    result[key] = True
+                    result["resolved"][key] = [idx.get('name') for idx in indices[:10]]
+            except Exception:
+                # Fallback to /_cat/indices
+                try:
+                    response = self._request('GET', f'/_cat/indices/{pattern}', params={'format': 'json'})
+                    if response and len(response) > 0:
+                        result[key] = True
+                        result["resolved"][key] = [idx.get('index') for idx in response[:10]]
+                except Exception:
+                    pass
+        
+        return result
+    
+    def get_logs(
+        self,
+        source: str = "all",
+        limit: int = 100,
+        host_name: str = None,
+        dataset: str = None,
+        service: str = None,
+        q: str = None,
+        minutes: int = 60
+    ) -> List[Dict]:
+        """
+        Generic logs fetcher for both winlogbeat and filebeat with normalized schema.
+        
+        Args:
+            source: "winlogbeat" | "filebeat" | "all"
+            limit: Max number of logs to return (max 500)
+            host_name: Filter by host name
+            dataset: Filter by event.dataset / data_stream.dataset / fileset.name
+            service: Filter by service.name / fileset.module / event.module
+            q: Free text search on message/event.original
+            minutes: Time range in minutes (max 1440 = 24h)
+        
+        Returns:
+            List of normalized log entries
+        """
+        if self._mock_mode:
+            return self._mock_logs_response(source, limit)
+        
+        # Index selection
+        if source == "winlogbeat":
+            index = "winlogbeat-*"
+        elif source == "filebeat":
+            index = "filebeat-*"
+        else:
+            index = "winlogbeat-*,filebeat-*"
+        
+        # Build query
+        must_clauses = [
+            {
+                'range': {
+                    '@timestamp': {
+                        'gte': f'now-{min(minutes, 1440)}m',
+                        'lte': 'now'
+                    }
+                }
+            }
+        ]
+        
+        # Host filter
+        if host_name:
+            must_clauses.append({
+                'bool': {
+                    'should': [
+                        {'term': {'host.name.keyword': host_name}},
+                        {'term': {'host.name': host_name}},
+                        {'wildcard': {'host.name': f'*{host_name}*'}}
+                    ],
+                    'minimum_should_match': 1
+                }
+            })
+        
+        # Dataset filter (event.dataset OR data_stream.dataset OR fileset.name)
+        if dataset:
+            must_clauses.append({
+                'bool': {
+                    'should': [
+                        {'term': {'event.dataset': dataset}},
+                        {'term': {'data_stream.dataset': dataset}},
+                        {'term': {'fileset.name': dataset}},
+                        {'wildcard': {'event.dataset': f'*{dataset}*'}}
+                    ],
+                    'minimum_should_match': 1
+                }
+            })
+        
+        # Service filter
+        if service:
+            must_clauses.append({
+                'bool': {
+                    'should': [
+                        {'term': {'service.name': service}},
+                        {'term': {'fileset.module': service}},
+                        {'term': {'event.module': service}},
+                        {'term': {'agent.name': service}}
+                    ],
+                    'minimum_should_match': 1
+                }
+            })
+        
+        # Free text search
+        if q:
+            must_clauses.append({
+                'query_string': {
+                    'query': q,
+                    'fields': ['message', 'event.original', 'log.original', '*'],
+                    'default_operator': 'AND'
+                }
+            })
+        
+        query = {
+            'size': min(limit, 500),
+            'sort': [{'@timestamp': {'order': 'desc'}}],
+            'query': {
+                'bool': {'must': must_clauses}
+            },
+            '_source': [
+                '@timestamp', 'message', 'event.*', 'host.name', 'host.hostname',
+                'log.level', 'log.file.path', 'service.name', 'agent.name',
+                'fileset.*', 'data_stream.*', 'process.name', 'winlog.*'
+            ]
+        }
+        
+        try:
+            result = self._request('POST', f'/{index}/_search', body=query)
+            hits = result.get('hits', {}).get('hits', [])
+            
+            return [self._normalize_log(hit, source) for hit in hits]
+        except Exception as e:
+            return []
+    
+    def _normalize_log(self, hit: Dict, requested_source: str = "all") -> Dict:
+        """Normalize a log entry to standard schema."""
+        doc = hit.get('_source', {})
+        index = hit.get('_index', '')
+        
+        # Determine source from index
+        if 'winlogbeat' in index:
+            log_source = 'winlogbeat'
+        elif 'filebeat' in index:
+            log_source = 'filebeat'
+        else:
+            log_source = 'unknown'
+        
+        # Extract fields with fallbacks
+        host = doc.get('host', {})
+        event = doc.get('event', {})
+        fileset = doc.get('fileset', {})
+        data_stream = doc.get('data_stream', {})
+        log_info = doc.get('log', {})
+        service = doc.get('service', {})
+        agent = doc.get('agent', {})
+        winlog = doc.get('winlog', {})
+        
+        # Get dataset
+        dataset = (
+            event.get('dataset') or 
+            data_stream.get('dataset') or 
+            fileset.get('name') or 
+            'N/A'
+        )
+        
+        # Get service/module
+        svc = (
+            service.get('name') or 
+            fileset.get('module') or 
+            event.get('module') or 
+            agent.get('name') or 
+            'N/A'
+        )
+        
+        # Get message - handle various formats
+        raw_message = doc.get('message', '')
+        parsed_json = None
+        
+        # Try to parse JSON if message looks like JSON
+        if raw_message and isinstance(raw_message, str) and raw_message.strip().startswith('{'):
+            try:
+                parsed_json = json.loads(raw_message)
+            except (json.JSONDecodeError, ValueError):
+                pass
+        
+        # Extract actual message content
+        if parsed_json:
+            # Message is JSON - extract meaningful content
+            message = (
+                parsed_json.get('message') or
+                parsed_json.get('msg') or
+                parsed_json.get('log') or
+                parsed_json.get('text') or
+                raw_message
+            )
+        else:
+            message = (
+                raw_message or
+                event.get('original') or 
+                log_info.get('original') or 
+                str(winlog.get('message', '')) or
+                'No message'
+            )
+        
+        # Get level - check multiple sources including parsed JSON
+        level = None
+        
+        # First check parsed JSON from message (handle keys with dots like "log.level")
+        if parsed_json:
+            level = (
+                parsed_json.get('log.level') or  # Key with literal dot
+                parsed_json.get('loglevel') or
+                parsed_json.get('level') or
+                parsed_json.get('severity') or
+                parsed_json.get('priority')
+            )
+            # Also try nested log object
+            if not level and isinstance(parsed_json.get('log'), dict):
+                level = parsed_json['log'].get('level')
+        
+        # Then check standard ECS fields
+        if not level:
+            level = (
+                log_info.get('level') or
+                event.get('severity') or
+                event.get('outcome') or
+                winlog.get('level') or
+                doc.get('level')
+            )
+        
+        # For winlogbeat, map numeric levels
+        if not level and winlog:
+            win_level = winlog.get('level')
+            if win_level:
+                level = win_level
+        
+        if level is None:
+            level = 'N/A'
+        elif isinstance(level, int):
+            # Map syslog severity numbers
+            syslog_map = {0: 'emergency', 1: 'alert', 2: 'critical', 3: 'error', 
+                         4: 'warning', 5: 'notice', 6: 'info', 7: 'debug'}
+            level = syslog_map.get(level, str(level))
+        
+        return {
+            'id': hit.get('_id'),
+            'ts': doc.get('@timestamp'),
+            'source': log_source,
+            'host': host.get('name') or host.get('hostname') or 'N/A',
+            'dataset': dataset,
+            'service': svc,
+            'level': level,
+            'message': message[:2000] if message else '',  # Truncate long messages
+            'raw': {
+                'index': index,
+                'event': event,
+                'process': doc.get('process', {}).get('name'),
+                'log_path': log_info.get('file', {}).get('path')
+            }
+        }
+    
+    def _mock_logs_response(self, source: str, limit: int) -> List[Dict]:
+        """Generate mock logs for offline development."""
+        logs = []
+        sources = ['winlogbeat', 'filebeat'] if source == 'all' else [source]
+        
+        datasets = {
+            'winlogbeat': ['sysmon', 'security', 'system'],
+            'filebeat': ['syslog', 'nginx.access', 'auth', 'apache.error']
+        }
+        
+        for i in range(min(limit, 20)):
+            src = sources[i % len(sources)]
+            ds = datasets[src][i % len(datasets[src])]
+            
+            logs.append({
+                'id': f'mock-log-{i}',
+                'ts': (datetime.utcnow() - timedelta(minutes=i * 5)).isoformat() + 'Z',
+                'source': src,
+                'host': f'host-{i % 3 + 1}',
+                'dataset': ds,
+                'service': ds.split('.')[0],
+                'level': ['info', 'warning', 'error'][i % 3],
+                'message': f'Mock {src} log entry {i} - {ds} event',
+                'raw': {'index': f'{src}-mock', 'event': {}}
+            })
+        
+        return logs
+    
+    def get_filebeat_hosts(self, minutes: int = 1440) -> List[Dict]:
+        """
+        Get unique hosts from filebeat-* index.
+        
+        Args:
+            minutes: Time range (default 24h = 1440 minutes)
+        
+        Returns:
+            List of hosts with last_seen timestamp
+        """
+        if self._mock_mode:
+            return [
+                {'name': 'web-server-1', 'doc_count': 1500, 'last_seen': datetime.utcnow().isoformat() + 'Z'},
+                {'name': 'db-server-1', 'doc_count': 800, 'last_seen': datetime.utcnow().isoformat() + 'Z'},
+                {'name': 'app-server-1', 'doc_count': 1200, 'last_seen': datetime.utcnow().isoformat() + 'Z'}
+            ]
+        
+        query = {
+            'size': 0,
+            'query': {
+                'range': {
+                    '@timestamp': {
+                        'gte': f'now-{minutes}m'
+                    }
+                }
+            },
+            'aggs': {
+                'hosts': {
+                    'terms': {
+                        'field': 'host.name',
+                        'size': 500
+                    },
+                    'aggs': {
+                        'last_seen': {'max': {'field': '@timestamp'}}
+                    }
+                }
+            }
+        }
+        
+        try:
+            result = self._request('POST', '/filebeat-*/_search', body=query)
+            buckets = result.get('aggregations', {}).get('hosts', {}).get('buckets', [])
+            
+            return [
+                {
+                    'name': bucket.get('key'),
+                    'doc_count': bucket.get('doc_count', 0),
+                    'last_seen': bucket.get('last_seen', {}).get('value_as_string')
+                }
+                for bucket in buckets
+            ]
+        except Exception:
+            return []
+    
+    def get_filebeat_stats(self, hours: int = 24) -> Dict[str, Any]:
+        """
+        Get Filebeat statistics.
+        
+        Args:
+            hours: Time range in hours
+        
+        Returns:
+            {
+                "total_logs": int,
+                "logs_by_host": {...},
+                "logs_by_dataset": {...},
+                "logs_by_level": {...}
+            }
+        """
+        if self._mock_mode:
+            return {
+                'total_logs': 15000,
+                'logs_by_host': {'web-server-1': 5000, 'db-server-1': 4000, 'app-server-1': 6000},
+                'logs_by_dataset': {'syslog': 8000, 'nginx.access': 4000, 'auth': 3000},
+                'logs_by_level': {'info': 10000, 'warning': 3000, 'error': 2000}
+            }
+        
+        query = {
+            'size': 0,
+            'query': {
+                'range': {
+                    '@timestamp': {
+                        'gte': f'now-{hours}h'
+                    }
+                }
+            },
+            'aggs': {
+                'total': {'value_count': {'field': '@timestamp'}},
+                'by_host': {
+                    'terms': {'field': 'host.name', 'size': 20}
+                },
+                'by_dataset': {
+                    'terms': {
+                        'field': 'event.dataset',
+                        'size': 20,
+                        'missing': '__no_dataset__'
+                    }
+                },
+                'by_dataset_alt': {
+                    'terms': {
+                        'field': 'data_stream.dataset',
+                        'size': 20
+                    }
+                },
+                'by_level': {
+                    'terms': {
+                        'field': 'log.level',
+                        'size': 10
+                    }
+                }
+            }
+        }
+        
+        try:
+            result = self._request('POST', '/filebeat-*/_search', body=query)
+            aggs = result.get('aggregations', {})
+            
+            # Merge dataset aggregations
+            logs_by_dataset = {}
+            for bucket in aggs.get('by_dataset', {}).get('buckets', []):
+                key = bucket.get('key')
+                if key != '__no_dataset__':
+                    logs_by_dataset[key] = bucket.get('doc_count', 0)
+            for bucket in aggs.get('by_dataset_alt', {}).get('buckets', []):
+                key = bucket.get('key')
+                if key not in logs_by_dataset:
+                    logs_by_dataset[key] = bucket.get('doc_count', 0)
+            
+            return {
+                'total_logs': aggs.get('total', {}).get('value', 0),
+                'logs_by_host': {
+                    b['key']: b['doc_count']
+                    for b in aggs.get('by_host', {}).get('buckets', [])
+                },
+                'logs_by_dataset': logs_by_dataset,
+                'logs_by_level': {
+                    b['key']: b['doc_count']
+                    for b in aggs.get('by_level', {}).get('buckets', [])
+                }
+            }
+        except Exception:
+            return {
+                'total_logs': 0,
+                'logs_by_host': {},
+                'logs_by_dataset': {},
+                'logs_by_level': {}
+            }
+
+
 def get_elk_client_from_env() -> ELKClient:
     """Create ELKClient from environment variables."""
     return ELKClient()

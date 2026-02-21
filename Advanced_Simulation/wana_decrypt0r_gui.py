@@ -148,7 +148,7 @@ def encryption_worker(gui_log_func):
 class RansomwareGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Wana Decrypt0r 3.0 (Sim)")
+        self.root.title("RansomRun - Security Training Simulation")
         self.root.configure(bg=BG_COLOR)
         
         # AGGRESSIVE LOCKDOWN
@@ -157,62 +157,132 @@ class RansomwareGUI:
         self.root.overrideredirect(True)
         self.root.focus_force()
         self.root.protocol("WM_DELETE_WINDOW", lambda: None)
+        
+        # Timer: 24 hours in seconds
+        self.remaining_seconds = 24 * 60 * 60
 
-        # 1. HEADER
-        tk.Label(root, text="⚠ YOUR FILES HAVE BEEN ENCRYPTED! ⚠", 
-                 bg=ALERT_COLOR, fg="white", font=FONT_TITLE, pady=20).pack(fill="x")
+        # 1. HEADER with RansomRun branding
+        header_frame = tk.Frame(root, bg=ALERT_COLOR)
+        header_frame.pack(fill="x")
+        
+        tk.Label(header_frame, text="[!] CRITICAL SECURITY ALERT [!]", 
+                 bg=ALERT_COLOR, fg="white", font=("Impact", 48), pady=15).pack()
 
-        # 2. MAIN SPLIT
-        frame = tk.Frame(root, bg=BG_COLOR)
-        frame.pack(fill="both", expand=True, padx=30, pady=20)
+        # 2. SKULL LOGO + TEAM NAME
+        logo_frame = tk.Frame(root, bg=BG_COLOR)
+        logo_frame.pack(pady=10)
+        
+        # Skull ASCII art / emoji
+        tk.Label(logo_frame, text="💀", font=("Arial", 80), bg=BG_COLOR, fg="white").pack()
+        
+        tk.Label(root, text=">> Team: DONT WANNA CRY <<", 
+                 bg=BG_COLOR, fg="white", font=("Consolas", 24, "bold"), pady=5).pack()
 
-        # LEFT SIDE (Info & Timer)
-        left = tk.Frame(frame, bg=BG_COLOR)
-        left.pack(side="left", fill="y", padx=20)
+        # 3. MAIN MESSAGE
+        tk.Label(root, text="YOUR SYSTEM HAS BEEN COMPROMISED", 
+                 bg=BG_COLOR, fg=ALERT_COLOR, font=("Arial", 28, "bold")).pack(pady=5)
         
-        self.lock_char = tk.Label(left, text="🔒", font=("Arial", 120), bg=BG_COLOR, fg=ALERT_COLOR)
-        self.lock_char.pack()
-        
-        tk.Label(left, text="Payment Amount:", font=("Arial", 20), bg=BG_COLOR, fg="white").pack(pady=10)
-        tk.Label(left, text="$300 USD (Bitcoin)", font=("Arial", 26, "bold"), bg=BG_COLOR, fg="#ffd700").pack()
-        
-        tk.Label(left, text="Time Remaining:", font=("Arial", 20), bg=BG_COLOR, fg="white").pack(pady=20)
-        self.timer_lbl = tk.Label(left, text="72:00:00", font=("Impact", 40), bg="black", fg="#ff0000")
-        self.timer_lbl.pack(pady=5)
+        tk.Label(root, text="All files encrypted with military-grade encryption.", 
+                 bg=BG_COLOR, fg="#ff9900", font=("Arial", 14)).pack()
+        tk.Label(root, text="Enter the correct password to decrypt your files.", 
+                 bg=BG_COLOR, fg="#ff9900", font=("Arial", 14)).pack(pady=5)
 
-        # RIGHT SIDE (Message & Logs)
-        right = tk.Frame(frame, bg=BG_COLOR)
-        right.pack(side="right", fill="both", expand=True)
+        # 4. TIMER SECTION
+        timer_frame = tk.Frame(root, bg="#000033", bd=3, relief="ridge")
+        timer_frame.pack(pady=20, padx=100)
         
-        msg = """
-        We are Team DON'T WANNA CRY.
+        tk.Label(timer_frame, text="TIME REMAINING:", 
+                 bg="#000033", fg="white", font=("Arial", 12)).pack(pady=5)
+        self.timer_lbl = tk.Label(timer_frame, text="23:59:59", 
+                                   font=("Digital-7", 72) if self._font_exists("Digital-7") else ("Impact", 60), 
+                                   bg="#000022", fg="#ff3333", padx=40, pady=10)
+        self.timer_lbl.pack(padx=20, pady=10)
         
-        This computer is infected. All sensitive data in 'target_data/' is locked.
-        This is a High-Fidelity Security Simulation.
-        
-        If this were real, you would lose everything.
-        
-        > MITRE TTPs Detected:
-        > T1486 (Encryption), T1490 (VSS Delete), T1021 (Lateral Move)
-        """
-        tk.Label(right, text=msg, justify="left", font=("Courier", 14), bg=BG_COLOR, fg="white").pack(anchor="w", pady=10)
+        # Start countdown
+        self.update_timer()
 
-        # TERMINAL LOG
-        tk.Label(right, text="[ SYSTEM ACTIVITY LOG ]", bg=BG_COLOR, fg=TEXT_COLOR, font=("Consolas", 12)).pack(anchor="w")
-        self.log_box = tk.Text(right, bg="black", fg=TEXT_COLOR, font=FONT_LOG, height=15)
-        self.log_box.pack(fill="both", expand=True, pady=5)
+        # 5. ENCRYPTION LOG
+        tk.Label(root, text="[ENCRYPTION LOG]", 
+                 bg=BG_COLOR, fg="white", font=("Consolas", 12, "bold")).pack(pady=10)
+        
+        log_frame = tk.Frame(root, bg="black", bd=2, relief="sunken")
+        log_frame.pack(fill="both", expand=True, padx=50, pady=5)
+        
+        self.log_box = tk.Text(log_frame, bg="black", fg=TEXT_COLOR, font=FONT_LOG, height=8)
+        self.log_box.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # 3. BOTTOM BUTTON
-        btn_text = "I UNDERSTAND - RESTORE MY FILES (DECRYPT)"
-        self.btn = tk.Button(root, text=btn_text, font=("Arial", 20, "bold"), 
-                             bg="white", fg="red", height=2,
+        # 6. DECRYPT BUTTON
+        btn_frame = tk.Frame(root, bg=BG_COLOR)
+        btn_frame.pack(pady=15)
+        
+        self.btn = tk.Button(btn_frame, text="[ ENTER PASSWORD TO DECRYPT ]", 
+                             font=("Arial", 18, "bold"), 
+                             bg="#ff6600", fg="white", 
+                             activebackground="#ff9933", activeforeground="white",
+                             padx=40, pady=15, cursor="hand2",
                              command=self.decrypt_sequence)
-        self.btn.pack(side="bottom", pady=40)
+        self.btn.pack()
 
+        # 7. PASSWORD HINT BOX
+        hint_frame = tk.Frame(root, bg="#1a1a1a", bd=2, relief="ridge")
+        hint_frame.pack(pady=10)
+        
+        tk.Label(hint_frame, text="DECRYPTION PASSWORD:", 
+                 bg="#1a1a1a", fg="#888888", font=("Arial", 10)).pack(pady=5)
+        tk.Label(hint_frame, text="DontWannaCry2025", 
+                 bg="#1a1a1a", fg="#00ff00", font=("Consolas", 18, "bold")).pack(pady=5)
+        tk.Label(hint_frame, text="Use this password to decrypt files | ESC to decrypt", 
+                 bg="#1a1a1a", fg="#666666", font=("Arial", 9)).pack(pady=5)
+
+        # 8. DISCLAIMER / AWARENESS SECTION
+        disclaimer_frame = tk.Frame(root, bg="#1a0a0a", bd=2, relief="ridge")
+        disclaimer_frame.pack(fill="x", side="bottom", pady=0)
+        
+        # Main awareness message - "If You Don't Wanna Cry"
+        tk.Label(disclaimer_frame, 
+                 text="💀 IF YOU DON'T WANNA CRY, DON'T LET YOUR GUARD DOWN! 💀", 
+                 bg="#1a0a0a", fg="#ff4444", font=("Impact", 18), pady=10).pack()
+        
+        tk.Label(disclaimer_frame, 
+                 text="This could have been real. Your files, your memories, your work — gone in seconds.",
+                 bg="#1a0a0a", fg="#ff9999", font=("Arial", 12, "italic"), pady=5).pack()
+        
+        tk.Label(disclaimer_frame, 
+                 text="One wrong click is all it takes. Stay vigilant. Stay protected. Stay safe.",
+                 bg="#1a0a0a", fg="#ffcc00", font=("Arial", 11, "bold"), pady=5).pack()
+        
+        # Footer branding
+        footer_frame = tk.Frame(disclaimer_frame, bg="#0f0505")
+        footer_frame.pack(fill="x", pady=8)
+        tk.Label(footer_frame, text="💀 RansomRun - Security Awareness Training 💀", 
+                 bg="#0f0505", fg="#888888", font=("Arial", 10)).pack()
+        tk.Label(footer_frame, text="SIMULATION MODE - No actual harm done to your system", 
+                 bg="#0f0505", fg="#666666", font=("Arial", 9)).pack()
+
+        # ESC key binding for quick decrypt
+        self.root.bind("<Escape>", lambda e: self.decrypt_sequence())
+        
         # Start Pulse Animation
         self.pulse_ind = 0
         self.pulse_colors = [ALERT_COLOR, "#b30000"]
-        self.root.after(500, self.pulse_icon)
+    
+    def _font_exists(self, font_name):
+        """Check if a font exists on the system."""
+        try:
+            import tkinter.font as tkfont
+            return font_name in tkfont.families()
+        except:
+            return False
+    
+    def update_timer(self):
+        """Update countdown timer every second."""
+        if self.remaining_seconds > 0:
+            hours = self.remaining_seconds // 3600
+            minutes = (self.remaining_seconds % 3600) // 60
+            seconds = self.remaining_seconds % 60
+            self.timer_lbl.config(text=f"{hours:02d}:{minutes:02d}:{seconds:02d}")
+            self.remaining_seconds -= 1
+            self.root.after(1000, self.update_timer)
 
     def pulse_icon(self):
         self.pulse_ind = (self.pulse_ind + 1) % 2

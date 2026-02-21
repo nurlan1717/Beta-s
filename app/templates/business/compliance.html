@@ -1,0 +1,205 @@
+{% extends "business/base.html" %}
+
+{% block title %}Compliance & Audit{% endblock %}
+{% block page_title %}Compliance & Audit Reporting{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-file-earmark-check me-2"></i>Completed Simulations</h3>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Run ID</th>
+                        <th>Host</th>
+                        <th>Scenario</th>
+                        <th>Date</th>
+                        <th>Duration</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in runs %}
+                    <tr>
+                        <td><strong>#{{ run.id }}</strong></td>
+                        <td>{{ run.host.name if run.host else 'N/A' }}</td>
+                        <td>{{ run.scenario.name if run.scenario else 'N/A' }}</td>
+                        <td>{{ run.ended_at.strftime('%Y-%m-%d') if run.ended_at else 'N/A' }}</td>
+                        <td>
+                            {% if run.ended_at and run.started_at %}
+                            {{ ((run.ended_at - run.started_at).total_seconds() / 60) | round(1) }} min
+                            {% else %}
+                            N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/business/compliance/run/{{ run.id }}" class="btn btn-sm btn-secondary">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No completed runs available</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-shield-check me-2"></i>Framework Coverage</h3>
+            </div>
+            <div class="framework-list">
+                <div class="framework-item">
+                    <div class="framework-icon mitre">
+                        <i class="bi bi-diagram-3"></i>
+                    </div>
+                    <div class="framework-info">
+                        <h4>MITRE ATT&CK</h4>
+                        <p>Adversary tactics and techniques</p>
+                    </div>
+                    <span class="badge badge-success">Active</span>
+                </div>
+                <div class="framework-item">
+                    <div class="framework-icon nist">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <div class="framework-info">
+                        <h4>NIST CSF</h4>
+                        <p>Cybersecurity Framework</p>
+                    </div>
+                    <span class="badge badge-success">Active</span>
+                </div>
+                <div class="framework-item">
+                    <div class="framework-icon iso">
+                        <i class="bi bi-globe"></i>
+                    </div>
+                    <div class="framework-info">
+                        <h4>ISO 27001</h4>
+                        <p>Information Security</p>
+                    </div>
+                    <span class="badge badge-success">Active</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-download me-2"></i>Recent Exports</h3>
+            </div>
+            {% if exports %}
+            <div class="export-list">
+                {% for export in exports %}
+                <div class="export-item">
+                    <i class="bi bi-file-text"></i>
+                    <div class="export-info">
+                        <span>Run #{{ export.run_id }}</span>
+                        <small>{{ export.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-sm">
+                <p>No exports yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .framework-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .framework-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: var(--bg-primary);
+        border-radius: 8px;
+    }
+    
+    .framework-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+    
+    .framework-icon.mitre { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .framework-icon.nist { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .framework-icon.iso { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+    
+    .framework-info {
+        flex: 1;
+    }
+    
+    .framework-info h4 {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0;
+    }
+    
+    .framework-info p {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: 0;
+    }
+    
+    .export-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .export-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        background: var(--bg-primary);
+        border-radius: 6px;
+        font-size: 13px;
+    }
+    
+    .export-item i {
+        color: var(--accent-blue);
+    }
+    
+    .export-info {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .export-info small {
+        color: var(--text-muted);
+    }
+    
+    .empty-state-sm {
+        text-align: center;
+        padding: 20px;
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+    
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "business/base.html" %}
+
+{% block title %}Feedback Insights{% endblock %}
+{% block page_title %}Feedback Insights{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Responses</div>
+        <div class="stat-value">{{ total_feedback }}</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-label">Average Rating</div>
+        <div class="stat-value">{{ avg_rating }}/5</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Satisfaction Rate</div>
+        <div class="stat-value">{{ satisfaction_rate }}%</div>
+    </div>
+    <div class="stat-card {% if nps >= 50 %}success{% elif nps >= 0 %}{% else %}risk{% endif %}">
+        <div class="stat-label">NPS Score</div>
+        <div class="stat-value">{{ nps | int }}</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-bar-chart me-2"></i>Rating Distribution</h3>
+            </div>
+            <div class="rating-bars">
+                {% for i in range(5, 0, -1) %}
+                <div class="rating-bar-row">
+                    <span class="rating-label">{{ i }} <i class="bi bi-star-fill text-warning"></i></span>
+                    <div class="rating-bar-bg">
+                        <div class="rating-bar-fill" style="width: {{ ((total_feedback | default(1)) and 30) }}%;"></div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-lightbulb me-2"></i>Top Feature Requests</h3>
+            </div>
+            {% if top_features %}
+            <div class="feature-list">
+                {% for word, count in top_features %}
+                <div class="feature-item">
+                    <span class="feature-word">{{ word }}</span>
+                    <span class="feature-count">{{ count }} mentions</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-sm"><p>Not enough data for analysis</p></div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title"><i class="bi bi-graph-up me-2"></i>Key Insights</h3>
+    </div>
+    <div class="insights-grid">
+        <div class="insight-card">
+            <div class="insight-icon {% if satisfaction_rate >= 70 %}success{% else %}warning{% endif %}">
+                <i class="bi bi-emoji-smile"></i>
+            </div>
+            <div class="insight-content">
+                <h4>User Satisfaction</h4>
+                <p>{% if satisfaction_rate >= 70 %}Users are generally satisfied with the platform{% else %}There's room for improvement in user satisfaction{% endif %}</p>
+            </div>
+        </div>
+        <div class="insight-card">
+            <div class="insight-icon {% if nps >= 50 %}success{% elif nps >= 0 %}info{% else %}danger{% endif %}">
+                <i class="bi bi-megaphone"></i>
+            </div>
+            <div class="insight-content">
+                <h4>Recommendation Score</h4>
+                <p>{% if nps >= 50 %}Strong likelihood of referrals{% elif nps >= 0 %}Neutral recommendation sentiment{% else %}Focus on improving user experience{% endif %}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="/business/pilot" class="btn btn-secondary"><i class="bi bi-arrow-left me-1"></i> Back to Feedback Center</a>
+</div>
+
+<style>
+    .rating-bars { display: flex; flex-direction: column; gap: 12px; }
+    .rating-bar-row { display: flex; align-items: center; gap: 12px; }
+    .rating-label { width: 60px; font-size: 14px; }
+    .rating-bar-bg { flex: 1; height: 24px; background: var(--bg-primary); border-radius: 4px; overflow: hidden; }
+    .rating-bar-fill { height: 100%; background: var(--accent-yellow); border-radius: 4px; }
+    .feature-list { display: flex; flex-direction: column; gap: 8px; }
+    .feature-item { display: flex; justify-content: space-between; padding: 12px; background: var(--bg-primary); border-radius: 8px; }
+    .feature-word { font-weight: 500; text-transform: capitalize; }
+    .feature-count { color: var(--text-muted); font-size: 13px; }
+    .insights-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .insight-card { display: flex; gap: 16px; padding: 20px; background: var(--bg-primary); border-radius: 10px; }
+    .insight-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .insight-icon.success { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+    .insight-icon.warning { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .insight-icon.info { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+    .insight-icon.danger { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .insight-content h4 { font-size: 15px; margin: 0 0 4px 0; }
+    .insight-content p { font-size: 13px; color: var(--text-muted); margin: 0; }
+    .empty-state-sm { text-align: center; padding: 30px; color: var(--text-muted); }
+</style>
+{% endblock %}

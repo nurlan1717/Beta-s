@@ -3,183 +3,214 @@
 {% block title %}Blue Team Defense - RansomRun{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-1">
-                <i class="bi bi-shield-check text-primary"></i> Blue Team Defense
-            </h1>
-            <p class="text-muted mb-0">Canary Files & Entropy Monitoring</p>
-        </div>
-        <div>
-            <button class="btn btn-success me-2" onclick="startAllMonitoring()">
-                <i class="bi bi-play-fill"></i> Start All
-            </button>
-            <button class="btn btn-danger" onclick="stopAllMonitoring()">
-                <i class="bi bi-stop-fill"></i> Stop All
-            </button>
-        </div>
+<!-- Header -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1 style="color: #fafafa; font-size: 28px; margin: 0; display: flex; align-items: center; gap: 12px;">
+            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                <i class="bi bi-shield-check" style="color: white; font-size: 20px;"></i>
+            </div>
+            Blue Team Defense
+        </h1>
+        <p style="color: #71717a; margin: 4px 0 0 52px; font-size: 14px;">Canary Files & Entropy Monitoring</p>
     </div>
+    <div style="display: flex; gap: 8px;">
+        <button class="btn" onclick="startAllMonitoring()" style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border: none; color: white; padding: 10px 20px; font-weight: 600;">
+            <i class="bi bi-play-fill me-1"></i> Start All
+        </button>
+        <button class="btn" onclick="stopAllMonitoring()" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border: none; color: white; padding: 10px 20px; font-weight: 600;">
+            <i class="bi bi-stop-fill me-1"></i> Stop All
+        </button>
+    </div>
+</div>
 
-    <!-- Status Cards -->
-    <div class="row mb-4">
-        <!-- Canary Status -->
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-header bg-warning text-dark">
-                    <i class="bi bi-file-earmark-lock"></i> Canary Defense
-                </div>
-                <div class="card-body">
-                    <div id="canaryStatus">
-                        {% if status.canary %}
-                        <p><strong>Status:</strong> 
-                            <span class="badge {{ 'bg-success' if status.canary.is_running else 'bg-secondary' }}">
-                                {{ 'ACTIVE' if status.canary.is_running else 'INACTIVE' }}
-                            </span>
-                        </p>
-                        <p><strong>Target:</strong> <code>{{ status.canary.target_dir }}</code></p>
-                        <p><strong>Canary Files:</strong> {{ status.canary.canary_files|length }}</p>
-                        <p><strong>Alerts:</strong> 
-                            <span class="badge {{ 'bg-danger' if status.canary.alerts_count > 0 else 'bg-success' }}">
-                                {{ status.canary.alerts_count }}
-                            </span>
-                        </p>
-                        {% else %}
-                        <p class="text-muted">Not initialized</p>
-                        {% endif %}
-                    </div>
-                    <hr>
-                    <button class="btn btn-sm btn-outline-warning" onclick="deployCanaries()">
-                        <i class="bi bi-plus-circle"></i> Deploy Canaries
-                    </button>
-                    <button class="btn btn-sm btn-outline-success" onclick="startCanaryMonitoring()">
-                        <i class="bi bi-eye"></i> Start Monitor
-                    </button>
-                </div>
+<!-- Status Cards Row -->
+<div class="row g-4 mb-4">
+    <!-- Canary Defense Card -->
+    <div class="col-lg-4">
+        <div class="panel" style="border: 2px solid #eab308; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); padding: 12px 16px;">
+                <h3 style="color: #18181b; margin: 0; font-size: 14px; font-weight: 600;">
+                    <i class="bi bi-file-earmark-lock me-2"></i>Canary Defense
+                </h3>
             </div>
-        </div>
-
-        <!-- Entropy Status -->
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-header bg-info text-white">
-                    <i class="bi bi-graph-up"></i> Entropy Monitor
-                </div>
-                <div class="card-body">
-                    <div id="entropyStatus">
-                        {% if status.entropy %}
-                        <p><strong>Status:</strong> 
-                            <span class="badge {{ 'bg-success' if status.entropy.is_running else 'bg-secondary' }}">
-                                {{ 'ACTIVE' if status.entropy.is_running else 'INACTIVE' }}
-                            </span>
-                        </p>
-                        <p><strong>Target:</strong> <code>{{ status.entropy.target_dir }}</code></p>
-                        <p><strong>Current Entropy:</strong> 
-                            <span class="badge {{ 'bg-danger' if status.entropy.current_entropy > entropy_threshold else 'bg-success' }}">
-                                {{ "%.2f"|format(status.entropy.current_entropy) }} bits
-                            </span>
-                        </p>
-                        <p><strong>Threshold:</strong> {{ entropy_threshold }} bits</p>
-                        <p><strong>Encryption Detected:</strong> 
-                            <span class="badge {{ 'bg-danger' if status.entropy.encryption_detected else 'bg-success' }}">
-                                {{ 'YES' if status.entropy.encryption_detected else 'NO' }}
-                            </span>
-                        </p>
-                        {% else %}
-                        <p class="text-muted">Not initialized</p>
-                        {% endif %}
+            <div class="panel-body" style="padding: 16px;">
+                <div id="canaryStatus">
+                    <div style="margin-bottom: 12px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Status:</span>
+                        <span id="canaryStatusBadge" class="badge ms-2" style="background: {% if status.canary and status.canary.is_running %}#22c55e{% else %}#71717a{% endif %}; padding: 4px 10px;">
+                            {{ 'ACTIVE' if status.canary and status.canary.is_running else 'INACTIVE' }}
+                        </span>
                     </div>
-                    <hr>
-                    <button class="btn btn-sm btn-outline-info" onclick="startEntropyMonitoring()">
-                        <i class="bi bi-play"></i> Start Monitor
+                    <div style="margin-bottom: 12px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Target:</span>
+                        <code style="background: #27272a; padding: 2px 8px; border-radius: 4px; margin-left: 8px; color: #fafafa; font-size: 12px;">{{ status.canary.target_dir if status.canary else 'Not set' }}</code>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Canary Files:</span>
+                        <strong style="color: #fafafa; margin-left: 8px;">{{ status.canary.canary_files|length if status.canary else 0 }}</strong>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Alerts:</span>
+                        <span id="canaryAlertsBadge" class="badge ms-2" style="background: {% if status.canary and status.canary.alerts_count > 0 %}#ef4444{% else %}#22c55e{% endif %}; padding: 4px 10px;">
+                            {{ status.canary.alerts_count if status.canary else 0 }}
+                        </span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; border-top: 1px solid #27272a; padding-top: 12px;">
+                    <button class="btn btn-sm" onclick="deployCanaries()" style="background: transparent; border: 1px solid #eab308; color: #eab308; flex: 1;">
+                        <i class="bi bi-plus-circle me-1"></i> Deploy Canaries
                     </button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="checkEntropy()">
-                        <i class="bi bi-search"></i> Check Now
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-header bg-dark text-white">
-                    <i class="bi bi-gear"></i> Configuration
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label">Target Directory</label>
-                        <input type="text" class="form-control" id="targetDir" value="C:\RansomTest">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Canary Files</label>
-                        <select class="form-select" id="canaryFiles" multiple size="4">
-                            {% for file in default_canary_files %}
-                            <option value="{{ file }}" selected>{{ file }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">Hold Ctrl to select multiple</small>
-                    </div>
-                    <button class="btn btn-primary w-100" onclick="initializeDefense()">
-                        <i class="bi bi-arrow-repeat"></i> Initialize Defense
+                    <button class="btn btn-sm" onclick="startCanaryMonitoring()" style="background: transparent; border: 1px solid #22c55e; color: #22c55e; flex: 1;">
+                        <i class="bi bi-eye me-1"></i> Start Monitor
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Entropy Chart -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <i class="bi bi-graph-up-arrow"></i> Real-Time Entropy Analysis
+    <!-- Entropy Monitor Card -->
+    <div class="col-lg-4">
+        <div class="panel" style="border: 2px solid #22c55e; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 12px 16px;">
+                <h3 style="color: white; margin: 0; font-size: 14px; font-weight: 600;">
+                    <i class="bi bi-graph-up me-2"></i>Entropy Monitor
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 16px;">
+                <div id="entropyStatus">
+                    <div style="margin-bottom: 12px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Status:</span>
+                        <span id="entropyStatusBadge" class="badge ms-2" style="background: {% if status.entropy and status.entropy.is_running %}#22c55e{% else %}#71717a{% endif %}; padding: 4px 10px;">
+                            {{ 'ACTIVE' if status.entropy and status.entropy.is_running else 'INACTIVE' }}
+                        </span>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Target:</span>
+                        <code style="background: #27272a; padding: 2px 8px; border-radius: 4px; margin-left: 8px; color: #fafafa; font-size: 12px;">{{ status.entropy.target_dir if status.entropy else 'Not set' }}</code>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Current Entropy:</span>
+                        <span id="currentEntropyBadge" class="badge ms-2" style="background: {% if status.entropy and status.entropy.current_entropy > entropy_threshold %}#ef4444{% else %}#22c55e{% endif %}; padding: 4px 10px;">
+                            {{ "%.2f"|format(status.entropy.current_entropy) if status.entropy else '0.00' }} BITS
+                        </span>
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Threshold:</span>
+                        <strong style="color: #fafafa; margin-left: 8px;">{{ entropy_threshold }} bits</strong>
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Encryption Detected:</span>
+                        <span id="encryptionBadge" class="badge ms-2" style="background: {% if status.entropy and status.entropy.encryption_detected %}#ef4444{% else %}#22c55e{% endif %}; padding: 4px 10px;">
+                            {{ 'YES' if status.entropy and status.entropy.encryption_detected else 'NO' }}
+                        </span>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <canvas id="entropyChart" height="100"></canvas>
+                <div style="display: flex; gap: 8px; border-top: 1px solid #27272a; padding-top: 12px;">
+                    <button class="btn btn-sm" onclick="startEntropyMonitoring()" style="background: transparent; border: 1px solid #06b6d4; color: #06b6d4; flex: 1;">
+                        <i class="bi bi-play me-1"></i> Start Monitor
+                    </button>
+                    <button class="btn btn-sm" onclick="checkEntropy()" style="background: transparent; border: 1px solid #a1a1aa; color: #a1a1aa; flex: 1;">
+                        <i class="bi bi-search me-1"></i> Check Now
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Alerts -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-danger text-white">
-                    <i class="bi bi-exclamation-triangle"></i> Defense Alerts
-                    <span class="badge bg-light text-dark ms-2" id="alertCount">{{ alerts|length }}</span>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="alertsTable">
-                            <thead>
-                                <tr>
-                                    <th>Time</th>
-                                    <th>Type</th>
-                                    <th>Severity</th>
-                                    <th>Message</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for alert in alerts %}
-                                <tr class="{{ 'table-danger' if alert.severity == 'CRITICAL' else '' }}">
-                                    <td><small>{{ alert.timestamp }}</small></td>
-                                    <td><span class="badge bg-warning">{{ alert.type }}</span></td>
-                                    <td><span class="badge {{ 'bg-danger' if alert.severity == 'CRITICAL' else 'bg-warning' }}">{{ alert.severity }}</span></td>
-                                    <td>{{ alert.message }}</td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted">No alerts yet</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+    <!-- Configuration Card -->
+    <div class="col-lg-4">
+        <div class="panel" style="border: 1px solid #27272a; border-radius: 12px; overflow: hidden;">
+            <div style="background: #18181b; padding: 12px 16px; border-bottom: 1px solid #27272a;">
+                <h3 style="color: #fafafa; margin: 0; font-size: 14px; font-weight: 600;">
+                    <i class="bi bi-gear me-2"></i>Configuration
+                </h3>
             </div>
+            <div class="panel-body" style="padding: 16px;">
+                <div style="margin-bottom: 12px;">
+                    <label style="color: #71717a; font-size: 12px; display: block; margin-bottom: 4px;">Target Directory</label>
+                    <input type="text" class="form-control" id="targetDir" value="{{ status.canary.target_dir if status.canary else 'C:\\RansomTest' }}" style="background: #18181b; border-color: #3f3f46; color: #fafafa; font-size: 13px;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="color: #71717a; font-size: 12px; display: block; margin-bottom: 4px;">Canary Files</label>
+                    <select class="form-select" id="canaryFiles" multiple size="4" style="background: #18181b; border-color: #3f3f46; color: #fafafa; font-size: 12px;">
+                        {% for file in default_canary_files %}
+                        <option value="{{ file }}" selected>{{ file }}</option>
+                        {% endfor %}
+                    </select>
+                    <small style="color: #71717a; font-size: 11px;">Hold Ctrl to select multiple</small>
+                </div>
+                <button class="btn w-100" onclick="initializeDefense()" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border: none; color: white; padding: 10px; font-weight: 600;">
+                    <i class="bi bi-arrow-repeat me-1"></i> Initialize Defense
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Real-Time Entropy Chart -->
+<div class="panel mb-4" style="border: 1px solid #27272a; border-radius: 12px;">
+    <div style="padding: 12px 16px; border-bottom: 1px solid #27272a;">
+        <h3 style="color: #fafafa; margin: 0; font-size: 14px; font-weight: 600;">
+            <i class="bi bi-graph-up-arrow me-2" style="color: #06b6d4;"></i>Real-Time Entropy Analysis
+        </h3>
+    </div>
+    <div class="panel-body" style="padding: 16px;">
+        <div style="display: flex; justify-content: center; gap: 24px; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 20px; height: 3px; background: #06b6d4;"></div>
+                <span style="color: #a1a1aa; font-size: 12px;">Average Entropy (bits)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 20px; height: 3px; background: #ef4444; border-style: dashed;"></div>
+                <span style="color: #a1a1aa; font-size: 12px;">Encryption Threshold</span>
+            </div>
+        </div>
+        <canvas id="entropyChart" height="80"></canvas>
+    </div>
+</div>
+
+<!-- Defense Alerts Table -->
+<div class="panel" style="border-radius: 12px; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;">
+        <h3 style="color: white; margin: 0; font-size: 14px; font-weight: 600;">
+            <i class="bi bi-exclamation-triangle me-2"></i>Defense Alerts
+        </h3>
+        <span id="alertCount" style="background: rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">{{ alerts|length }}</span>
+    </div>
+    <div class="panel-body" style="padding: 0;">
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #18181b;">
+                        <th style="padding: 12px 16px; text-align: left; color: #a1a1aa; font-size: 12px; font-weight: 600; border-bottom: 1px solid #27272a;">Time</th>
+                        <th style="padding: 12px 16px; text-align: left; color: #a1a1aa; font-size: 12px; font-weight: 600; border-bottom: 1px solid #27272a;">Type</th>
+                        <th style="padding: 12px 16px; text-align: left; color: #a1a1aa; font-size: 12px; font-weight: 600; border-bottom: 1px solid #27272a;">Severity</th>
+                        <th style="padding: 12px 16px; text-align: left; color: #a1a1aa; font-size: 12px; font-weight: 600; border-bottom: 1px solid #27272a;">Message</th>
+                    </tr>
+                </thead>
+                <tbody id="alertsTableBody">
+                    {% for alert in alerts %}
+                    <tr style="background: {% if alert.severity == 'CRITICAL' %}rgba(239, 68, 68, 0.1){% else %}transparent{% endif %}; border-bottom: 1px solid #27272a;">
+                        <td style="padding: 12px 16px; color: #a1a1aa; font-size: 12px;">{{ alert.timestamp }}</td>
+                        <td style="padding: 12px 16px;">
+                            <span style="background: #eab308; color: #18181b; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600;">{{ alert.type }}</span>
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <span style="background: {% if alert.severity == 'CRITICAL' %}#ef4444{% else %}#f59e0b{% endif %}; color: white; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600;">{{ alert.severity }}</span>
+                        </td>
+                        <td style="padding: 12px 16px; color: #fafafa; font-size: 13px;">{{ alert.message }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="padding: 40px; text-align: center; color: #71717a;">
+                            <i class="bi bi-shield-check" style="font-size: 32px; display: block; margin-bottom: 8px;"></i>
+                            No defense alerts - System is secure
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>

@@ -11,13 +11,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
+from pathlib import Path
 
 from .database import init_db, SessionLocal
 from .seed import run_seed
-from .routers import agents, alerts, runs, ui, siem, advanced, recovery, scenarios, elk, alerts_stream, phishing, defense, playbooks, backup, isolation
+from .routers import agents, alerts, runs, ui, siem, advanced, recovery, scenarios, elk, alerts_stream, phishing, defense, playbooks, backup, isolation, rollback, timeline, containment, ir, business, soar, environment
 from .auth import routes as auth_routes
 from .deps.auth import get_current_user_optional
 
@@ -112,6 +114,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Static files
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# GZip compression for all responses > 1KB
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # Templates for rendering
 templates = Jinja2Templates(directory="app/templates")
 
@@ -134,17 +142,29 @@ app.include_router(defense.api_router)
 app.include_router(playbooks.router)
 app.include_router(backup.router)
 app.include_router(isolation.router)
+app.include_router(rollback.router)
+app.include_router(timeline.router)
+app.include_router(containment.router)
+app.include_router(ir.router)
+app.include_router(business.router)  # Business Portal for C-level stakeholders
+app.include_router(soar.router)  # SOAR - Network Isolation/Restore endpoints
+app.include_router(environment.router)  # Directory Lab / Environment Management
 
 
 # Public home/landing page
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     """Public landing page."""
+    from .deps.auth import is_business_user
     user = get_current_user_optional(request)
     
-    # If logged in, redirect to dashboard
+    # If logged in, redirect based on role
     if user:
         from fastapi.responses import RedirectResponse
+        # Business users go to business portal
+        if is_business_user(user):
+            return RedirectResponse(url="/business", status_code=303)
+        # Analysts go to main dashboard
         return RedirectResponse(url="/dashboard", status_code=303)
     
     # Show public landing page
@@ -169,6 +189,34 @@ async def docs_page(request: Request):
 def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "RANSOMRUN"}
+
+
+@app.get("/api/download/agent")
+async def download_agent():
+    """Download the RansomRun agent script."""
+    # Get the path to agent.py relative to the app directory
+    base_dir = Path(__file__).parent.parent
+    agent_path = base_dir / "agent" / "agent.py"
+    
+    if not agent_path.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Agent file not found")
+    
+    return FileResponse(
+        path=str(agent_path),
+        filename="ransomrun_agent.py",
+        media_type="application/octet-stream"
+    )
+
+
+@app.get("/download/agent", response_class=HTMLResponse)
+async def download_agent_page(request: Request):
+    """Agent download page with instructions."""
+    user = get_current_user_optional(request)
+    return templates.TemplateResponse("download_agent.html", {
+        "request": request,
+        "user": user
+    })
 
 
 # API documentation info

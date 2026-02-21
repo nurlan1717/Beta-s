@@ -1,0 +1,72 @@
+{% extends "business/base.html" %}
+
+{% block title %}Service Catalog{% endblock %}
+{% block page_title %}Service Catalog & Pricing{% endblock %}
+
+{% block content %}
+<div class="pricing-header">
+    <h2>Choose the Right Plan for Your Organization</h2>
+    <p>Scale your ransomware simulation and training capabilities</p>
+</div>
+
+<div class="pricing-grid">
+    {% for plan in plans %}
+    <div class="pricing-card {% if plan.recommended %}recommended{% endif %}">
+        {% if plan.recommended %}
+        <div class="recommended-badge">Most Popular</div>
+        {% endif %}
+        <div class="pricing-name">{{ plan.name }}</div>
+        <div class="pricing-price">{{ plan.price }}</div>
+        <ul class="pricing-features">
+            {% for feature in plan.features %}
+            <li><i class="bi bi-check-circle-fill"></i> {{ feature }}</li>
+            {% endfor %}
+        </ul>
+        <button class="btn {% if plan.recommended %}btn-primary{% else %}btn-secondary{% endif %} w-100">
+            {% if plan.price == 'Contact Us' %}Request Quote{% else %}Get Started{% endif %}
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h3 class="card-title"><i class="bi bi-question-circle me-2"></i>Frequently Asked Questions</h3>
+    </div>
+    <div class="faq-list">
+        <div class="faq-item">
+            <h4>What's included in the Lab plan?</h4>
+            <p>The Lab plan is perfect for getting started with ransomware simulation training. It includes mock SIEM data, basic scenarios, and support for up to 5 endpoints.</p>
+        </div>
+        <div class="faq-item">
+            <h4>Can I upgrade my plan later?</h4>
+            <p>Yes! You can upgrade at any time. Your existing data and configurations will be preserved.</p>
+        </div>
+        <div class="faq-item">
+            <h4>Do you offer custom enterprise solutions?</h4>
+            <p>Absolutely. Our Enterprise plan includes on-premises deployment, custom integrations, SSO, and dedicated support. Contact us for a tailored solution.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .pricing-header { text-align: center; margin-bottom: 40px; }
+    .pricing-header h2 { font-size: 28px; margin-bottom: 8px; }
+    .pricing-header p { color: var(--text-muted); }
+    .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+    .pricing-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 32px; position: relative; transition: transform 0.2s, box-shadow 0.2s; }
+    .pricing-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3); }
+    .pricing-card.recommended { border-color: var(--accent-purple); box-shadow: 0 0 0 1px var(--accent-purple); }
+    .recommended-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue)); padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .pricing-name { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .pricing-price { font-size: 36px; font-weight: 700; margin-bottom: 24px; color: var(--accent-green); }
+    .pricing-features { list-style: none; padding: 0; margin: 0 0 24px 0; }
+    .pricing-features li { padding: 10px 0; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; font-size: 14px; }
+    .pricing-features li:last-child { border-bottom: none; }
+    .pricing-features i { color: var(--accent-green); }
+    .faq-list { display: flex; flex-direction: column; gap: 16px; }
+    .faq-item { padding: 16px; background: var(--bg-primary); border-radius: 8px; }
+    .faq-item h4 { font-size: 15px; margin: 0 0 8px 0; }
+    .faq-item p { font-size: 14px; color: var(--text-muted); margin: 0; line-height: 1.6; }
+</style>
+{% endblock %}

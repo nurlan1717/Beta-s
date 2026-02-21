@@ -6,143 +6,350 @@
 
 {% block extra_css %}
 <style>
-    .auth-container {
-        min-height: calc(100vh - 200px);
+    .auth-page {
+        min-height: 100vh;
+        display: flex;
+        background: #09090b;
+    }
+    
+    .auth-left {
+        flex: 1;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 2rem 0;
+        padding: 40px;
+    }
+    
+    .auth-right {
+        flex: 1;
+        background: linear-gradient(135deg, #18181b 0%, #0f0f14 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .auth-right::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+    }
+    
+    .auth-right::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: -30%;
+        width: 80%;
+        height: 80%;
+        background: radial-gradient(circle, rgba(239, 68, 68, 0.08) 0%, transparent 70%);
     }
     
     .auth-card {
-        background: var(--bg-secondary);
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        padding: 3rem;
         width: 100%;
-        max-width: 450px;
+        max-width: 420px;
+        z-index: 1;
+    }
+    
+    .auth-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 40px;
+    }
+    
+    .auth-logo-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .auth-logo-icon i {
+        color: white;
+        font-size: 24px;
+    }
+    
+    .auth-logo span {
+        font-size: 24px;
+        font-weight: 700;
+        color: #fafafa;
     }
     
     .auth-title {
-        font-size: 2rem;
+        font-size: 32px;
         font-weight: 700;
-        margin-bottom: 0.5rem;
-        text-align: center;
+        color: #fafafa;
+        margin: 0 0 8px 0;
     }
     
     .auth-subtitle {
-        color: var(--text-secondary);
-        text-align: center;
-        margin-bottom: 2rem;
+        font-size: 15px;
+        color: #71717a;
+        margin: 0 0 32px 0;
     }
     
-    .form-label {
-        color: var(--text-primary);
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
         font-weight: 500;
-        margin-bottom: 0.5rem;
+        color: #a1a1aa;
+        margin-bottom: 8px;
     }
     
-    .form-control {
-        background: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        color: var(--text-primary);
-        padding: 0.75rem 1rem;
-        border-radius: 6px;
+    .form-group label i {
+        color: #8b5cf6;
+        font-size: 14px;
     }
     
-    .form-control:focus {
-        background: var(--bg-tertiary);
-        border-color: var(--accent-primary);
-        color: var(--text-primary);
-        box-shadow: 0 0 0 0.2rem rgba(239, 68, 68, 0.25);
+    .form-input {
+        width: 100%;
+        padding: 14px 16px;
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 10px;
+        color: #fafafa;
+        font-size: 14px;
+        transition: all 0.2s ease;
     }
     
-    .alert {
-        border-radius: 6px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
+    .form-input:focus {
+        outline: none;
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
     }
     
-    .alert-danger {
+    .form-input::placeholder {
+        color: #52525b;
+    }
+    
+    .alert-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
         background: rgba(239, 68, 68, 0.1);
         border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 10px;
         color: #fca5a5;
+        font-size: 14px;
+        margin-bottom: 24px;
     }
     
-    .btn-block {
+    .btn-signin {
         width: 100%;
-        padding: 0.75rem;
+        padding: 14px 24px;
+        background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+        border: none;
+        border-radius: 10px;
+        color: white;
+        font-size: 15px;
         font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
     }
     
-    .divider {
-        text-align: center;
-        margin: 1.5rem 0;
-        color: var(--text-secondary);
-        position: relative;
+    .btn-signin:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
     }
     
-    .divider::before,
-    .divider::after {
+    .auth-divider {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin: 24px 0;
+        color: #52525b;
+        font-size: 13px;
+    }
+    
+    .auth-divider::before,
+    .auth-divider::after {
         content: '';
-        position: absolute;
-        top: 50%;
-        width: 45%;
+        flex: 1;
         height: 1px;
-        background: var(--border-color);
+        background: #27272a;
     }
     
-    .divider::before {
-        left: 0;
+    .auth-footer {
+        text-align: center;
+        font-size: 14px;
+        color: #71717a;
     }
     
-    .divider::after {
-        right: 0;
+    .auth-footer a {
+        color: #8b5cf6;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+    
+    /* Right side content */
+    .auth-showcase {
+        text-align: center;
+        max-width: 500px;
+        z-index: 1;
+    }
+    
+    .showcase-icon {
+        width: 120px;
+        height: 120px;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        border-radius: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 32px;
+    }
+    
+    .showcase-icon i {
+        font-size: 56px;
+        color: #8b5cf6;
+    }
+    
+    .showcase-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: #fafafa;
+        margin: 0 0 16px 0;
+    }
+    
+    .showcase-desc {
+        font-size: 15px;
+        color: #71717a;
+        line-height: 1.7;
+        margin: 0 0 32px 0;
+    }
+    
+    .showcase-features {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        flex-wrap: wrap;
+    }
+    
+    .feature-badge {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: rgba(39, 39, 42, 0.5);
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #a1a1aa;
+    }
+    
+    .feature-badge i {
+        color: #22c55e;
+    }
+    
+    @media (max-width: 992px) {
+        .auth-right {
+            display: none;
+        }
+        .auth-left {
+            padding: 24px;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <h1 class="auth-title">Welcome Back</h1>
-        <p class="auth-subtitle">Sign in to your RansomRun account</p>
-        
-        {% if error %}
-        <div class="alert alert-danger">
-            <i class="bi bi-exclamation-triangle"></i> {{ error }}
+<div class="auth-page">
+    <div class="auth-left">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <div class="auth-logo-icon">
+                    <i class="bi bi-shield-lock"></i>
+                </div>
+                <span>RansomRun</span>
+            </div>
+            
+            <h1 class="auth-title">Welcome back</h1>
+            <p class="auth-subtitle">Sign in to continue to your dashboard</p>
+            
+            {% if error %}
+            <div class="alert-box">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
+            
+            <form method="POST" action="/login">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="next" value="{{ next }}">
+                
+                <div class="form-group">
+                    <label><i class="bi bi-envelope"></i> Email Address</label>
+                    <input type="email" class="form-input" name="email" 
+                           placeholder="you@example.com" required autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label><i class="bi bi-lock"></i> Password</label>
+                    <input type="password" class="form-input" name="password" 
+                           placeholder="Enter your password" required>
+                </div>
+                
+                <button type="submit" class="btn-signin">
+                    <i class="bi bi-arrow-right-circle"></i> Sign In
+                </button>
+            </form>
+            
+            <div class="auth-divider">or</div>
+            
+            <p class="auth-footer">
+                Don't have an account? <a href="/signup">Create one</a>
+            </p>
         </div>
-        {% endif %}
-        
-        <form method="POST" action="/login">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="hidden" name="next" value="{{ next }}">
-            
-            <div class="mb-3">
-                <label for="email" class="form-label">Email Address</label>
-                <input type="email" class="form-control" id="email" name="email" 
-                       placeholder="you@example.com" required autofocus>
+    </div>
+    
+    <div class="auth-right">
+        <div class="auth-showcase">
+            <div class="showcase-icon">
+                <i class="bi bi-bug"></i>
             </div>
-            
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" 
-                       placeholder="Enter your password" required>
+            <h2 class="showcase-title">Ransomware Simulation Platform</h2>
+            <p class="showcase-desc">
+                Train your security team with realistic ransomware attack simulations. 
+                Test detection capabilities and incident response procedures in a safe environment.
+            </p>
+            <div class="showcase-features">
+                <div class="feature-badge">
+                    <i class="bi bi-check-circle-fill"></i> Lab-Safe
+                </div>
+                <div class="feature-badge">
+                    <i class="bi bi-check-circle-fill"></i> SIEM Integration
+                </div>
+                <div class="feature-badge">
+                    <i class="bi bi-check-circle-fill"></i> MITRE ATT&CK
+                </div>
             </div>
-            
-            <button type="submit" class="btn btn-primary btn-block">
-                <i class="bi bi-box-arrow-in-right"></i> Sign In
-            </button>
-        </form>
-        
-        <div class="divider">or</div>
-        
-        <p class="text-center text-muted">
-            Don't have an account? 
-            <a href="/signup" style="color: var(--accent-primary); text-decoration: none;">
-                Sign up
-            </a>
-        </p>
+        </div>
     </div>
 </div>
 {% endblock %}

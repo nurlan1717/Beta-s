@@ -62,6 +62,27 @@ WHATIF_TEMPLATES = {
             "recovery_time_reduction_percent": 80,
             "data_loss_reduction_percent": 95
         }
+    },
+    "network_segmentation": {
+        "name": "Network Segmentation Active",
+        "description": "What if proper network segmentation prevented lateral movement?",
+        "assumptions": {
+            "lateral_movement_blocked": True,
+            "blocked_actions": ["EXFIL_PREPARED"],
+            "file_impact_reduction_percent": 50,
+            "detection_improvement_seconds": 10
+        }
+    },
+    "mfa_enabled": {
+        "name": "MFA Enabled on All Accounts",
+        "description": "What if multi-factor authentication was enforced?",
+        "assumptions": {
+            "mfa_enabled": True,
+            "credential_theft_blocked": True,
+            "blocked_actions": ["PERSISTENCE_CREATED"],
+            "file_impact_reduction_percent": 40,
+            "detection_improvement_seconds": 5
+        }
     }
 }
 

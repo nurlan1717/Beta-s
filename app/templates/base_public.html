@@ -6,51 +6,279 @@
     <title>{% block title %}RansomRun - Ransomware Simulation Platform{% endblock %}</title>
     
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/static/css/bootstrap-icons.css">
     
     <style>
         :root {
-            --bg-primary: #0a0a0a;
+            --bg-primary: #09090b;
             --bg-secondary: #18181b;
             --bg-tertiary: #27272a;
             --text-primary: #fafafa;
             --text-secondary: #a1a1aa;
             --accent-primary: #ef4444;
             --accent-secondary: #dc2626;
-            --border-color: #3f3f46;
+            --accent-purple: #8b5cf6;
+            --border-color: #27272a;
+        }
+        
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
         
         body {
             background: var(--bg-primary);
             color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             margin: 0;
             padding: 0;
         }
         
-        /* Public Navbar */
-        .public-navbar {
-            background: var(--bg-secondary);
+        /* Modern Navbar */
+        .navbar-modern {
+            background: var(--bg-primary);
             border-bottom: 1px solid var(--border-color);
-            padding: 1rem 0;
+            padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
         
-        .public-navbar .navbar-brand {
+        .navbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+        }
+        
+        .navbar-brand-modern {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
             color: var(--text-primary);
             font-weight: 700;
-            font-size: 1.5rem;
+            font-size: 20px;
         }
         
-        .public-navbar .nav-link {
-            color: var(--text-secondary);
-            margin: 0 0.5rem;
-            transition: color 0.2s;
+        .navbar-brand-modern .brand-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
-        .public-navbar .nav-link:hover {
-            color: var(--text-primary);
+        .navbar-brand-modern .brand-icon i {
+            color: white;
+            font-size: 16px;
+        }
+        
+        /* Nav Menu */
+        .nav-menu {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .nav-item-dropdown {
+            position: relative;
+        }
+        
+        .nav-link-modern {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            color: #a1a1aa;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        
+        .nav-link-modern:hover {
+            color: #fafafa;
+            background: var(--bg-secondary);
+        }
+        
+        .nav-link-modern.active {
+            color: #fafafa;
+            border-color: var(--accent-purple);
+            background: rgba(139, 92, 246, 0.1);
+        }
+        
+        .nav-link-modern .chevron {
+            font-size: 10px;
+            transition: transform 0.2s ease;
+        }
+        
+        .nav-item-dropdown:hover .chevron {
+            transform: rotate(180deg);
+        }
+        
+        /* Dropdown Menu */
+        .dropdown-mega {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            min-width: 600px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        
+        .nav-item-dropdown:hover .dropdown-mega {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .dropdown-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        
+        .dropdown-section h6 {
+            font-size: 11px;
+            font-weight: 600;
+            color: #52525b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+        
+        .dropdown-item-custom {
+            display: flex;
+            gap: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+        }
+        
+        .dropdown-item-custom:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .dropdown-item-icon {
+            width: 36px;
+            height: 36px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .dropdown-item-icon i {
+            color: var(--accent-purple);
+            font-size: 16px;
+        }
+        
+        .dropdown-item-icon.red {
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
+        .dropdown-item-icon.red i {
+            color: #ef4444;
+        }
+        
+        .dropdown-item-icon.green {
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .dropdown-item-icon.green i {
+            color: #22c55e;
+        }
+        
+        .dropdown-item-icon.blue {
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .dropdown-item-icon.blue i {
+            color: #3b82f6;
+        }
+        
+        .dropdown-item-content h5 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fafafa;
+            margin: 0 0 4px 0;
+        }
+        
+        .dropdown-item-content p {
+            font-size: 12px;
+            color: #71717a;
+            margin: 0;
+            line-height: 1.4;
+        }
+        
+        .dropdown-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            color: #a78bfa;
+            margin-left: 8px;
+        }
+        
+        /* Nav Buttons */
+        .nav-buttons {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .btn-nav-outline {
+            padding: 10px 20px;
+            background: transparent;
+            border: 1px solid var(--accent-primary);
+            border-radius: 6px;
+            color: var(--accent-primary);
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-nav-outline:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-primary);
+        }
+        
+        .btn-nav-primary {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-nav-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+            color: white;
         }
         
         .btn-primary {
@@ -114,27 +342,123 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Public Navigation -->
-    <nav class="public-navbar">
+    <!-- Modern Navigation -->
+    <nav class="navbar-modern">
         <div class="container">
-            <div class="d-flex justify-content-between align-items-center">
-                <a href="/" class="navbar-brand">
-                    <i class="bi bi-shield-lock"></i> RansomRun
+            <div class="navbar-inner">
+                <a href="/" class="navbar-brand-modern">
+                    <div class="brand-icon">
+                        <svg width="20" height="20" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Gray circle with red border -->
+                            <circle cx="18" cy="18" r="15" fill="url(#nav_skull_grad)" stroke="#ef4444" stroke-width="2.5"/>
+                            <!-- Left eye -->
+                            <circle cx="13" cy="14" r="3.5" fill="#18181b"/>
+                            <!-- Right eye -->
+                            <circle cx="23" cy="14" r="3.5" fill="#18181b"/>
+                            <!-- Smile curve -->
+                            <path d="M11 22 Q18 26 25 22" stroke="#18181b" stroke-width="2" fill="none" stroke-linecap="round"/>
+                            <!-- Teeth -->
+                            <line x1="14" y1="23" x2="14" y2="27" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                            <line x1="18" y1="24" x2="18" y2="28" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                            <line x1="22" y1="23" x2="22" y2="27" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                            <defs>
+                                <linearGradient id="nav_skull_grad" x1="3" y1="3" x2="33" y2="33" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#f5f5f5"/>
+                                    <stop offset="1" stop-color="#d4d4d4"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <span>RansomRun</span>
                 </a>
                 
-                <div class="d-flex align-items-center gap-3">
+                <div class="nav-menu">
                     {% block nav_links %}
-                    <a href="/#features" class="nav-link">Features</a>
-                    <a href="/#how-it-works" class="nav-link">How it Works</a>
-                    <a href="/docs" class="nav-link">Docs</a>
-                    {% endblock %}
+                    <!-- Features Dropdown -->
+                    <div class="nav-item-dropdown">
+                        <div class="nav-link-modern">
+                            Features <i class="bi bi-chevron-down chevron"></i>
+                        </div>
+                        <div class="dropdown-mega">
+                            <div class="dropdown-grid">
+                                <div class="dropdown-section">
+                                    <h6>Simulation</h6>
+                                    <a href="/#features" class="dropdown-item-custom">
+                                        <div class="dropdown-item-icon red">
+                                            <i class="bi bi-cpu"></i>
+                                        </div>
+                                        <div class="dropdown-item-content">
+                                            <h5>Ransomware Scenarios</h5>
+                                            <p>Pre-built attack scenarios for training</p>
+                                        </div>
+                                    </a>
+                                    <a href="/#features" class="dropdown-item-custom">
+                                        <div class="dropdown-item-icon">
+                                            <i class="bi bi-hdd-network"></i>
+                                        </div>
+                                        <div class="dropdown-item-content">
+                                            <h5>Agent Execution</h5>
+                                            <p>Deploy Windows agents for simulations</p>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="dropdown-section">
+                                    <h6>Detection</h6>
+                                    <a href="/#features" class="dropdown-item-custom">
+                                        <div class="dropdown-item-icon blue">
+                                            <i class="bi bi-graph-up"></i>
+                                        </div>
+                                        <div class="dropdown-item-content">
+                                            <h5>ELK SIEM Integration</h5>
+                                            <p>Real-time alert correlation</p>
+                                        </div>
+                                    </a>
+                                    <a href="/#features" class="dropdown-item-custom">
+                                        <div class="dropdown-item-icon green">
+                                            <i class="bi bi-shield-check"></i>
+                                        </div>
+                                        <div class="dropdown-item-content">
+                                            <h5>Blue Team Defense</h5>
+                                            <p>Canary files & entropy monitoring</p>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div class="dropdown-section">
+                                    <h6>Response</h6>
+                                    <a href="/#features" class="dropdown-item-custom">
+                                        <div class="dropdown-item-icon">
+                                            <i class="bi bi-lightning"></i>
+                                        </div>
+                                        <div class="dropdown-item-content">
+                                            <h5>SOAR Playbooks <span class="dropdown-badge">Pro</span></h5>
+                                            <p>Automated response actions</p>
+                                        </div>
+                                    </a>
+                                    <a href="/#features" class="dropdown-item-custom">
+                                        <div class="dropdown-item-icon red">
+                                            <i class="bi bi-file-earmark-text"></i>
+                                        </div>
+                                        <div class="dropdown-item-content">
+                                            <h5>MITRE ATT&CK Reports</h5>
+                                            <p>Technique mapping & compliance</p>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
+                    <a href="/#how-it-works" class="nav-link-modern">How it Works</a>
+                    {% endblock %}
+                </div>
+                
+                <div class="nav-buttons">
                     {% if user %}
-                    <a href="/dashboard" class="btn btn-outline-primary">Dashboard</a>
-                    <a href="/logout" class="btn btn-primary">Logout</a>
+                    <a href="/dashboard" class="btn-nav-outline">Dashboard</a>
+                    <a href="/logout" class="btn-nav-primary">Logout</a>
                     {% else %}
-                    <a href="/login" class="btn btn-outline-primary">Login</a>
-                    <a href="/signup" class="btn btn-primary">Sign Up</a>
+                    <a href="/login" class="btn-nav-outline">Login</a>
+                    <a href="/signup" class="btn-nav-primary">Sign Up</a>
                     {% endif %}
                 </div>
             </div>
@@ -183,7 +507,7 @@
     </footer>
     
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

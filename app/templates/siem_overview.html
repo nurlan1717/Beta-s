@@ -3,31 +3,194 @@
 {% block title %}SIEM Overview - RansomRun{% endblock %}
 {% block page_title %}SIEM Overview{% endblock %}
 
+{% block extra_css %}
+<style>
+    .siem-stat-card {
+        background: linear-gradient(135deg, #18181b 0%, #1f1f24 100%);
+        border: 1px solid #27272a;
+        border-radius: 16px;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .siem-stat-card:hover {
+        border-color: #3f3f46;
+        transform: translateY(-2px);
+    }
+    
+    .siem-stat-card::after {
+        content: '';
+        position: absolute;
+        top: -20px;
+        right: -20px;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        opacity: 0.1;
+    }
+    
+    .siem-stat-card.blue::after { background: #3b82f6; }
+    .siem-stat-card.red::after { background: #ef4444; }
+    .siem-stat-card.orange::after { background: #f59e0b; }
+    .siem-stat-card.purple::after { background: #8b5cf6; }
+    
+    .siem-stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+    }
+    
+    .siem-stat-icon.blue { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+    .siem-stat-icon.red { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+    .siem-stat-icon.orange { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .siem-stat-icon.purple { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+    
+    .siem-stat-icon i { font-size: 22px; }
+    
+    .siem-stat-value {
+        font-size: 36px;
+        font-weight: 700;
+        color: #fafafa;
+        line-height: 1;
+        margin-bottom: 6px;
+    }
+    
+    .siem-stat-label {
+        font-size: 13px;
+        color: #71717a;
+        font-weight: 500;
+    }
+    
+    .elk-badge {
+        background: linear-gradient(135deg, #00bfb3 0%, #f9b110 100%);
+        color: #000;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        letter-spacing: 0.5px;
+    }
+    
+    .connection-status {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.2);
+        border-radius: 10px;
+        margin-bottom: 16px;
+    }
+    
+    .connection-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        animation: pulse-dot 2s infinite;
+    }
+    
+    @keyframes pulse-dot {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .api-endpoint {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: #0f0f14;
+        border: 1px solid #27272a;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #a1a1aa;
+    }
+    
+    .api-endpoint .method {
+        background: #22c55e;
+        color: #000;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 700;
+    }
+    
+    .rule-bar {
+        height: 10px;
+        background: #27272a;
+        border-radius: 5px;
+        overflow: hidden;
+    }
+    
+    .rule-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+        border-radius: 5px;
+        transition: width 0.5s ease;
+    }
+    
+    .alert-activity-bar {
+        flex: 1;
+        min-width: 8px;
+        background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+        border-radius: 3px 3px 0 0;
+        transition: all 0.3s ease;
+    }
+    
+    .alert-activity-bar:hover {
+        background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
+        transform: scaleY(1.1);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Stats Grid -->
 <div class="row g-4 mb-4">
     <div class="col-md-3">
-        <div class="stat-box">
-            <div class="stat-value">{{ stats.total_alerts }}</div>
-            <div class="stat-label">Total Alerts (24h)</div>
+        <div class="siem-stat-card blue">
+            <div class="siem-stat-icon blue">
+                <i class="bi bi-bell"></i>
+            </div>
+            <div class="siem-stat-value">{{ stats.total_alerts }}</div>
+            <div class="siem-stat-label">Total Alerts (24h)</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-box">
-            <div class="stat-value" style="color: #ef4444;">{{ stats.alerts_by_severity.critical }}</div>
-            <div class="stat-label">Critical Alerts</div>
+        <div class="siem-stat-card red">
+            <div class="siem-stat-icon red">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="siem-stat-value" style="color: #ef4444;">{{ stats.alerts_by_severity.critical }}</div>
+            <div class="siem-stat-label">Critical Alerts</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-box">
-            <div class="stat-value" style="color: #f59e0b;">{{ stats.alerts_by_severity.high }}</div>
-            <div class="stat-label">High Severity</div>
+        <div class="siem-stat-card orange">
+            <div class="siem-stat-icon orange">
+                <i class="bi bi-shield-exclamation"></i>
+            </div>
+            <div class="siem-stat-value" style="color: #f59e0b;">{{ stats.alerts_by_severity.high }}</div>
+            <div class="siem-stat-label">High Severity</div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="stat-box">
-            <div class="stat-value">{{ stats.alerts_by_rule|length }}</div>
-            <div class="stat-label">Unique Rules</div>
+        <div class="siem-stat-card purple">
+            <div class="siem-stat-icon purple">
+                <i class="bi bi-list-check"></i>
+            </div>
+            <div class="siem-stat-value">{{ stats.alerts_by_rule|length }}</div>
+            <div class="siem-stat-label">Unique Rules</div>
         </div>
     </div>
 </div>

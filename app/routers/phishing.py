@@ -315,6 +315,47 @@ async def view_message_page(
     })
 
 
+@router.get("/landing/{token}", response_class=HTMLResponse)
+async def phishing_landing_page_token(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """Training landing page with download button - token in path."""
+    check_phishing_enabled()
+    
+    message = phishing_crud.get_message_by_token(db, token)
+    if not message:
+        raise HTTPException(status_code=404, detail="Invalid or expired link")
+    
+    campaign = message.campaign
+    
+    # Determine document type based on template
+    doc_types = {
+        "invoice": "Invoice Document",
+        "hr": "HR Policy Document", 
+        "password": "Password Reset Form",
+        "delivery": "Delivery Confirmation"
+    }
+    document_type = "Secure Document"
+    if campaign.template_key:
+        for key, dtype in doc_types.items():
+            if key in campaign.template_key.lower():
+                document_type = dtype
+                break
+    
+    return templates.TemplateResponse("phishing_landing_training.html", {
+        "request": request,
+        "campaign": campaign,
+        "message": message,
+        "token": token,
+        "document_type": document_type,
+        "file_size": "24 KB",
+        "expiry": "24 hours",
+        "is_simulation": True
+    })
+
+
 @router.get("/landing", response_class=HTMLResponse)
 async def phishing_landing_page(
     request: Request,
@@ -322,32 +363,72 @@ async def phishing_landing_page(
     token: str = Query(None),
     db: Session = Depends(get_db)
 ):
-    """Safe training landing page shown after clicking phishing link."""
+    """Legacy landing page - redirects to token-based route if token provided."""
     check_phishing_enabled()
     
-    campaign_obj = None
-    message = None
-    
     if token:
-        message = phishing_crud.get_message_by_token(db, token)
-        if message:
-            campaign_obj = message.campaign
-    elif campaign:
+        return RedirectResponse(url=f"/phishing/landing/{token}", status_code=302)
+    
+    campaign_obj = None
+    if campaign:
         campaign_obj = phishing_crud.get_campaign(db, campaign)
     
     return templates.TemplateResponse("phishing_landing.html", {
         "request": request,
         "campaign": campaign_obj,
-        "message": message,
+        "message": None,
         "is_simulation": True
     })
 
 
 # =============================================================================
-# TRACKING ENDPOINT
+# TRACKING ENDPOINTS
 # =============================================================================
 
-@router.get("/t/{token}")
+# 1x1 transparent PNG pixel for email open tracking
+TRACKING_PIXEL = bytes([
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+    0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+    0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+])
+
+
+@router.get("/t/pixel/{token}.png")
+async def track_pixel(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Email open tracking pixel.
+    Returns a 1x1 transparent PNG and logs OPENED event.
+    """
+    from fastapi.responses import Response
+    
+    message = phishing_crud.get_message_by_token(db, token)
+    if message:
+        # Mark as opened (idempotent - only logs first open)
+        phishing_crud.mark_message_opened(db, message.id, {
+            "user_agent": request.headers.get("user-agent"),
+            "ip": request.client.host if request.client else None
+        })
+    
+    # Always return pixel to avoid detection
+    return Response(
+        content=TRACKING_PIXEL,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+@router.get("/t/click/{token}")
 async def track_click(
     request: Request,
     token: str,
@@ -356,80 +437,260 @@ async def track_click(
     """
     Click tracking endpoint.
     Marks message as CLICKED and redirects to landing page.
-    Optionally triggers a safe simulation run.
+    Does NOT trigger simulation - that happens on execute.
     """
     message = phishing_crud.get_message_by_token(db, token)
     if not message:
         raise HTTPException(status_code=404, detail="Invalid tracking token")
     
-    # Mark as clicked
+    # Mark as clicked (idempotent)
     phishing_crud.mark_message_clicked(db, message.id, {
         "user_agent": request.headers.get("user-agent"),
         "ip": request.client.host if request.client else None
     })
     
-    # Trigger simulation run on phishing click
     campaign = message.campaign
-    recipient = message.recipient
+    print(f"[PHISHING] Click tracked - Campaign: {campaign.id}, Token: {token[:8]}...")
     
-    print(f"[PHISHING] Click detected - Campaign: {campaign.id}, Scenario: {campaign.scenario_id}, Host: {recipient.host_id}")
-    
-    # Get host_id - either from recipient or find first available host
-    target_host_id = recipient.host_id
-    
-    # If no host_id on recipient but campaign has scenario, use first available host
-    if not target_host_id and campaign.scenario_id:
-        all_hosts = crud.get_all_hosts(db)
-        if all_hosts:
-            target_host_id = all_hosts[0].id
-            print(f"[PHISHING] No host on recipient, using first available host: {target_host_id}")
-    
-    if campaign.scenario_id and target_host_id:
-        try:
-            print(f"[PHISHING] Triggering ransomware simulation - Scenario: {campaign.scenario_id}, Host: {target_host_id}")
-            
-            # Create a simulation run
-            run = crud.create_run(
-                db,
-                scenario_id=campaign.scenario_id,
-                host_id=target_host_id
-            )
-            
-            # Get scenario config
-            scenario = crud.get_scenario_by_id(db, campaign.scenario_id)
-            
-            # Create task for the agent
-            crud.create_task(
-                db,
-                host_id=target_host_id,
-                task_type="simulate_ransomware",
-                parameters={
-                    "scenario_key": scenario.key if scenario else "crypto_basic",
-                    "scenario_config": scenario.config if scenario else {},
-                    "run_id": run.id,
-                    "triggered_by": "phishing_campaign",
-                    "campaign_id": campaign.id
-                },
-                run_id=run.id
-            )
-            print(f"[PHISHING] Ransomware task created successfully for run {run.id}")
-        except Exception as e:
-            print(f"[PHISHING] Failed to trigger simulation: {e}")
-            import traceback
-            traceback.print_exc()
-    else:
-        print(f"[PHISHING] Cannot trigger simulation - scenario_id: {campaign.scenario_id}, host_id: {target_host_id}")
-    
-    # Redirect to landing page
+    # Redirect to landing page with token
     return RedirectResponse(
-        url=f"/phishing/landing?campaign={campaign.id}&token={token}",
+        url=f"/phishing/landing/{token}",
         status_code=302
     )
+
+
+@router.get("/t/download/{token}")
+async def track_download(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Download tracking endpoint.
+    Marks message as DOWNLOADED and serves the training launcher.
+    """
+    from fastapi.responses import Response
+    
+    message = phishing_crud.get_message_by_token(db, token)
+    if not message:
+        raise HTTPException(status_code=404, detail="Invalid tracking token")
+    
+    # Mark as downloaded (idempotent)
+    phishing_crud.mark_message_downloaded(db, message.id, {
+        "user_agent": request.headers.get("user-agent"),
+        "ip": request.client.host if request.client else None
+    })
+    
+    campaign = message.campaign
+    print(f"[PHISHING] Download tracked - Campaign: {campaign.id}, Token: {token[:8]}...")
+    
+    # Generate launcher script content with embedded token
+    launcher_content = generate_training_launcher(token, campaign.id, campaign.scenario_id)
+    
+    # Use .bat file for easy execution on Windows
+    filename = "SecurityTraining.bat"
+    
+    return Response(
+        content=launcher_content,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-RansomRun-Training": "true"
+        }
+    )
+
+
+def generate_training_launcher(token: str, campaign_id: int, scenario_id: int = None) -> bytes:
+    """
+    Generate a benign training launcher batch script.
+    This script ONLY:
+    1. Calls our backend API to report execution
+    2. Displays a training popup
+    3. Exits
+    
+    It does NOT contain any ransomware logic.
+    Uses .bat format for easy double-click execution on Windows.
+    """
+    script = f'''@echo off
+title RansomRun Security Awareness Training
+color 0B
+
+echo.
+echo ============================================
+echo   RANSOMRUN SECURITY AWARENESS TRAINING
+echo ============================================
+echo.
+echo This is a TRAINING SIMULATION.
+echo You clicked a simulated phishing link and
+echo downloaded this file as part of training.
+echo.
+echo Please wait while we notify the training platform...
+echo.
+
+:: Set variables
+set TOKEN={token}
+set BASEURL=http://192.168.10.55:8000
+set CAMPAIGNID={campaign_id}
+
+:: Get system info
+set HOSTNAME=%COMPUTERNAME%
+set USERNAME=%USERNAME%
+
+:: Notify the training platform using PowerShell (runs in background)
+powershell -ExecutionPolicy Bypass -Command "$body = @{{token='{token}';hostname='%COMPUTERNAME%';username='%USERNAME%';campaign_id={campaign_id}}} | ConvertTo-Json; try {{ Invoke-RestMethod -Uri '%BASEURL%/api/phishing/execute' -Method POST -Body $body -ContentType 'application/json' -ErrorAction Stop; Write-Host 'Platform notified.' -ForegroundColor Green }} catch {{ Write-Host 'Note: Could not reach platform.' -ForegroundColor Yellow }}"
+
+echo.
+echo Training platform notified.
+echo.
+
+:: Show the training popup using PowerShell MessageBox
+powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.MessageBox]::Show('SECURITY AWARENESS TRAINING`n`nYou have just completed a phishing simulation exercise.`n`nWhat happened:`n1. You received a simulated phishing email`n2. You clicked on a suspicious link`n3. You downloaded and ran an unknown file`n`nIn a real attack, this could have installed ransomware or other malware on your computer.`n`nTIPS TO STAY SAFE:`n- Verify sender email addresses carefully`n- Do not click links in unexpected emails`n- Never download files from untrusted sources`n- When in doubt, contact IT Security`n`nThis was a training exercise. No harm was done.`nYour participation helps improve our security posture.`n`nCampaign ID: {campaign_id}', 'RansomRun Security Training', 'OK', 'Information')"
+
+echo.
+echo ============================================
+echo   Training exercise complete!
+echo   Thank you for participating.
+echo ============================================
+echo.
+echo Press any key to close this window...
+pause >nul
+'''
+    return script.encode('utf-8')
+
+
+# Keep old endpoint for backward compatibility
+@router.get("/t/{token}")
+async def track_click_legacy(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db)
+):
+    """Legacy click tracking - redirects to new endpoint."""
+    return RedirectResponse(url=f"/phishing/t/click/{token}", status_code=302)
 
 
 # =============================================================================
 # API ROUTES
 # =============================================================================
+
+class ExecuteRequest(BaseModel):
+    """Request body for launcher execution."""
+    token: str
+    hostname: Optional[str] = None
+    username: Optional[str] = None
+    campaign_id: Optional[int] = None
+
+
+@api_router.post("/execute")
+async def execute_launcher(
+    data: ExecuteRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Execute endpoint called by the training launcher.
+    Marks message as EXECUTED and optionally triggers simulation.
+    
+    SAFETY: Only triggers simulation on pre-configured sandbox directories.
+    """
+    check_phishing_enabled()
+    
+    message = phishing_crud.get_message_by_token(db, data.token)
+    if not message:
+        raise HTTPException(status_code=404, detail="Invalid token")
+    
+    campaign = message.campaign
+    recipient = message.recipient
+    
+    print(f"[PHISHING] Execute called - Campaign: {campaign.id}, Host: {data.hostname}, User: {data.username}")
+    
+    # Mark as executed
+    meta = {
+        "ip": request.client.host if request.client else None,
+        "user_agent": request.headers.get("user-agent"),
+        "hostname": data.hostname,
+        "username": data.username
+    }
+    
+    run_id = None
+    simulation_started = False
+    
+    # Trigger simulation if campaign has scenario configured
+    if campaign.scenario_id:
+        # Find host by hostname or use recipient's configured host
+        target_host_id = recipient.host_id
+        
+        if data.hostname and not target_host_id:
+            # Try to find host by hostname (Host model uses 'name' field)
+            from ..models import Host
+            host = db.query(Host).filter(Host.name == data.hostname).first()
+            if host:
+                target_host_id = host.id
+                print(f"[PHISHING] Found host by hostname: {target_host_id}")
+        
+        # Fallback to first available host
+        if not target_host_id:
+            all_hosts = crud.get_all_hosts(db)
+            if all_hosts:
+                target_host_id = all_hosts[0].id
+                print(f"[PHISHING] Using first available host: {target_host_id}")
+        
+        if target_host_id:
+            try:
+                # Create simulation run
+                run = crud.create_run(
+                    db,
+                    scenario_id=campaign.scenario_id,
+                    host_id=target_host_id
+                )
+                run_id = run.id
+                
+                # Get scenario config
+                scenario = crud.get_scenario_by_id(db, campaign.scenario_id)
+                
+                # Create task for the agent
+                crud.create_task(
+                    db,
+                    host_id=target_host_id,
+                    task_type="simulate_ransomware",
+                    parameters={
+                        "scenario_key": scenario.key if scenario else "crypto_basic",
+                        "scenario_config": scenario.config if scenario else {},
+                        "run_id": run.id,
+                        "triggered_by": "phishing_launcher",
+                        "campaign_id": campaign.id,
+                        "phishing_token": data.token[:16] + "..."
+                    },
+                    run_id=run.id
+                )
+                
+                simulation_started = True
+                print(f"[PHISHING] Simulation triggered - Run ID: {run_id}")
+                
+                # Update message with simulation run link
+                phishing_crud.mark_simulation_started(db, message.id, run_id, meta)
+                
+            except Exception as e:
+                print(f"[PHISHING] Failed to trigger simulation: {e}")
+                import traceback
+                traceback.print_exc()
+    
+    # Mark message as executed
+    phishing_crud.mark_message_executed(
+        db, message.id,
+        hostname=data.hostname,
+        simulation_run_id=run_id,
+        meta=meta
+    )
+    
+    return {
+        "success": True,
+        "message": "Execution recorded",
+        "simulation_started": simulation_started,
+        "run_id": run_id,
+        "campaign_id": campaign.id
+    }
+
 
 @api_router.post("/campaigns")
 async def create_campaign(
@@ -654,7 +915,26 @@ async def launch_campaign(
         db.commit()
         
         # Deliver based on mode
-        if campaign.delivery_mode == DeliveryMode.MAIL_SINK and ENABLE_LOCAL_MAIL_SINK:
+        if campaign.delivery_mode == DeliveryMode.SMTP:
+            # Send via SMTP
+            try:
+                from ..services.email_service import send_training_email
+                result = send_training_email(
+                    to_email=recipient.email,
+                    to_name=recipient.display_name,
+                    subject=rendered["subject"],
+                    body_html=rendered["body_html"],
+                    body_text=rendered.get("body_text"),
+                    token=token,
+                    campaign_id=campaign_id
+                )
+                if result["success"]:
+                    phishing_crud.mark_message_sent(db, message.id)
+                else:
+                    print(f"[PHISHING] SMTP send failed: {result.get('error')}")
+            except Exception as e:
+                print(f"[PHISHING] SMTP error: {e}")
+        elif campaign.delivery_mode == DeliveryMode.MAIL_SINK and ENABLE_LOCAL_MAIL_SINK:
             success = send_to_mailhog(recipient.email, rendered["subject"], rendered["body_html"])
             if success:
                 phishing_crud.mark_message_sent(db, message.id)
@@ -836,3 +1116,289 @@ async def generate_custom_template_ai(
         return {"success": True, "template": result}
     else:
         return {"success": False, "message": "AI generation failed."}
+
+
+# =============================================================================
+# SETTINGS API
+# =============================================================================
+
+@api_router.get("/settings")
+async def get_all_settings(db: Session = Depends(get_db)):
+    """Get all phishing settings."""
+    check_phishing_enabled()
+    
+    # Seed defaults if not exist
+    phishing_crud.seed_default_settings(db)
+    
+    settings = phishing_crud.get_all_settings(db)
+    return {"success": True, "settings": settings}
+
+
+@api_router.put("/settings/{key}")
+async def update_setting(
+    key: str,
+    value: str = Form(...),
+    setting_type: str = Form("string"),
+    db: Session = Depends(get_db)
+):
+    """Update a single setting."""
+    check_phishing_enabled()
+    
+    phishing_crud.set_setting(db, key, value, setting_type)
+    return {"success": True}
+
+
+@api_router.get("/settings/allowed-domains")
+async def get_allowed_domains(db: Session = Depends(get_db)):
+    """Get list of allowed recipient domains."""
+    check_phishing_enabled()
+    
+    domains = phishing_crud.get_allowed_domains(db)
+    return {"success": True, "domains": domains}
+
+
+@api_router.put("/settings/allowed-domains")
+async def update_allowed_domains(
+    domains: List[str],
+    db: Session = Depends(get_db)
+):
+    """Update allowed recipient domains."""
+    check_phishing_enabled()
+    
+    phishing_crud.set_setting(db, "allowed_domains", domains, "json")
+    return {"success": True, "domains": domains}
+
+
+# =============================================================================
+# DB TEMPLATES API
+# =============================================================================
+
+@api_router.get("/db-templates")
+async def get_db_templates(
+    category: str = Query(None),
+    db: Session = Depends(get_db)
+):
+    """Get templates stored in database."""
+    check_phishing_enabled()
+    
+    # Seed defaults if none exist
+    phishing_crud.seed_default_templates(db)
+    
+    templates_list = phishing_crud.get_all_templates(db, category=category)
+    return {
+        "success": True,
+        "templates": [
+            {
+                "id": t.id,
+                "key": t.key,
+                "name": t.name,
+                "category": t.category,
+                "description": t.description,
+                "subject": t.subject,
+                "has_attachment": t.has_attachment,
+                "landing_page_type": t.landing_page_type
+            }
+            for t in templates_list
+        ]
+    }
+
+
+@api_router.get("/db-templates/{template_id}")
+async def get_db_template(template_id: int, db: Session = Depends(get_db)):
+    """Get a specific template by ID."""
+    check_phishing_enabled()
+    
+    template = phishing_crud.get_template_by_id(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return {
+        "success": True,
+        "template": {
+            "id": template.id,
+            "key": template.key,
+            "name": template.name,
+            "category": template.category,
+            "description": template.description,
+            "subject": template.subject,
+            "body_html": template.body_html,
+            "body_text": template.body_text,
+            "variables": template.variables,
+            "has_attachment": template.has_attachment,
+            "attachment_name": template.attachment_name,
+            "landing_page_type": template.landing_page_type
+        }
+    }
+
+
+class TemplateCreate(BaseModel):
+    name: str
+    key: str
+    subject: str
+    body_html: str
+    body_text: Optional[str] = None
+    category: str = "custom"
+    description: Optional[str] = None
+    variables: Optional[List[str]] = None
+    has_attachment: bool = False
+    attachment_name: Optional[str] = None
+    landing_page_type: str = "document"
+
+
+@api_router.post("/db-templates")
+async def create_db_template(
+    data: TemplateCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new template in database."""
+    check_phishing_enabled()
+    
+    # Check if key already exists
+    existing = phishing_crud.get_template_by_key(db, data.key)
+    if existing:
+        raise HTTPException(status_code=400, detail="Template key already exists")
+    
+    template = phishing_crud.create_template(
+        db,
+        name=data.name,
+        key=data.key,
+        subject=data.subject,
+        body_html=data.body_html,
+        body_text=data.body_text,
+        category=data.category,
+        description=data.description,
+        variables=data.variables,
+        has_attachment=data.has_attachment,
+        attachment_name=data.attachment_name,
+        landing_page_type=data.landing_page_type
+    )
+    
+    return {"success": True, "template_id": template.id}
+
+
+@api_router.delete("/db-templates/{template_id}")
+async def delete_db_template(template_id: int, db: Session = Depends(get_db)):
+    """Delete a template (soft delete)."""
+    check_phishing_enabled()
+    
+    if not phishing_crud.delete_template(db, template_id):
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    return {"success": True}
+
+
+# =============================================================================
+# CAMPAIGN FUNNEL / TIMELINE API
+# =============================================================================
+
+@api_router.get("/campaigns/{campaign_id}/funnel")
+async def get_campaign_funnel(campaign_id: int, db: Session = Depends(get_db)):
+    """Get campaign funnel metrics for visualization."""
+    check_phishing_enabled()
+    
+    campaign = phishing_crud.get_campaign(db, campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    stats = phishing_crud.get_campaign_stats(db, campaign_id)
+    
+    # Build funnel data
+    funnel = [
+        {"stage": "Sent", "count": stats["sent"], "color": "#6366f1"},
+        {"stage": "Opened", "count": stats["opened"], "color": "#8b5cf6"},
+        {"stage": "Clicked", "count": stats["clicked"], "color": "#a855f7"},
+        {"stage": "Downloaded", "count": stats["downloaded"], "color": "#d946ef"},
+        {"stage": "Executed", "count": stats["executed"], "color": "#ec4899"},
+        {"stage": "Simulation", "count": stats["simulations_triggered"], "color": "#f43f5e"},
+        {"stage": "Reported", "count": stats["reported"], "color": "#22c55e"},
+    ]
+    
+    return {"success": True, "funnel": funnel, "stats": stats}
+
+
+@api_router.get("/campaigns/{campaign_id}/timeline")
+async def get_campaign_timeline(campaign_id: int, db: Session = Depends(get_db)):
+    """Get campaign event timeline."""
+    check_phishing_enabled()
+    
+    campaign = phishing_crud.get_campaign(db, campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    events = phishing_crud.get_events_by_campaign(db, campaign_id)
+    
+    timeline = []
+    for event in events:
+        message = event.message
+        recipient = message.recipient if message else None
+        
+        timeline.append({
+            "id": event.id,
+            "timestamp": event.timestamp.isoformat() if event.timestamp else None,
+            "event_type": event.event_type.value if event.event_type else None,
+            "recipient_email": recipient.email if recipient else None,
+            "recipient_name": recipient.display_name if recipient else None,
+            "ip_address": event.ip_address,
+            "hostname": event.hostname,
+            "message_id": event.message_id
+        })
+    
+    return {"success": True, "timeline": timeline}
+
+
+@api_router.get("/campaigns/{campaign_id}/targets")
+async def get_campaign_targets(campaign_id: int, db: Session = Depends(get_db)):
+    """Get detailed target status for a campaign."""
+    check_phishing_enabled()
+    
+    campaign = phishing_crud.get_campaign(db, campaign_id)
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    
+    messages = phishing_crud.get_messages_by_campaign(db, campaign_id)
+    
+    targets = []
+    for msg in messages:
+        recipient = msg.recipient
+        targets.append({
+            "message_id": msg.id,
+            "recipient_id": recipient.id if recipient else None,
+            "email": recipient.email if recipient else None,
+            "name": recipient.display_name if recipient else None,
+            "department": recipient.department if recipient else None,
+            "host_id": recipient.host_id if recipient else None,
+            "status": msg.status,
+            "sent_at": msg.sent_at.isoformat() if msg.sent_at else None,
+            "is_opened": msg.is_opened,
+            "opened_at": msg.opened_at.isoformat() if msg.opened_at else None,
+            "is_clicked": msg.is_clicked,
+            "clicked_at": msg.clicked_at.isoformat() if msg.clicked_at else None,
+            "is_downloaded": getattr(msg, 'is_downloaded', False),
+            "downloaded_at": getattr(msg, 'downloaded_at', None),
+            "is_executed": getattr(msg, 'is_executed', False),
+            "executed_at": getattr(msg, 'executed_at', None),
+            "is_reported": msg.is_reported,
+            "reported_at": msg.reported_at.isoformat() if msg.reported_at else None,
+            "simulation_run_id": getattr(msg, 'simulation_run_id', None)
+        })
+    
+    return {"success": True, "targets": targets}
+
+
+# =============================================================================
+# SEED DATA ENDPOINT
+# =============================================================================
+
+@api_router.post("/seed")
+async def seed_phishing_data(db: Session = Depends(get_db)):
+    """Seed default templates and settings."""
+    check_phishing_enabled()
+    
+    templates_created = phishing_crud.seed_default_templates(db)
+    settings_created = phishing_crud.seed_default_settings(db)
+    
+    return {
+        "success": True,
+        "templates_created": templates_created,
+        "settings_created": settings_created
+    }

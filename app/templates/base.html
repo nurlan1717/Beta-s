@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}RANSOMRUN{% endblock %}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/bootstrap-icons.css" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
         
         body {
             background: #0f0f14;
@@ -28,10 +27,22 @@
             background: #18181b;
             border-right: 1px solid #27272a;
             padding: 0;
-            z-index: 100;
+            z-index: 200;
             display: flex;
             flex-direction: column;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        /* Sidebar Overlay (mobile) */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 199;
+            backdrop-filter: blur(2px);
+        }
+        .sidebar-overlay.active { display: block; }
         
         .sidebar-brand {
             padding: 20px 24px;
@@ -64,6 +75,24 @@
         .sidebar-nav {
             padding: 16px 12px;
             flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: #3f3f46 transparent;
+        }
+
+        .sidebar-nav::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar-nav::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: #3f3f46;
+            border-radius: 4px;
+        }
+        .sidebar-nav::-webkit-scrollbar-thumb:hover {
+            background: #52525b;
         }
         
         .nav-section {
@@ -595,26 +624,80 @@
             border: 1px solid rgba(239, 68, 68, 0.2);
         }
         
+        /* Hamburger button */
+        .sidebar-toggle {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: #27272a;
+            border: 1px solid #3f3f46;
+            border-radius: 6px;
+            color: #a1a1aa;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .sidebar-toggle:hover {
+            background: #3f3f46;
+            color: #fafafa;
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
-            .sidebar { width: 200px; }
-            .main-content { margin-left: 200px; }
+            .sidebar { width: 220px; }
+            .main-content { margin-left: 220px; }
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
         
         @media (max-width: 768px) {
-            .sidebar { display: none; }
+            .sidebar {
+                transform: translateX(-100%);
+                width: 260px;
+                z-index: 200;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+                box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+            }
             .main-content { margin-left: 0; }
             .stats-grid { grid-template-columns: 1fr; }
+            .sidebar-toggle { display: flex; }
+            .topbar { padding: 12px 16px; }
+            .content-area { padding: 16px; }
         }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Sidebar Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <div class="logo">R</div>
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Gray circle with red border -->
+                <circle cx="18" cy="18" r="15" fill="url(#skull_gradient)" stroke="#ef4444" stroke-width="2.5"/>
+                <!-- Left eye -->
+                <circle cx="13" cy="14" r="3.5" fill="#18181b"/>
+                <!-- Right eye -->
+                <circle cx="23" cy="14" r="3.5" fill="#18181b"/>
+                <!-- Smile curve -->
+                <path d="M11 22 Q18 26 25 22" stroke="#18181b" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <!-- Teeth -->
+                <line x1="14" y1="23" x2="14" y2="27" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                <line x1="18" y1="24" x2="18" y2="28" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                <line x1="22" y1="23" x2="22" y2="27" stroke="#18181b" stroke-width="2" stroke-linecap="round"/>
+                <defs>
+                    <linearGradient id="skull_gradient" x1="3" y1="3" x2="33" y2="33" gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#f5f5f5"/>
+                        <stop offset="1" stop-color="#d4d4d4"/>
+                    </linearGradient>
+                </defs>
+            </svg>
             <span>RansomRun</span>
         </div>
         
@@ -628,8 +711,11 @@
             
             <div class="nav-section">
                 <div class="nav-section-title">Infrastructure</div>
-                <a href="/hosts" class="{% if '/hosts' in request.url.path %}active{% endif %}">
+                <a href="/hosts" class="{% if '/hosts' in request.url.path and '/hosts/' not in request.url.path %}active{% endif %}">
                     <i class="bi bi-hdd-network"></i> Endpoints
+                </a>
+                <a href="/environment" class="{% if '/environment' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-diagram-3"></i> Directory Lab
                 </a>
                 <a href="/scenarios" class="{% if '/scenarios' in request.url.path %}active{% endif %}">
                     <i class="bi bi-bug"></i> Scenarios
@@ -640,9 +726,6 @@
                 <div class="nav-section-title">Operations</div>
                 <a href="/runs" class="{% if '/runs' in request.url.path %}active{% endif %}">
                     <i class="bi bi-activity"></i> Simulations
-                </a>
-                <a href="/alerts" class="{% if '/alerts' in request.url.path and '/siem' not in request.url.path %}active{% endif %}">
-                    <i class="bi bi-exclamation-triangle"></i> Alerts
                 </a>
                 <a href="/playbooks" class="{% if '/playbooks' in request.url.path %}active{% endif %}">
                     <i class="bi bi-file-earmark-code"></i> Playbooks
@@ -677,14 +760,36 @@
                     <i class="bi bi-people"></i> Analysts
                 </a>
             </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">RECOVERY</div>
+                <a href="/rollback" class="{% if '/rollback' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-arrow-counterclockwise"></i> AutoRollback
+                </a>
+                <a href="/backup/recovery" class="{% if '/backup/recovery' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-cloud-download"></i> Backup & Restore
+                </a>
+                <a href="/backup/plans" class="{% if '/backup/plans' in request.url.path %}active{% endif %}">
+                    <i class="bi bi-shield-check"></i> Backup Plans
+                </a>
+            </div>
+            
+            {% if user and user.role.value in ['business', 'admin'] %}
+            <div class="nav-section">
+                <div class="nav-section-title">BUSINESS</div>
+                <a href="/business" class="{% if '/business' in request.url.path %}active{% endif %}" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.15)); border: 1px solid rgba(139, 92, 246, 0.3);">
+                    <i class="bi bi-briefcase"></i> Business Portal
+                </a>
+            </div>
+            {% endif %}
         </nav>
         
         <div class="sidebar-footer">
             {% if user %}
             <a href="/account" class="user-profile">
-                <div class="user-avatar">{{ user.email[0]|upper }}</div>
+                <div class="user-avatar">{{ (user.email[0] if user.email is defined else user.username[0])|upper }}</div>
                 <div class="user-info">
-                    <div class="user-name">{{ user.email.split('@')[0] }}</div>
+                    <div class="user-name">{{ user.email.split('@')[0] if user.email is defined else user.username }}</div>
                     <div class="user-role">{{ user.role.value }}</div>
                 </div>
                 <i class="bi bi-gear user-menu-icon"></i>
@@ -706,7 +811,12 @@
     <!-- Main Content -->
     <div class="main-content">
         <header class="topbar">
-            <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Toggle Menu">
+                    <i class="bi bi-list"></i>
+                </button>
+                <h1 style="margin:0;">{% block page_title %}Dashboard{% endblock %}</h1>
+            </div>
             <div class="topbar-actions">
                 <div class="status-indicator">
                     <span class="dot"></span>
@@ -715,7 +825,7 @@
                 {% if user %}
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span style="font-size: 13px; color: #71717a;">
-                        <i class="bi bi-person-circle"></i> {{ user.email }}
+                        <i class="bi bi-person-circle"></i> {{ user.email if user.email is defined else user.username }}
                     </span>
                     <a href="/account" class="btn btn-ghost btn-sm" title="Account Settings">
                         <i class="bi bi-gear"></i>
@@ -730,7 +840,43 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function () {
+            const toggle   = document.getElementById('sidebarToggle');
+            const sidebar  = document.getElementById('sidebar');
+            const overlay  = document.getElementById('sidebarOverlay');
+
+            function openSidebar() {
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeSidebar() {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            if (toggle) {
+                toggle.addEventListener('click', function () {
+                    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+                });
+            }
+
+            if (overlay) {
+                overlay.addEventListener('click', closeSidebar);
+            }
+
+            // Close sidebar on nav link click (mobile)
+            document.querySelectorAll('.sidebar-nav a').forEach(function (link) {
+                link.addEventListener('click', function () {
+                    if (window.innerWidth <= 768) closeSidebar();
+                });
+            });
+        })();
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

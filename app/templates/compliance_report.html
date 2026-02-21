@@ -4,121 +4,209 @@
 {% block page_title %}Compliance Report{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <a href="/runs/{{ run.id }}" class="btn btn-ghost btn-sm mb-2">
-            <i class="bi bi-arrow-left me-1"></i> Back to Run Detail
-        </a>
-        <h2 style="color: #fafafa; margin: 0;">
-            Compliance Report - Run #{{ run.id }}
+<!-- Header -->
+<div style="background: linear-gradient(135deg, #0f0f14 0%, #18181b 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid #27272a;">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div>
+            <a href="/runs/{{ run.id }}" class="btn btn-ghost btn-sm mb-3" style="color: #a1a1aa;">
+                <i class="bi bi-arrow-left me-1"></i> Back to Run Detail
+            </a>
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px;">
+                <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border-radius: 14px; display: flex; align-items: center; justify-content: center;">
+                    <i class="bi bi-shield-check" style="color: white; font-size: 28px;"></i>
+                </div>
+                <div>
+                    <h2 style="color: #fafafa; margin: 0; font-size: 24px;">Compliance Report</h2>
+                    <div style="color: #71717a; font-size: 14px;">Run #{{ run.id }} • {{ run.scenario.name if run.scenario else 'Unknown Scenario' }}</div>
+                </div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             {% if report %}
-            <span class="badge badge-info ms-2">{{ report.report_type.value }}</span>
+            <span style="background: rgba(6, 182, 212, 0.15); color: #22d3ee; padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; border: 1px solid rgba(6, 182, 212, 0.3);">
+                <i class="bi bi-file-text me-2"></i>{{ report.report_type.value }}
+            </span>
             {% endif %}
-        </h2>
-    </div>
-    <div>
-        <button onclick="window.print()" class="btn btn-secondary btn-sm me-2">
-            <i class="bi bi-printer me-1"></i> Print
-        </button>
-        <button onclick="copyReport()" class="btn btn-ghost btn-sm">
-            <i class="bi bi-clipboard me-1"></i> Copy Text
-        </button>
+            <button onclick="window.print()" class="btn btn-secondary btn-sm">
+                <i class="bi bi-printer me-1"></i> Print
+            </button>
+            <button onclick="exportPDF()" class="btn btn-ghost btn-sm">
+                <i class="bi bi-download me-1"></i> Export
+            </button>
+        </div>
     </div>
 </div>
 
 {% if report %}
 <div class="row g-4">
-    <!-- Main Report -->
+    <!-- Main Report Content -->
     <div class="col-lg-8">
-        <div class="panel mb-4">
-            <div class="panel-header">
-                <h3 class="panel-title">Incident Summary</h3>
+        <!-- Executive Summary -->
+        <div class="panel mb-4" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <i class="bi bi-file-text" style="color: #06b6d4;"></i>
+                    <span>Executive Summary</span>
+                </h3>
             </div>
-            <div class="panel-body">
-                <div style="font-size: 14px; color: #a1a1aa; line-height: 1.7;" id="reportSummary">
-                    {{ report.summary|safe if report.summary else 'No summary available.' }}
+            <div class="panel-body" style="padding: 20px;">
+                <div id="reportSummary" class="report-content"></div>
+            </div>
+        </div>
+        
+        <!-- Incident Details -->
+        <div class="panel mb-4" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <i class="bi bi-info-circle" style="color: #f59e0b;"></i>
+                    <span>Incident Details</span>
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 20px;">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div style="background: #0f0f14; border-radius: 10px; padding: 16px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Incident Type</div>
+                            <div style="font-size: 16px; color: #fafafa; font-weight: 600;">Ransomware Simulation</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background: #0f0f14; border-radius: 10px; padding: 16px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Affected System</div>
+                            <div style="font-size: 16px; color: #fafafa; font-weight: 600;">{{ run.host.name if run.host else 'Unknown' }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background: #0f0f14; border-radius: 10px; padding: 16px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Scenario</div>
+                            <div style="font-size: 16px; color: #fafafa; font-weight: 600;">{{ run.scenario.name if run.scenario else 'N/A' }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div style="background: #0f0f14; border-radius: 10px; padding: 16px;">
+                            <div style="font-size: 11px; color: #71717a; text-transform: uppercase; margin-bottom: 8px;">Status</div>
+                            <div style="font-size: 16px; font-weight: 600;">
+                                <span class="badge badge-{{ run.status.value|lower }}">{{ run.status.value }}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <div class="panel mb-4">
-            <div class="panel-header">
-                <h3 class="panel-title">Mitigation Recommendations</h3>
+        <!-- Mitigation Recommendations -->
+        <div class="panel mb-4" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <i class="bi bi-shield-plus" style="color: #22c55e;"></i>
+                    <span>Mitigation & Recommendations</span>
+                </h3>
             </div>
-            <div class="panel-body">
-                <div style="font-size: 14px; color: #a1a1aa; line-height: 1.7;" id="reportMitigation">
-                    {{ report.mitigation_recommendations|safe if report.mitigation_recommendations else 'No recommendations available.' }}
-                </div>
+            <div class="panel-body" style="padding: 20px;">
+                <div id="reportMitigation" class="report-content"></div>
             </div>
         </div>
     </div>
     
     <!-- Sidebar -->
     <div class="col-lg-4">
-        <!-- Timeline -->
-        <div class="panel mb-4">
-            <div class="panel-header">
-                <h3 class="panel-title">Incident Timeline</h3>
+        <!-- Regulatory Status Card -->
+        <div class="panel mb-4" style="background: linear-gradient(135deg, {% if report.regulatory_notification_required %}#1a0f0f{% else %}#0f1a0f{% endif %} 0%, #18181b 100%); border: 1px solid {% if report.regulatory_notification_required %}rgba(239, 68, 68, 0.3){% else %}rgba(34, 197, 94, 0.3){% endif %};">
+            <div class="panel-body" style="padding: 24px; text-align: center;">
+                <div style="width: 64px; height: 64px; background: {% if report.regulatory_notification_required %}rgba(239, 68, 68, 0.15){% else %}rgba(34, 197, 94, 0.15){% endif %}; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                    <i class="bi bi-{% if report.regulatory_notification_required %}exclamation-triangle-fill{% else %}check-circle-fill{% endif %}" style="font-size: 28px; color: {% if report.regulatory_notification_required %}#ef4444{% else %}#22c55e{% endif %};"></i>
+                </div>
+                <h4 style="color: #fafafa; margin-bottom: 8px; font-size: 18px;">
+                    {% if report.regulatory_notification_required %}
+                    Notification Required
+                    {% else %}
+                    No Notification Required
+                    {% endif %}
+                </h4>
+                <p style="color: #71717a; font-size: 13px; margin: 0;">
+                    Based on {{ report.report_type.value }} assessment guidelines
+                </p>
             </div>
-            <div class="panel-body">
-                <div style="margin-bottom: 16px;">
-                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Incident Start</div>
-                    <div style="color: #fafafa;">{{ report.incident_start.strftime('%Y-%m-%d %H:%M:%S UTC') if report.incident_start else 'N/A' }}</div>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Detection Time</div>
-                    <div style="color: #fafafa;">{{ report.incident_detection.strftime('%Y-%m-%d %H:%M:%S UTC') if report.incident_detection else 'N/A' }}</div>
-                </div>
-                <div>
-                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Containment Time</div>
-                    <div style="color: #fafafa;">{{ report.incident_containment.strftime('%Y-%m-%d %H:%M:%S UTC') if report.incident_containment else 'N/A' }}</div>
+        </div>
+
+        <!-- Incident Timeline -->
+        <div class="panel mb-4" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <i class="bi bi-clock-history" style="color: #8b5cf6;"></i>
+                    <span>Timeline</span>
+                </h3>
+            </div>
+            <div class="panel-body" style="padding: 20px;">
+                <div style="position: relative; padding-left: 24px;">
+                    <!-- Timeline line -->
+                    <div style="position: absolute; left: 6px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(180deg, #ef4444, #f59e0b, #22c55e);"></div>
+                    
+                    <div style="margin-bottom: 20px; position: relative;">
+                        <div style="position: absolute; left: -24px; top: 4px; width: 14px; height: 14px; background: #ef4444; border-radius: 50%; border: 3px solid #18181b;"></div>
+                        <div style="font-size: 11px; color: #ef4444; text-transform: uppercase; font-weight: 600;">Incident Start</div>
+                        <div style="color: #fafafa; font-size: 14px;">{{ report.incident_start.strftime('%Y-%m-%d %H:%M:%S') if report.incident_start else 'N/A' }}</div>
+                    </div>
+                    <div style="margin-bottom: 20px; position: relative;">
+                        <div style="position: absolute; left: -24px; top: 4px; width: 14px; height: 14px; background: #f59e0b; border-radius: 50%; border: 3px solid #18181b;"></div>
+                        <div style="font-size: 11px; color: #f59e0b; text-transform: uppercase; font-weight: 600;">Detection</div>
+                        <div style="color: #fafafa; font-size: 14px;">{{ report.incident_detection.strftime('%Y-%m-%d %H:%M:%S') if report.incident_detection else 'N/A' }}</div>
+                    </div>
+                    <div style="position: relative;">
+                        <div style="position: absolute; left: -24px; top: 4px; width: 14px; height: 14px; background: #22c55e; border-radius: 50%; border: 3px solid #18181b;"></div>
+                        <div style="font-size: 11px; color: #22c55e; text-transform: uppercase; font-weight: 600;">Containment</div>
+                        <div style="color: #fafafa; font-size: 14px;">{{ report.incident_containment.strftime('%Y-%m-%d %H:%M:%S') if report.incident_containment else 'N/A' }}</div>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- Data Impact -->
-        <div class="panel mb-4">
-            <div class="panel-header">
-                <h3 class="panel-title">Data Impact Assessment</h3>
+        <!-- Data Impact Assessment -->
+        <div class="panel mb-4" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <i class="bi bi-database" style="color: #06b6d4;"></i>
+                    <span>Data Impact</span>
+                </h3>
             </div>
-            <div class="panel-body">
-                <div style="margin-bottom: 16px;">
-                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Personal Data Involved</div>
-                    <div style="color: {% if report.personal_data_involved %}#ef4444{% else %}#22c55e{% endif %};">
-                        {{ 'Yes' if report.personal_data_involved else 'No' }}
+            <div class="panel-body" style="padding: 20px;">
+                <div style="display: grid; gap: 12px;">
+                    <div style="background: #0f0f14; border-radius: 10px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Personal Data</span>
+                        <span style="color: {% if report.personal_data_involved %}#ef4444{% else %}#22c55e{% endif %}; font-weight: 600;">
+                            <i class="bi bi-{% if report.personal_data_involved %}x-circle{% else %}check-circle{% endif %} me-1"></i>
+                            {{ 'Yes' if report.personal_data_involved else 'No' }}
+                        </span>
                     </div>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Data Subjects Affected</div>
-                    <div style="color: #fafafa; font-size: 20px; font-weight: 600;">{{ report.data_subjects_affected_estimate or 'N/A' }}</div>
-                </div>
-                <div style="margin-bottom: 16px;">
-                    <div style="font-size: 11px; color: #71717a; text-transform: uppercase;">Risk to Individuals</div>
-                    <span class="badge badge-{% if report.risk_to_individuals == 'High' %}danger{% elif report.risk_to_individuals == 'Moderate' %}warning{% else %}success{% endif %}">
-                        {{ report.risk_to_individuals or 'N/A' }}
-                    </span>
+                    <div style="background: #0f0f14; border-radius: 10px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Subjects Affected</span>
+                        <span style="color: #fafafa; font-weight: 600; font-size: 18px;">{{ report.data_subjects_affected_estimate or '0' }}</span>
+                    </div>
+                    <div style="background: #0f0f14; border-radius: 10px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #a1a1aa; font-size: 13px;">Risk Level</span>
+                        <span class="badge badge-{% if report.risk_to_individuals == 'High' %}danger{% elif report.risk_to_individuals == 'Moderate' %}warning{% else %}success{% endif %}" style="font-size: 12px; padding: 6px 12px;">
+                            {{ report.risk_to_individuals or 'None' }}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <!-- Regulatory -->
-        <div class="panel">
-            <div class="panel-header">
-                <h3 class="panel-title">Regulatory Assessment</h3>
+
+        <!-- Applicable Regulations -->
+        <div class="panel" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+            <div class="panel-header" style="border-bottom: 1px solid #27272a; padding: 16px 20px;">
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                    <i class="bi bi-building" style="color: #f59e0b;"></i>
+                    <span>Regulations</span>
+                </h3>
             </div>
-            <div class="panel-body">
-                <div style="background: {% if report.regulatory_notification_required %}rgba(239, 68, 68, 0.1){% else %}rgba(34, 197, 94, 0.1){% endif %}; border-radius: 8px; padding: 16px; text-align: center;">
-                    <i class="bi bi-{% if report.regulatory_notification_required %}exclamation-triangle{% else %}check-circle{% endif %}" style="font-size: 32px; color: {% if report.regulatory_notification_required %}#ef4444{% else %}#22c55e{% endif %};"></i>
-                    <div style="font-size: 14px; color: #fafafa; margin-top: 8px;">
-                        {% if report.regulatory_notification_required %}
-                        Regulatory Notification May Be Required
-                        {% else %}
-                        No Regulatory Notification Required
-                        {% endif %}
-                    </div>
-                    <div style="font-size: 12px; color: #71717a; margin-top: 4px;">
-                        Based on {{ report.report_type.value }} guidelines
-                    </div>
+            <div class="panel-body" style="padding: 20px;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <span style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;">GDPR</span>
+                    <span style="background: rgba(168, 85, 247, 0.15); color: #c4b5fd; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;">HIPAA</span>
+                    <span style="background: rgba(234, 179, 8, 0.15); color: #fde047; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;">PCI-DSS</span>
+                    <span style="background: rgba(34, 197, 94, 0.15); color: #86efac; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;">SOX</span>
+                    <span style="background: rgba(239, 68, 68, 0.15); color: #fca5a5; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500;">CCPA</span>
                 </div>
             </div>
         </div>
@@ -126,12 +214,16 @@
 </div>
 
 {% else %}
-<div class="panel">
-    <div class="empty-state">
-        <i class="bi bi-file-earmark-text"></i>
-        <h3>No Compliance Report</h3>
-        <p>Generate a compliance report from the run detail page.</p>
-        <a href="/runs/{{ run.id }}" class="btn btn-primary">Go to Run Detail</a>
+<div class="panel" style="background: linear-gradient(135deg, #18181b 0%, #1f1f23 100%); border: 1px solid #27272a;">
+    <div style="text-align: center; padding: 60px 20px;">
+        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+            <i class="bi bi-file-earmark-text" style="color: white; font-size: 36px;"></i>
+        </div>
+        <h3 style="color: #fafafa; margin-bottom: 12px;">No Compliance Report</h3>
+        <p style="color: #71717a; margin-bottom: 24px;">Generate a compliance report from the run detail page to assess regulatory requirements.</p>
+        <a href="/runs/{{ run.id }}" class="btn btn-primary" style="background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); border: none; padding: 12px 24px;">
+            <i class="bi bi-arrow-left me-2"></i>Go to Run Detail
+        </a>
     </div>
 </div>
 {% endif %}
@@ -139,19 +231,76 @@
 
 {% block extra_css %}
 <style>
+    .report-content {
+        font-size: 14px;
+        color: #d4d4d8;
+        line-height: 1.8;
+    }
+    .report-content h2, .report-content h3 {
+        color: #fafafa;
+        margin-top: 20px;
+        margin-bottom: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        border-bottom: 1px solid #27272a;
+        padding-bottom: 8px;
+    }
+    .report-content h3 { font-size: 14px; }
+    .report-content ul, .report-content ol {
+        margin: 12px 0;
+        padding-left: 24px;
+    }
+    .report-content li {
+        margin-bottom: 8px;
+        color: #a1a1aa;
+    }
+    .report-content strong {
+        color: #fafafa;
+        font-weight: 600;
+    }
+    .report-content p {
+        margin-bottom: 12px;
+    }
+    .report-content code {
+        background: #27272a;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #22d3ee;
+    }
     @media print {
         .sidebar, .topbar, button, .btn { display: none !important; }
         .main-content { margin-left: 0 !important; }
-        .panel { break-inside: avoid; }
-        body { background: white !important; color: black !important; }
-        .panel { background: white !important; border: 1px solid #ccc !important; }
-        .panel-body { color: black !important; }
+        .panel { break-inside: avoid; background: white !important; }
+        body { background: white !important; }
+        .report-content, .report-content * { color: black !important; }
     }
 </style>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Parse markdown content
+    const summaryEl = document.getElementById('reportSummary');
+    const mitigationEl = document.getElementById('reportMitigation');
+    
+    const summaryRaw = {{ report.summary|tojson if report and report.summary else '""' }};
+    const mitigationRaw = {{ report.mitigation_recommendations|tojson if report and report.mitigation_recommendations else '""' }};
+    
+    if (summaryEl && summaryRaw) {
+        summaryEl.innerHTML = marked.parse(summaryRaw);
+    }
+    if (mitigationEl && mitigationRaw) {
+        mitigationEl.innerHTML = marked.parse(mitigationRaw);
+    }
+});
+
+function exportPDF() {
+    window.print();
+}
+
 function copyReport() {
     const summary = document.getElementById('reportSummary')?.innerText || '';
     const mitigation = document.getElementById('reportMitigation')?.innerText || '';

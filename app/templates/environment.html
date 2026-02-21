@@ -1,0 +1,1069 @@
+{% extends "base.html" %}
+
+{% block title %}Directory Lab - RANSOMRUN{% endblock %}
+
+{% block extra_css %}
+<style>
+    .env-hero {
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-card {
+        background: linear-gradient(135deg, #18181b, #27272a);
+        border: 1px solid #3f3f46;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+        border-color: #8b5cf6;
+        transform: translateY(-2px);
+    }
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .stat-label {
+        color: #a1a1aa;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+    }
+    .nav-tabs-custom {
+        border-bottom: 1px solid #3f3f46;
+        margin-bottom: 1.5rem;
+    }
+    .nav-tabs-custom .nav-link {
+        color: #a1a1aa;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 0.75rem 1.5rem;
+        margin-right: 0.5rem;
+        background: transparent;
+        transition: all 0.2s ease;
+    }
+    .nav-tabs-custom .nav-link:hover {
+        color: #fafafa;
+        border-bottom-color: #3f3f46;
+    }
+    .nav-tabs-custom .nav-link.active {
+        color: #8b5cf6;
+        border-bottom-color: #8b5cf6;
+        background: transparent;
+    }
+    .section-panel {
+        background: #18181b;
+        border: 1px solid #27272a;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .panel-header {
+        background: linear-gradient(135deg, #27272a, #3f3f46);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #3f3f46;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .panel-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    .panel-body {
+        padding: 1.5rem;
+    }
+    .risk-score {
+        font-size: 0.75rem;
+        font-weight: 500;
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    }
+    .risk-critical { color: #ef4444; }
+    .risk-high { color: #f97316; }
+    .risk-medium { color: #eab308; }
+    .risk-low { color: #71717a; }
+    .type-badge {
+        font-size: 0.7rem;
+        color: #a1a1aa;
+    }
+    .flag-icon {
+        font-size: 0.65rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-weight: 500;
+        margin-right: 0.25rem;
+    }
+    .flag-priv { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .flag-mfa { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    .flag-disabled { color: #71717a; }
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    .status-enabled { background: #22c55e; }
+    .status-disabled { background: #71717a; }
+    .search-box {
+        position: relative;
+        max-width: 300px;
+    }
+    .search-box input {
+        background: #27272a;
+        border: 1px solid #3f3f46;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+        color: #fafafa;
+        width: 100%;
+    }
+    .search-box i {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #71717a;
+    }
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .data-table th {
+        background: transparent;
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        font-size: 0.65rem;
+        color: #71717a;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        border-bottom: 1px solid #27272a;
+        font-weight: 500;
+    }
+    .data-table td {
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid rgba(39, 39, 42, 0.5);
+        font-size: 0.8rem;
+        color: #d4d4d8;
+    }
+    .data-table tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+    .data-table .username {
+        color: #a1a1aa;
+        font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+        font-size: 0.75rem;
+    }
+    .data-table .display-name {
+        color: #fafafa;
+        font-weight: 500;
+    }
+    .data-table .secondary {
+        color: #71717a;
+        font-size: 0.75rem;
+    }
+    .action-icon {
+        color: #52525b;
+        padding: 0.25rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: color 0.15s;
+    }
+    .action-icon:hover {
+        color: #a1a1aa;
+    }
+    .action-icon.delete:hover {
+        color: #f87171;
+    }
+    .action-btn {
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+    }
+    .modal-dark .modal-content {
+        background: #18181b;
+        border: 1px solid #3f3f46;
+        border-radius: 12px;
+    }
+    .modal-dark .modal-header {
+        border-bottom: 1px solid #3f3f46;
+        padding: 1rem 1.5rem;
+    }
+    .modal-dark .modal-body {
+        padding: 1.5rem;
+    }
+    .modal-dark .modal-footer {
+        border-top: 1px solid #3f3f46;
+        padding: 1rem 1.5rem;
+    }
+    .form-control-dark {
+        background: #27272a;
+        border: 1px solid #3f3f46;
+        border-radius: 8px;
+        color: #fafafa;
+        padding: 0.5rem 0.75rem;
+    }
+    .form-control-dark:focus {
+        background: #27272a;
+        border-color: #8b5cf6;
+        color: #fafafa;
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #71717a;
+    }
+    .empty-state i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+        <li class="breadcrumb-item active">Directory Lab</li>
+    </ol>
+</nav>
+
+<!-- Hero Section -->
+<div class="env-hero">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h1 class="mb-1"><i class="bi bi-diagram-3 me-2"></i>Directory Lab</h1>
+            <p class="text-muted mb-0">Simulated AD environment for ransomware simulation context and reporting</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-warning" onclick="seedDemoData()" id="btnSeed">
+                <i class="bi bi-database-fill-gear"></i> Seed Demo Data
+            </button>
+            <button class="btn btn-primary" onclick="showCreateModal()">
+                <i class="bi bi-plus-lg"></i> Add New
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4" id="statsRow">
+    <div class="col-6 col-md-2">
+        <div class="stat-card">
+            <div class="stat-value" id="statUsers">-</div>
+            <div class="stat-label">Users</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="stat-card">
+            <div class="stat-value" id="statPrivileged">-</div>
+            <div class="stat-label">Privileged</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="stat-card">
+            <div class="stat-value" id="statDevices">-</div>
+            <div class="stat-label">Devices</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="stat-card">
+            <div class="stat-value" id="statServers">-</div>
+            <div class="stat-label">Servers</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="stat-card">
+            <div class="stat-value" id="statDCs">-</div>
+            <div class="stat-label">DCs</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2">
+        <div class="stat-card">
+            <div class="stat-value" id="statGroups">-</div>
+            <div class="stat-label">Groups</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs-custom" id="envTabs" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button">
+            <i class="bi bi-people me-1"></i> Users
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="devices-tab" data-bs-toggle="tab" data-bs-target="#devices" type="button">
+            <i class="bi bi-pc-display me-1"></i> Devices
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="groups-tab" data-bs-toggle="tab" data-bs-target="#groups" type="button">
+            <i class="bi bi-collection me-1"></i> Groups
+        </button>
+    </li>
+</ul>
+
+<!-- Tab Content -->
+<div class="tab-content">
+    <!-- Users Tab -->
+    <div class="tab-pane fade show active" id="users" role="tabpanel">
+        <div class="section-panel">
+            <div class="panel-header" style="background: transparent; border-bottom: 1px solid #27272a; padding: 0.75rem 1rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <span style="color: #71717a; font-size: 0.8rem;">Users</span>
+                    <span style="color: #52525b; font-size: 0.7rem;" id="userCount"></span>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <div class="search-box" style="max-width: 180px;">
+                        <i class="bi bi-search" style="font-size: 0.7rem;"></i>
+                        <input type="text" id="userSearch" placeholder="Search..." onkeyup="filterUsers()" style="font-size: 0.75rem; padding: 0.35rem 0.5rem 0.35rem 1.75rem;">
+                    </div>
+                    <button class="btn btn-sm" onclick="showUserModal()" style="background: #27272a; border: 1px solid #3f3f46; color: #a1a1aa; font-size: 0.7rem; padding: 0.3rem 0.6rem;">
+                        <i class="bi bi-plus"></i> Add
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Name / Title</th>
+                            <th>Dept</th>
+                            <th>Flags</th>
+                            <th>Risk</th>
+                            <th>Groups</th>
+                            <th style="text-align: right;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <tr><td colspan="7" class="text-center py-4" style="color: #71717a;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Devices Tab -->
+    <div class="tab-pane fade" id="devices" role="tabpanel">
+        <div class="section-panel">
+            <div class="panel-header">
+                <h3><i class="bi bi-pc-display me-2"></i>Directory Devices</h3>
+                <div class="d-flex gap-2 align-items-center">
+                    <div class="search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" id="deviceSearch" placeholder="Search devices..." onkeyup="filterDevices()">
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="showDeviceModal()">
+                        <i class="bi bi-plus"></i> Add Device
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Hostname</th>
+                            <th>IP Address</th>
+                            <th>OS</th>
+                            <th>Type</th>
+                            <th>Department</th>
+                            <th>Owner</th>
+                            <th>Agent</th>
+                            <th>Risk</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devicesTable">
+                        <tr><td colspan="9" class="text-center py-4">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Groups Tab -->
+    <div class="tab-pane fade" id="groups" role="tabpanel">
+        <div class="section-panel">
+            <div class="panel-header">
+                <h3><i class="bi bi-collection me-2"></i>Directory Groups</h3>
+                <div class="d-flex gap-2 align-items-center">
+                    <div class="search-box">
+                        <i class="bi bi-search"></i>
+                        <input type="text" id="groupSearch" placeholder="Search groups..." onkeyup="filterGroups()">
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="showGroupModal()">
+                        <i class="bi bi-plus"></i> Add Group
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Members</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="groupsTable">
+                        <tr><td colspan="5" class="text-center py-4">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Modal -->
+<div class="modal modal-dark fade" id="userModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalTitle">Add User</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="userEditId">
+                <div class="mb-3">
+                    <label class="form-label">Username <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-dark" id="userUsername" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Display Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-dark" id="userDisplayName" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control form-control-dark" id="userEmail">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Department</label>
+                        <select class="form-control form-control-dark" id="userDepartment">
+                            <option value="">Select...</option>
+                            <option value="IT">IT</option>
+                            <option value="SOC">SOC</option>
+                            <option value="Finance">Finance</option>
+                            <option value="HR">HR</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Executive">Executive</option>
+                            <option value="Operations">Operations</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Title</label>
+                    <input type="text" class="form-control form-control-dark" id="userTitle">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Risk Score (0-100)</label>
+                        <input type="number" class="form-control form-control-dark" id="userRiskScore" min="0" max="100" value="10">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="userEnabled" checked>
+                        <label class="form-check-label" for="userEnabled">Enabled</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="userPrivileged">
+                        <label class="form-check-label" for="userPrivileged">Privileged</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="userMFA">
+                        <label class="form-check-label" for="userMFA">MFA Enabled</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control form-control-dark" id="userNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Device Modal -->
+<div class="modal modal-dark fade" id="deviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deviceModalTitle">Add Device</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="deviceEditId">
+                <div class="mb-3">
+                    <label class="form-label">Hostname <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-dark" id="deviceHostname" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">IP Address</label>
+                        <input type="text" class="form-control form-control-dark" id="deviceIP">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Device Type</label>
+                        <select class="form-control form-control-dark" id="deviceType">
+                            <option value="workstation">Workstation</option>
+                            <option value="server">Server</option>
+                            <option value="domain_controller">Domain Controller</option>
+                            <option value="jump_box">Jump Box</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">OS Name</label>
+                        <select class="form-control form-control-dark" id="deviceOS">
+                            <option value="Windows 11 Pro">Windows 11 Pro</option>
+                            <option value="Windows 10 Pro">Windows 10 Pro</option>
+                            <option value="Windows Server 2022">Windows Server 2022</option>
+                            <option value="Windows Server 2019">Windows Server 2019</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Department</label>
+                        <select class="form-control form-control-dark" id="deviceDepartment">
+                            <option value="">Select...</option>
+                            <option value="IT">IT</option>
+                            <option value="SOC">SOC</option>
+                            <option value="Finance">Finance</option>
+                            <option value="HR">HR</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Executive">Executive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Owner</label>
+                        <select class="form-control form-control-dark" id="deviceOwner">
+                            <option value="">No owner</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Risk Score (0-100)</label>
+                        <input type="number" class="form-control form-control-dark" id="deviceRiskScore" min="0" max="100" value="10">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control form-control-dark" id="deviceNotes" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveDevice()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Group Modal -->
+<div class="modal modal-dark fade" id="groupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="groupModalTitle">Add Group</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="groupEditId">
+                <div class="mb-3">
+                    <label class="form-label">Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-dark" id="groupName" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control form-control-dark" id="groupDescription" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="groupPrivileged">
+                        <label class="form-check-label" for="groupPrivileged">Privileged Group</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveGroup()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API_BASE = '/api/environment';
+let allUsers = [];
+let allDevices = [];
+let allGroups = [];
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadUsers();
+    loadDevices();
+    loadGroups();
+});
+
+// Stats
+async function loadStats() {
+    try {
+        const resp = await fetch(`${API_BASE}/stats`);
+        const data = await resp.json();
+        if (data.success) {
+            document.getElementById('statUsers').textContent = data.total_users || 0;
+            document.getElementById('statPrivileged').textContent = data.privileged_users || 0;
+            document.getElementById('statDevices').textContent = data.total_devices || 0;
+            document.getElementById('statServers').textContent = data.servers || 0;
+            document.getElementById('statDCs').textContent = data.domain_controllers || 0;
+            document.getElementById('statGroups').textContent = data.total_groups || 0;
+        }
+    } catch (e) {
+        console.error('Failed to load stats:', e);
+    }
+}
+
+// Risk badge helper
+function riskBadge(score, level) {
+    return `<span class="risk-badge risk-${level}">${score} (${level.toUpperCase()})</span>`;
+}
+
+// Type badge helper
+function typeBadge(type) {
+    const display = {
+        'workstation': 'Workstation',
+        'server': 'Server',
+        'domain_controller': 'Domain Controller',
+        'jump_box': 'Jump Box'
+    }[type] || type;
+    return `<span class="type-badge type-${type}">${display}</span>`;
+}
+
+// Users
+async function loadUsers() {
+    try {
+        const resp = await fetch(`${API_BASE}/users`);
+        const data = await resp.json();
+        allUsers = data.users || [];
+        renderUsers(allUsers);
+        updateOwnerDropdown();
+    } catch (e) {
+        console.error('Failed to load users:', e);
+        document.getElementById('usersTable').innerHTML = '<tr><td colspan="9" class="text-center text-danger">Error loading users</td></tr>';
+    }
+}
+
+function renderUsers(users) {
+    const tbody = document.getElementById('usersTable');
+    document.getElementById('userCount').textContent = `(${users.length})`;
+    
+    if (!users.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4" style="color: #52525b;">No users found</td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = users.map(u => `
+        <tr>
+            <td>
+                <span class="status-dot ${u.enabled ? 'status-enabled' : 'status-disabled'}"></span>
+                <span class="username">${u.username}</span>
+            </td>
+            <td>
+                <div class="display-name">${u.display_name.split('(')[0].trim()}</div>
+                <div class="secondary">${u.title || ''}</div>
+            </td>
+            <td class="secondary">${u.department || '-'}</td>
+            <td>
+                ${u.is_privileged ? '<span class="flag-icon flag-priv">PRIV</span>' : ''}
+                ${u.mfa_enabled ? '<span class="flag-icon flag-mfa">MFA</span>' : ''}
+                ${!u.is_privileged && !u.mfa_enabled ? '<span class="secondary">-</span>' : ''}
+            </td>
+            <td><span class="risk-score risk-${u.risk_level}">${u.risk_score}</span></td>
+            <td class="secondary">${u.groups.length > 0 ? u.groups.map(g => g.name).join(', ') : '-'}</td>
+            <td style="text-align: right;">
+                <i class="bi bi-pencil action-icon" onclick="editUser(${u.id})"></i>
+                <i class="bi bi-trash action-icon delete" onclick="deleteUser(${u.id})"></i>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function filterUsers() {
+    const search = document.getElementById('userSearch').value.toLowerCase();
+    const filtered = allUsers.filter(u => 
+        u.username.toLowerCase().includes(search) ||
+        u.display_name.toLowerCase().includes(search) ||
+        (u.department || '').toLowerCase().includes(search) ||
+        (u.email || '').toLowerCase().includes(search)
+    );
+    renderUsers(filtered);
+}
+
+function showUserModal(user = null) {
+    document.getElementById('userEditId').value = user ? user.id : '';
+    document.getElementById('userModalTitle').textContent = user ? 'Edit User' : 'Add User';
+    document.getElementById('userUsername').value = user ? user.username : '';
+    document.getElementById('userDisplayName').value = user ? user.display_name : '';
+    document.getElementById('userEmail').value = user ? (user.email || '') : '';
+    document.getElementById('userDepartment').value = user ? (user.department || '') : '';
+    document.getElementById('userTitle').value = user ? (user.title || '') : '';
+    document.getElementById('userRiskScore').value = user ? user.risk_score : 10;
+    document.getElementById('userEnabled').checked = user ? user.enabled : true;
+    document.getElementById('userPrivileged').checked = user ? user.is_privileged : false;
+    document.getElementById('userMFA').checked = user ? user.mfa_enabled : false;
+    document.getElementById('userNotes').value = user ? (user.notes || '') : '';
+    new bootstrap.Modal(document.getElementById('userModal')).show();
+}
+
+async function editUser(id) {
+    const user = allUsers.find(u => u.id === id);
+    if (user) showUserModal(user);
+}
+
+async function saveUser() {
+    const id = document.getElementById('userEditId').value;
+    const data = {
+        username: document.getElementById('userUsername').value,
+        display_name: document.getElementById('userDisplayName').value,
+        email: document.getElementById('userEmail').value || null,
+        department: document.getElementById('userDepartment').value || null,
+        title: document.getElementById('userTitle').value || null,
+        risk_score: parseInt(document.getElementById('userRiskScore').value) || 10,
+        enabled: document.getElementById('userEnabled').checked,
+        is_privileged: document.getElementById('userPrivileged').checked,
+        mfa_enabled: document.getElementById('userMFA').checked,
+        notes: document.getElementById('userNotes').value || null
+    };
+    
+    try {
+        const url = id ? `${API_BASE}/users/${id}` : `${API_BASE}/users`;
+        const method = id ? 'PUT' : 'POST';
+        const resp = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+            loadUsers();
+            loadStats();
+        } else {
+            alert(result.detail || 'Failed to save user');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deleteUser(id) {
+    if (!confirm('Delete this user?')) return;
+    try {
+        const resp = await fetch(`${API_BASE}/users/${id}`, {method: 'DELETE'});
+        const result = await resp.json();
+        if (result.success) {
+            loadUsers();
+            loadStats();
+        } else {
+            alert(result.detail || 'Failed to delete');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// Devices
+async function loadDevices() {
+    try {
+        const resp = await fetch(`${API_BASE}/devices`);
+        const data = await resp.json();
+        allDevices = data.devices || [];
+        renderDevices(allDevices);
+    } catch (e) {
+        console.error('Failed to load devices:', e);
+        document.getElementById('devicesTable').innerHTML = '<tr><td colspan="9" class="text-center text-danger">Error loading devices</td></tr>';
+    }
+}
+
+function renderDevices(devices) {
+    const tbody = document.getElementById('devicesTable');
+    if (!devices.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty-state">
+            <i class="bi bi-pc-display"></i>
+            <h5>No Devices</h5>
+            <p>Click "Seed Demo Data" to populate sample devices</p>
+        </td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = devices.map(d => `
+        <tr>
+            <td><strong>${d.hostname}</strong></td>
+            <td><code>${d.ip_address || '-'}</code></td>
+            <td><small>${d.os_name || '-'}</small></td>
+            <td>${typeBadge(d.device_type)}</td>
+            <td>${d.department || '-'}</td>
+            <td>${d.owner ? d.owner.display_name : '-'}</td>
+            <td>${d.managed_by_ransomrun_agent ? '<span class="managed-badge">✓ Managed</span>' : '<span class="text-muted">-</span>'}
+                ${d.mapped_endpoint_id ? `<a href="/hosts/${d.mapped_endpoint_id}" class="ms-1 small">[Link]</a>` : ''}
+            </td>
+            <td>${riskBadge(d.risk_score, d.risk_level)}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary action-btn me-1" onclick="editDevice(${d.id})"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-outline-danger action-btn" onclick="deleteDevice(${d.id})"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function filterDevices() {
+    const search = document.getElementById('deviceSearch').value.toLowerCase();
+    const filtered = allDevices.filter(d => 
+        d.hostname.toLowerCase().includes(search) ||
+        (d.ip_address || '').toLowerCase().includes(search) ||
+        (d.os_name || '').toLowerCase().includes(search) ||
+        (d.department || '').toLowerCase().includes(search)
+    );
+    renderDevices(filtered);
+}
+
+function updateOwnerDropdown() {
+    const select = document.getElementById('deviceOwner');
+    select.innerHTML = '<option value="">No owner</option>' + 
+        allUsers.map(u => `<option value="${u.id}">${u.display_name} (${u.username})</option>`).join('');
+}
+
+function showDeviceModal(device = null) {
+    document.getElementById('deviceEditId').value = device ? device.id : '';
+    document.getElementById('deviceModalTitle').textContent = device ? 'Edit Device' : 'Add Device';
+    document.getElementById('deviceHostname').value = device ? device.hostname : '';
+    document.getElementById('deviceIP').value = device ? (device.ip_address || '') : '';
+    document.getElementById('deviceType').value = device ? device.device_type : 'workstation';
+    document.getElementById('deviceOS').value = device ? (device.os_name || 'Windows 11 Pro') : 'Windows 11 Pro';
+    document.getElementById('deviceDepartment').value = device ? (device.department || '') : '';
+    document.getElementById('deviceOwner').value = device ? (device.owner_user_id || '') : '';
+    document.getElementById('deviceRiskScore').value = device ? device.risk_score : 10;
+    document.getElementById('deviceNotes').value = device ? (device.notes || '') : '';
+    new bootstrap.Modal(document.getElementById('deviceModal')).show();
+}
+
+async function editDevice(id) {
+    const device = allDevices.find(d => d.id === id);
+    if (device) showDeviceModal(device);
+}
+
+async function saveDevice() {
+    const id = document.getElementById('deviceEditId').value;
+    const data = {
+        hostname: document.getElementById('deviceHostname').value,
+        ip_address: document.getElementById('deviceIP').value || null,
+        device_type: document.getElementById('deviceType').value,
+        os_name: document.getElementById('deviceOS').value,
+        department: document.getElementById('deviceDepartment').value || null,
+        owner_user_id: document.getElementById('deviceOwner').value ? parseInt(document.getElementById('deviceOwner').value) : null,
+        risk_score: parseInt(document.getElementById('deviceRiskScore').value) || 10,
+        notes: document.getElementById('deviceNotes').value || null
+    };
+    
+    try {
+        const url = id ? `${API_BASE}/devices/${id}` : `${API_BASE}/devices`;
+        const method = id ? 'PUT' : 'POST';
+        const resp = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('deviceModal')).hide();
+            loadDevices();
+            loadStats();
+        } else {
+            alert(result.detail || 'Failed to save device');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deleteDevice(id) {
+    if (!confirm('Delete this device?')) return;
+    try {
+        const resp = await fetch(`${API_BASE}/devices/${id}`, {method: 'DELETE'});
+        const result = await resp.json();
+        if (result.success) {
+            loadDevices();
+            loadStats();
+        } else {
+            alert(result.detail || 'Failed to delete');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// Groups
+async function loadGroups() {
+    try {
+        const resp = await fetch(`${API_BASE}/groups`);
+        const data = await resp.json();
+        allGroups = data.groups || [];
+        renderGroups(allGroups);
+    } catch (e) {
+        console.error('Failed to load groups:', e);
+        document.getElementById('groupsTable').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading groups</td></tr>';
+    }
+}
+
+function renderGroups(groups) {
+    const tbody = document.getElementById('groupsTable');
+    if (!groups.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">
+            <i class="bi bi-collection"></i>
+            <h5>No Groups</h5>
+            <p>Click "Seed Demo Data" to populate sample groups</p>
+        </td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = groups.map(g => `
+        <tr>
+            <td><strong>${g.name}</strong></td>
+            <td><small>${g.description || '-'}</small></td>
+            <td>${g.is_privileged ? '<span class="privileged-badge">Privileged</span>' : '<span class="text-muted">Standard</span>'}</td>
+            <td><span class="badge bg-secondary">${g.member_count} members</span></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary action-btn me-1" onclick="editGroup(${g.id})"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-outline-danger action-btn" onclick="deleteGroup(${g.id})"><i class="bi bi-trash"></i></button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function filterGroups() {
+    const search = document.getElementById('groupSearch').value.toLowerCase();
+    const filtered = allGroups.filter(g => 
+        g.name.toLowerCase().includes(search) ||
+        (g.description || '').toLowerCase().includes(search)
+    );
+    renderGroups(filtered);
+}
+
+function showGroupModal(group = null) {
+    document.getElementById('groupEditId').value = group ? group.id : '';
+    document.getElementById('groupModalTitle').textContent = group ? 'Edit Group' : 'Add Group';
+    document.getElementById('groupName').value = group ? group.name : '';
+    document.getElementById('groupDescription').value = group ? (group.description || '') : '';
+    document.getElementById('groupPrivileged').checked = group ? group.is_privileged : false;
+    new bootstrap.Modal(document.getElementById('groupModal')).show();
+}
+
+async function editGroup(id) {
+    const group = allGroups.find(g => g.id === id);
+    if (group) showGroupModal(group);
+}
+
+async function saveGroup() {
+    const id = document.getElementById('groupEditId').value;
+    const data = {
+        name: document.getElementById('groupName').value,
+        description: document.getElementById('groupDescription').value || null,
+        is_privileged: document.getElementById('groupPrivileged').checked
+    };
+    
+    try {
+        const url = id ? `${API_BASE}/groups/${id}` : `${API_BASE}/groups`;
+        const method = id ? 'PUT' : 'POST';
+        const resp = await fetch(url, {
+            method: method,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        if (result.success) {
+            bootstrap.Modal.getInstance(document.getElementById('groupModal')).hide();
+            loadGroups();
+            loadStats();
+        } else {
+            alert(result.detail || 'Failed to save group');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deleteGroup(id) {
+    if (!confirm('Delete this group?')) return;
+    try {
+        const resp = await fetch(`${API_BASE}/groups/${id}`, {method: 'DELETE'});
+        const result = await resp.json();
+        if (result.success) {
+            loadGroups();
+            loadStats();
+        } else {
+            alert(result.detail || 'Failed to delete');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+// Seed Demo Data
+async function seedDemoData() {
+    if (!confirm('Seed demo data? This will add sample users, devices, and groups.')) return;
+    const btn = document.getElementById('btnSeed');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Seeding...';
+    
+    try {
+        const resp = await fetch(`${API_BASE}/seed`, {method: 'POST'});
+        const result = await resp.json();
+        if (result.success) {
+            alert(`Demo data seeded!\nUsers: ${result.users || 0}\nDevices: ${result.devices || 0}\nGroups: ${result.groups || 0}`);
+            loadStats();
+            loadUsers();
+            loadDevices();
+            loadGroups();
+        } else {
+            alert(result.message || 'Seed failed');
+        }
+    } catch (e) {
+        alert('Error: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-database-fill-gear"></i> Seed Demo Data';
+    }
+}
+
+// Helper for create modal from header button
+function showCreateModal() {
+    const activeTab = document.querySelector('#envTabs .nav-link.active').id;
+    if (activeTab === 'users-tab') showUserModal();
+    else if (activeTab === 'devices-tab') showDeviceModal();
+    else if (activeTab === 'groups-tab') showGroupModal();
+}
+</script>
+{% endblock %}

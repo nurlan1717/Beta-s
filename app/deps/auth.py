@@ -108,6 +108,39 @@ def require_admin(request: Request) -> AuthUser:
     return user
 
 
+def require_business(request: Request) -> AuthUser:
+    """
+    Dependency to require business user (C-level/stakeholder).
+    Allows BUSINESS and ADMIN roles.
+    Use in route dependencies: Depends(require_business)
+    """
+    user = require_user(request)
+    
+    if isinstance(user, RedirectResponse):
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER,
+            detail="Authentication required",
+            headers={"Location": "/business/login"}
+        )
+    
+    from ..models import UserRole
+    if user.role not in [UserRole.BUSINESS, UserRole.ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Business portal access required"
+        )
+    
+    return user
+
+
+def is_business_user(user) -> bool:
+    """Check if user has business portal access."""
+    if not user:
+        return False
+    from ..models import UserRole
+    return user.role in [UserRole.BUSINESS, UserRole.ADMIN]
+
+
 def get_csrf_token(request: Request) -> str:
     """Get or create CSRF token for the session."""
     from ..auth.security import generate_csrf_token

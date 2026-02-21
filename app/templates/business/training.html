@@ -1,0 +1,158 @@
+{% extends "business/base.html" %}
+
+{% block title %}Training & Readiness{% endblock %}
+{% block page_title %}Training & Readiness Program{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Active Campaigns</div>
+        <div class="stat-value">{{ active_campaigns }}</div>
+    </div>
+    <div class="stat-card success">
+        <div class="stat-label">Completed Campaigns</div>
+        <div class="stat-value">{{ completed_campaigns }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Average Score</div>
+        <div class="stat-value">{{ avg_score }}%</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Campaigns</div>
+        <div class="stat-value">{{ campaigns|length }}</div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-mortarboard me-2"></i>Training Campaigns</h3>
+                <button class="btn btn-primary btn-sm" onclick="document.getElementById('new-campaign-modal').style.display='block'">
+                    <i class="bi bi-plus"></i> New Campaign
+                </button>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Campaign</th>
+                        <th>Status</th>
+                        <th>Period</th>
+                        <th>Target</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for campaign in campaigns %}
+                    <tr>
+                        <td>
+                            <strong>{{ campaign.name }}</strong>
+                            <br><small class="text-muted">{{ campaign.description[:50] if campaign.description else 'No description' }}...</small>
+                        </td>
+                        <td>
+                            <span class="badge {% if campaign.status.value == 'ACTIVE' %}badge-success{% elif campaign.status.value == 'COMPLETED' %}badge-info{% else %}badge-warning{% endif %}">
+                                {{ campaign.status.value }}
+                            </span>
+                        </td>
+                        <td>
+                            {{ campaign.start_date.strftime('%Y-%m-%d') if campaign.start_date else 'Not set' }}
+                        </td>
+                        <td>{{ campaign.target_completion_rate }}%</td>
+                        <td>
+                            <a href="/business/training/campaigns/{{ campaign.id }}" class="btn btn-sm btn-secondary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No campaigns created yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-trophy me-2"></i>Recent Results</h3>
+            </div>
+            {% if recent_results %}
+            <div class="results-list">
+                {% for result in recent_results[:5] %}
+                <div class="result-item">
+                    <div class="result-score {% if result.score >= 80 %}success{% elif result.score >= 60 %}warning{% else %}danger{% endif %}">
+                        {{ result.score|int }}%
+                    </div>
+                    <div class="result-info">
+                        <span>Campaign #{{ result.campaign_id }}</span>
+                        <small>{{ result.created_at.strftime('%Y-%m-%d') }}</small>
+                    </div>
+                    {% if result.passed %}
+                    <span class="badge badge-success">Passed</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-sm">
+                <p>No results yet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- New Campaign Modal -->
+<div id="new-campaign-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Create Training Campaign</h3>
+            <button onclick="document.getElementById('new-campaign-modal').style.display='none'" class="modal-close">&times;</button>
+        </div>
+        <form action="/business/training/campaigns" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="form-group">
+                <label class="form-label">Campaign Name</label>
+                <input type="text" name="name" class="form-control" required placeholder="Q1 Ransomware Drill">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea name="description" class="form-control" rows="3" placeholder="Training objectives and scope..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Start Date</label>
+                <input type="date" name="start_date" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form-label">End Date</label>
+                <input type="date" name="end_date" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Target Completion Rate (%)</label>
+                <input type="number" name="target_completion_rate" class="form-control" value="80" min="1" max="100">
+            </div>
+            <button type="submit" class="btn-primary w-100">Create Campaign</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .results-list { display: flex; flex-direction: column; gap: 12px; }
+    .result-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-primary); border-radius: 8px; }
+    .result-score { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .result-score.success { background: rgba(34, 197, 94, 0.15); color: var(--accent-green); }
+    .result-score.warning { background: rgba(234, 179, 8, 0.15); color: var(--accent-yellow); }
+    .result-score.danger { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+    .result-info { flex: 1; display: flex; flex-direction: column; }
+    .result-info small { color: var(--text-muted); }
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: var(--bg-card); border-radius: 12px; padding: 24px; width: 100%; max-width: 500px; border: 1px solid var(--border-color); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .modal-header h3 { margin: 0; font-size: 18px; }
+    .modal-close { background: none; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer; }
+    .empty-state-sm { text-align: center; padding: 20px; color: var(--text-muted); }
+</style>
+{% endblock %}

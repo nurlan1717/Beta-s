@@ -236,6 +236,8 @@ class PlaybookEngine:
                 result = self._action_escalate_alert(alert, params, dry_run)
             elif action_type == "protect_backup_targets":
                 result = self._action_protect_backup_targets(host, params, dry_run)
+            elif action_type == "autorollback":
+                result = self._action_autorollback(host, params, dry_run, alert.id)
             else:
                 result = {
                     "success": False,
@@ -457,6 +459,114 @@ class PlaybookEngine:
             "success": True,
             "message": f"{'[DRY RUN] ' if dry_run else ''}Backup protection task created",
             "data": {"task_id": task.id, "paths": backup_paths}
+        }
+    
+    def _action_autorollback(self, host: Host, params: Dict, dry_run: bool, alert_id: int) -> Dict:
+        """
+        Execute AutoRollback action.
+        
+        This action:
+        1. Creates a rollback plan from the latest snapshot (or specified snapshot)
+        2. Based on mode, either just creates the plan or executes it
+        
+        Parameters:
+            mode: PLAN_ONLY | EXECUTE_AFTER_APPROVAL | AUTO_EXECUTE
+            snapshot_id: Optional specific snapshot to use
+            safe_paths: Optional custom safe paths
+            conflict_policy: QUARANTINE | OVERWRITE | SKIP
+            cleanup_extensions: List of extensions to clean up
+            require_approval: Override approval requirement
+        """
+        from .rollback_engine import RollbackEngine
+        
+        rollback_engine = RollbackEngine(self.db)
+        
+        mode = params.get("mode", "PLAN_ONLY")
+        snapshot_id = params.get("snapshot_id")
+        safe_paths = params.get("safe_paths")
+        conflict_policy = params.get("conflict_policy", "QUARANTINE")
+        cleanup_extensions = params.get("cleanup_extensions")
+        require_approval = params.get("require_approval", True)
+        
+        # Check if autorollback is enabled for this host
+        enabled, reason = rollback_engine.check_host_autorollback_enabled(host.id)
+        if not enabled and mode != "PLAN_ONLY":
+            return {
+                "success": False,
+                "message": f"AutoRollback not enabled: {reason}",
+                "data": {"host_id": host.id}
+            }
+        
+        # Step 1: Create rollback plan
+        plan_result = rollback_engine.create_plan(
+            host_id=host.id,
+            snapshot_id=snapshot_id,
+            safe_paths=safe_paths,
+            conflict_policy=conflict_policy,
+            cleanup_extensions=cleanup_extensions,
+            dry_run=dry_run,
+            require_approval=require_approval if mode != "AUTO_EXECUTE" else False,
+            created_by="playbook"
+        )
+        
+        if not plan_result.get("success"):
+            return {
+                "success": False,
+                "message": f"Failed to create rollback plan: {plan_result.get('error')}",
+                "data": plan_result
+            }
+        
+        plan_id = plan_result["data"]["plan_id"]
+        
+        # If PLAN_ONLY, stop here
+        if mode == "PLAN_ONLY":
+            return {
+                "success": True,
+                "message": f"{'[DRY RUN] ' if dry_run else ''}Rollback plan created (plan_id: {plan_id})",
+                "data": plan_result["data"]
+            }
+        
+        # If EXECUTE_AFTER_APPROVAL, plan is created but not executed
+        if mode == "EXECUTE_AFTER_APPROVAL":
+            return {
+                "success": True,
+                "message": f"{'[DRY RUN] ' if dry_run else ''}Rollback plan created, awaiting approval (plan_id: {plan_id})",
+                "data": plan_result["data"]
+            }
+        
+        # AUTO_EXECUTE mode - approve and execute immediately
+        if mode == "AUTO_EXECUTE":
+            # Auto-approve
+            approve_result = rollback_engine.approve_plan(plan_id, "auto_execute_policy")
+            if not approve_result.get("success"):
+                return {
+                    "success": False,
+                    "message": f"Failed to approve plan: {approve_result.get('error')}",
+                    "data": {"plan_id": plan_id}
+                }
+            
+            # Execute
+            exec_result = rollback_engine.execute_plan(plan_id)
+            if not exec_result.get("success"):
+                return {
+                    "success": False,
+                    "message": f"Failed to execute plan: {exec_result.get('error')}",
+                    "data": {"plan_id": plan_id}
+                }
+            
+            return {
+                "success": True,
+                "message": f"{'[DRY RUN] ' if dry_run else ''}AutoRollback executed (plan_id: {plan_id})",
+                "data": {
+                    **plan_result["data"],
+                    "task_id": exec_result["data"].get("task_id"),
+                    "executed": True
+                }
+            }
+        
+        return {
+            "success": False,
+            "message": f"Unknown autorollback mode: {mode}"
         }
     
     # Helper methods
